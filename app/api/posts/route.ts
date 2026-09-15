@@ -1,7 +1,12 @@
-import { createSchema, db, handle, input, json, limit } from '../../../lib/server';
+import { createSchema, db, handle, HttpError, input, json, limit } from '../../../lib/server';
 import { hashPassword } from '../../../lib/password';
 export const dynamic='force-dynamic';
-export async function GET(){return handle(async()=>{const result=await db().prepare("SELECT id,title,category,created_at FROM posts WHERE status='published' ORDER BY created_at DESC").all();return json({posts:result.results});});}
+export async function GET(request:Request){return handle(async()=>{
+ const category=new URL(request.url).searchParams.get('category');
+ if(category&&!['board','news','clubs','contests'].includes(category))throw new HttpError(400,'지원하지 않는 게시판입니다.');
+ const query=category?db().prepare("SELECT id,title,category,created_at FROM posts WHERE status='published' AND category=? ORDER BY created_at DESC").bind(category):db().prepare("SELECT id,title,category,created_at FROM posts WHERE status='published' ORDER BY created_at DESC");
+ const result=await query.all();return json({posts:result.results});
+});}
 export async function POST(request:Request){return handle(async()=>{
  const data=createSchema.parse(await input(request));await limit(request,'create',10);
  const id=crypto.randomUUID(),salt=crypto.randomUUID(),now=Date.now();
