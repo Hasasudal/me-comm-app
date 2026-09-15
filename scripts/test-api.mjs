@@ -1,0 +1,44 @@
+import assert from 'node:assert/strict';
+const base='http://localhost:5173';
+const password='Test-only-1234';
+async function request(path,{method='GET',body,cookie}={}){
+ const res=await fetch(base+path,{method,headers:{...(body?{'Content-Type':'application/json',Origin:base}:{}),...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});
+ const data=await res.json();return {status:res.status,data};
+}
+const suffix=Date.now();
+const login=await fetch(base+'/signin-with-chatgpt?return_to=/',{redirect:'manual'});
+const cookie=login.headers.getSetCookie().map(x=>x.split(';')[0]).join('; ');
+assert.ok(cookie,'local mock sign-in available');
+const session=await request('/api/session',{cookie});assert.equal(session.data.admin,true,'test admin configured locally');
+const ids=[];
+for(const category of ['board','clubs','contests','news']){
+ const r=await request('/api/posts',{method:'POST',body:{title:`검증 ${category} ${suffix}`,content:'비밀 본문 테스트 <script>alert(1)</script>',category,password}});
+ assert.equal(r.status,201);assert.equal(r.data.status,category==='news'?'pending':'published');ids.push(r.data.id);
+}
+let list=await request('/api/posts');assert.equal(list.status,200);
+assert.equal(list.data.posts.some(x=>x.id===ids[3]),false,'pending title hidden');
+assert.equal(JSON.stringify(list.data).includes('비밀 본문'),false,'content not leaked');
+assert.equal(JSON.stringify(list.data).includes('password_hash'),false,'hash not leaked');
+assert.equal((await request(`/api/posts/${ids[0]}`,{method:'POST',body:{password:'incorrect-pass'}})).status,403);
+assert.equal((await request(`/api/posts/${ids[0]}`,{method:'PATCH',body:{title:'변경',content:'변경',password:'incorrect-pass'}})).status,403);
+assert.equal((await request(`/api/posts/${ids[0]}`,{method:'DELETE',body:{password:'incorrect-pass'}})).status,403);
+assert.equal((await request(`/api/posts/${ids[3]}`,{method:'POST',body:{password}})).status,404,'pending direct access denied');
+let unlocked=await request(`/api/posts/${ids[0]}`,{method:'POST',body:{password}});assert.equal(unlocked.data.post.content,'비밀 본문 테스트 <script>alert(1)</script>');assert.equal('password_hash' in unlocked.data.post,false);
+assert.equal((await request(`/api/posts/${ids[0]}`,{method:'PATCH',body:{title:'수정 검증',content:'수정한 본문',password}})).status,200);
+unlocked=await request(`/api/posts/${ids[0]}`,{method:'POST',body:{password}});assert.equal(unlocked.data.post.content,'수정한 본문');
+assert.equal((await request('/api/admin/posts')).status,403);
+assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',body:{action:'approve',updated_at:0}})).status,403);
+let queue=await request('/api/admin/posts',{cookie});let news=queue.data.posts.find(x=>x.id===ids[3]);assert.ok(news);
+assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',cookie,body:{action:'edit',title:'관리자 검토 완료',content:'검토한 본문',updated_at:news.updated_at}})).status,200);
+assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',cookie,body:{action:'approve',updated_at:news.updated_at}})).status,409,'stale review blocked');
+queue=await request('/api/admin/posts',{cookie});news=queue.data.posts.find(x=>x.id===ids[3]);
+assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',cookie,body:{action:'approve',updated_at:news.updated_at}})).status,200);
+list=await request('/api/posts');assert.ok(list.data.posts.find(x=>x.id===ids[3]));
+assert.equal((await request(`/api/posts/${ids[3]}`,{method:'POST',body:{password:'incorrect-pass'}})).status,403,'approved news still password protected');
+assert.equal((await request(`/api/posts/${ids[3]}`,{method:'PATCH',body:{title:'뉴스 재수정',content:'재승인 필요',password}})).data.status,'pending');
+list=await request('/api/posts');assert.equal(list.data.posts.some(x=>x.id===ids[3]),false);
+queue=await request('/api/admin/posts',{cookie});news=queue.data.posts.find(x=>x.id===ids[3]);await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',cookie,body:{action:'approve',updated_at:news.updated_at}});
+for(const id of ids)assert.equal((await request(`/api/posts/${id}`,{method:'DELETE',body:{password}})).status,200);
+assert.equal((await request('/api/posts',{method:'POST',body:{title:' ',content:'x',password,category:'board'}})).status,400);
+const cross=await fetch(base+'/api/posts',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://untrusted.example'},body:JSON.stringify({title:'x',content:'x',password,category:'board'})});assert.equal(cross.status,403);
+console.log('PASS: 4 categories, persistence, protected read/edit/delete, hidden pending news, admin authorization, review/edit/approve, stale review, reapproval, validation, cross-origin rejection. Test posts removed.');
