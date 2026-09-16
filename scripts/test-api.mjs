@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 const base='http://localhost:5173';
 const password='Test-only-1234';
+const adminCode='Local-admin-code-1234';
 async function request(path,{method='GET',body,cookie}={}){
  const res=await fetch(base+path,{method,headers:{...(body?{'Content-Type':'application/json',Origin:base}:{}),...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});
  const data=await res.json();return {status:res.status,data};
@@ -9,7 +10,9 @@ const suffix=Date.now();
 const login=await fetch(base+'/signin-with-chatgpt?return_to=/',{redirect:'manual'});
 const cookie=login.headers.getSetCookie().map(x=>x.split(';')[0]).join('; ');
 assert.ok(cookie,'local mock sign-in available');
-const session=await request('/api/session',{cookie});assert.equal(session.data.admin,true,'test admin configured locally');
+let session=await request('/api/session',{cookie});
+if(!session.data.admin)assert.equal((await request('/api/admin/join',{method:'POST',cookie,body:{code:adminCode}})).status,201,'local test account registers with the admin code');
+session=await request('/api/session',{cookie});assert.equal(session.data.admin,true,'test admin registered locally');
 const ids=[];
 for(const category of ['board','clubs','contests','news']){
  const recruitment=category==='clubs'||category==='contests'?{recruitment_status:'open',deadline:'2026-12-31',headcount:3,roles:'기획, 디자인'}:{};
@@ -39,8 +42,8 @@ unlocked=await request(`/api/posts/${ids[0]}`,{method:'POST',body:{password}});a
 assert.equal((await request(`/api/posts/${ids[2]}`,{method:'PATCH',body:{title:'모집 수정',content:'수정한 모집',password,recruitment_status:'closed',deadline:'2027-01-15',headcount:4,roles:'영상, 개발'}})).status,200);
 unlocked=await request(`/api/posts/${ids[2]}`,{method:'POST',body:{password}});
 assert.equal(unlocked.data.post.recruitment_status,'closed');assert.equal(unlocked.data.post.headcount,4);assert.equal(unlocked.data.post.roles,'영상, 개발');
-assert.equal((await request('/api/admin/posts')).status,403);
-assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',body:{action:'approve',updated_at:0}})).status,403);
+assert.equal((await request('/api/admin/posts')).status,401);
+assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',body:{action:'approve',updated_at:0}})).status,401);
 let queue=await request('/api/admin/posts',{cookie});let news=queue.data.posts.find(x=>x.id===ids[3]);assert.ok(news);
 assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',cookie,body:{action:'edit',title:'관리자 검토 완료',content:'검토한 본문',updated_at:news.updated_at}})).status,200);
 assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',cookie,body:{action:'approve',updated_at:news.updated_at}})).status,409,'stale review blocked');

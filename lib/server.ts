@@ -26,8 +26,13 @@ export function recruitmentValues(data:{recruitment_status?:'open'|'closed'|null
  if(!data.recruitment_status||!data.deadline||!data.headcount||!data.roles)throw new HttpError(400,'모집 상태, 마감일, 인원과 필요한 역할을 모두 입력해주세요.');
  return [data.recruitment_status,data.deadline,data.headcount,data.roles] as const;
 }
-export async function identity(){const user=await getChatGPTUser();const email=env.ADMIN_EMAIL?.trim().toLowerCase();return {admin:!!email&&!!user&&user.email.toLowerCase()===email,signedIn:!!user,configured:!!email};}
-export async function requireAdmin(){const user=await identity();if(!user.admin)throw new HttpError(403,'뉴스 승인 권한이 필요합니다.');}
+export async function identity(){
+ const user=await getChatGPTUser();const configured=!!env.ADMIN_JOIN_CODE_HASH&&!!env.ADMIN_JOIN_CODE_SALT;
+ if(!user)return {admin:false,signedIn:false,configured};
+ const member=await db().prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL').bind(user.userId).first();
+ return {admin:!!member,signedIn:true,configured,userId:user.userId,email:user.email,displayName:user.displayName};
+}
+export async function requireAdmin(){const user=await getChatGPTUser();if(!user)throw new HttpError(401,'로그인이 필요합니다.');const member=await db().prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL').bind(user.userId).first();if(!member)throw new HttpError(403,'관리자 권한이 필요합니다.');return user;}
 export async function limit(request:Request,scope:string,max=30){
  const ip=request.headers.get('cf-connecting-ip')||'local';
  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`${scope}:${ip}`));
