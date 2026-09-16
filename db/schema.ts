@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const posts = sqliteTable('posts', {
  id: text('id').primaryKey(),
@@ -29,3 +29,26 @@ export const adminUsers=sqliteTable('admin_users',{
  joined_at:integer('joined_at').notNull(),
  revoked_at:integer('revoked_at'),
 },table=>[index('idx_admin_users_active').on(table.revoked_at)]);
+
+export const users=sqliteTable('users',{
+ id:text('id').primaryKey(),
+ email:text('email').notNull(),
+ display_name:text('display_name').notNull(),
+ status:text('status').notNull().default('active'),
+ suspended_at:integer('suspended_at'),
+ created_at:integer('created_at').notNull(),
+ updated_at:integer('updated_at').notNull(),
+},table=>[
+ uniqueIndex('idx_users_email').on(table.email),
+ index('idx_users_status').on(table.status),
+]);
+
+export const sessions=sqliteTable('sessions',{
+ token_hash:text('token_hash').primaryKey(),
+ user_id:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),
+ created_at:integer('created_at').notNull(),
+ expires_at:integer('expires_at').notNull(),
+},table=>[
+ index('idx_sessions_user').on(table.user_id),
+ index('idx_sessions_expiry').on(table.expires_at),
+]);
