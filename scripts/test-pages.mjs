@@ -5,10 +5,14 @@ const base='http://localhost:5173';
 const detail=await fetch(base+'/posts/example-id');
 const detailHtml=await detail.text();
 assert.equal(detail.status,200,'detail URL renders a dedicated page');
-assert.match(detailHtml,/게시글 상세/);
+assert.match(detailHtml,/회원 계정/);
+assert.match(detailHtml,/로그인/);
 
 const boardHtml=await (await fetch(base+'/')).text();
-assert.match(boardHtml,/aria-label="제목 검색"/,'board exposes title search');
+assert.doesNotMatch(boardHtml,/aria-label="제목 검색"/,'anonymous page does not expose board controls');
+assert.match(boardHtml,/로그인/,'public home offers member login');
+assert.match(boardHtml,/회원가입/,'public home offers school sign-up');
+assert.match(boardHtml,/학교 이메일/,'public home explains the member gate');
 
 const join=await fetch(base+'/admin/join');
 const joinHtml=await join.text();

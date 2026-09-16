@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
+import { createMemberFixture } from './test-member-fixture.mjs';
 const base='http://localhost:5173';
 const password='Test-only-1234';
 const adminCode='Local-admin-code-1234';
-async function request(path,{method='GET',body,cookie}={}){
+const fixture=await createMemberFixture();
+async function request(path,{method='GET',body,cookie=fixture.activeCookie}={}){
  const res=await fetch(base+path,{method,headers:{...(body?{'Content-Type':'application/json',Origin:base}:{}),...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});
  const data=await res.json();return {status:res.status,data};
 }
 const suffix=Date.now();
+assert.equal((await request('/api/posts',{cookie:''})).status,401,'anonymous list is denied');
+assert.equal((await request('/api/posts',{method:'POST',cookie:'',body:{title:'x',content:'x',password,category:'board'}})).status,401,'anonymous create is denied');
 const login=await fetch(base+'/signin-with-chatgpt?return_to=/',{redirect:'manual'});
 const cookie=login.headers.getSetCookie().map(x=>x.split(';')[0]).join('; ');
 assert.ok(cookie,'local mock sign-in available');
@@ -56,5 +60,6 @@ list=await request('/api/posts');assert.equal(list.data.posts.some(x=>x.id===ids
 queue=await request('/api/admin/posts',{cookie});news=queue.data.posts.find(x=>x.id===ids[3]);await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',cookie,body:{action:'approve',updated_at:news.updated_at}});
 for(const id of ids)assert.equal((await request(`/api/posts/${id}`,{method:'DELETE',body:{password}})).status,200);
 assert.equal((await request('/api/posts',{method:'POST',body:{title:' ',content:'x',password,category:'board'}})).status,400);
-const cross=await fetch(base+'/api/posts',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://untrusted.example'},body:JSON.stringify({title:'x',content:'x',password,category:'board'})});assert.equal(cross.status,403);
+const cross=await fetch(base+'/api/posts',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://untrusted.example',Cookie:fixture.activeCookie},body:JSON.stringify({title:'x',content:'x',password,category:'board'})});assert.equal(cross.status,403);
+fixture.cleanup();
 console.log('PASS: 4 categories, persistence, protected read/edit/delete, hidden pending news, admin authorization, review/edit/approve, stale review, reapproval, validation, cross-origin rejection. Test posts removed.');

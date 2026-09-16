@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
+import { createMemberFixture } from './test-member-fixture.mjs';
 
 const base='http://localhost:5173';
 const password='Test-only-1234';
 
-async function request(path,{method='GET',body}={}){
- const res=await fetch(base+path,{method,headers:body?{'Content-Type':'application/json',Origin:base}:{},body:body?JSON.stringify(body):undefined});
+const fixture=await createMemberFixture();
+async function request(path,{method='GET',body,cookie=fixture.activeCookie}={}){
+ const res=await fetch(base+path,{method,headers:{...(body?{'Content-Type':'application/json',Origin:base}:{}),...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});
  const raw=await res.text();const data=raw?JSON.parse(raw):{};return {status:res.status,data};
 }
 
 const suffix=Date.now();
+assert.equal((await request('/api/posts',{cookie:''})).status,401,'anonymous list is denied');
+assert.equal((await request('/api/posts/example-id',{cookie:''})).status,401,'anonymous detail metadata is denied');
 const board=await request('/api/posts',{method:'POST',body:{title:`상세 검증 ${suffix}`,content:'보호된 본문',category:'board',password}});
 assert.equal(board.status,201);
 const contest=await request('/api/posts',{method:'POST',body:{title:`모집 검증 ${suffix}`,content:'함께 만들어요',category:'contests',password,recruitment_status:'open',deadline:'2026-12-31',headcount:3,roles:'기획, 디자인'}});
@@ -35,6 +39,7 @@ try{
 } finally {
  await request(`/api/posts/${board.data.id}`,{method:'DELETE',body:{password}});
  await request(`/api/posts/${contest.data.id}`,{method:'DELETE',body:{password}});
+ fixture.cleanup();
 }
 
 console.log('PASS: protected detail metadata and structured recruitment fields.');
