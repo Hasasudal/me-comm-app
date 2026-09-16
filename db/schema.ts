@@ -8,6 +8,10 @@ export const posts = sqliteTable('posts', {
  password_hash: text('password_hash').notNull(),
  salt: text('salt').notNull(),
  status: text('status').notNull(),
+ recruitment_status: text('recruitment_status'),
+ deadline: text('deadline'),
+ headcount: integer('headcount'),
+ roles: text('roles'),
  created_at: integer('created_at').notNull(),
  updated_at: integer('updated_at').notNull(),
 },table=>[index('idx_posts_status_created').on(table.status,table.created_at)]);

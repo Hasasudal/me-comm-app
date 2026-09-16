@@ -8,6 +8,13 @@
       "when": 1789457881460,
       "tag": "0000_lively_kylun",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789540200000,
+      "tag": "0001_recruitment_details",
+      "breakpoints": true
     }
   ]
 }

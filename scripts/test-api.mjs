@@ -12,13 +12,23 @@ assert.ok(cookie,'local mock sign-in available');
 const session=await request('/api/session',{cookie});assert.equal(session.data.admin,true,'test admin configured locally');
 const ids=[];
 for(const category of ['board','clubs','contests','news']){
- const r=await request('/api/posts',{method:'POST',body:{title:`검증 ${category} ${suffix}`,content:'비밀 본문 테스트 <script>alert(1)</script>',category,password}});
+ const recruitment=category==='clubs'||category==='contests'?{recruitment_status:'open',deadline:'2026-12-31',headcount:3,roles:'기획, 디자인'}:{};
+ const r=await request('/api/posts',{method:'POST',body:{title:`검증 ${category} ${suffix}`,content:'비밀 본문 테스트 <script>alert(1)</script>',category,password,...recruitment}});
  assert.equal(r.status,201);assert.equal(r.data.status,category==='news'?'pending':'published');ids.push(r.data.id);
 }
 let list=await request('/api/posts');assert.equal(list.status,200);
 assert.equal(list.data.posts.some(x=>x.id===ids[3]),false,'pending title hidden');
 assert.equal(JSON.stringify(list.data).includes('비밀 본문'),false,'content not leaked');
 assert.equal(JSON.stringify(list.data).includes('password_hash'),false,'hash not leaked');
+const contestListItem=list.data.posts.find(x=>x.id===ids[2]);
+assert.equal(contestListItem.recruitment_status,'open','recruitment status listed');
+assert.equal(contestListItem.deadline,'2026-12-31','deadline listed');
+assert.equal(contestListItem.headcount,3,'headcount listed');
+assert.equal(contestListItem.roles,'기획, 디자인','roles listed');
+let metadata=await request(`/api/posts/${ids[0]}`);assert.equal(metadata.status,200);
+assert.equal(metadata.data.post.title,`검증 board ${suffix}`,'detail metadata available at its own URL');
+assert.equal('content' in metadata.data.post,false,'metadata does not leak content');
+assert.equal((await request(`/api/posts/${ids[3]}`)).status,404,'pending detail metadata denied');
 assert.equal((await request(`/api/posts/${ids[0]}`,{method:'POST',body:{password:'incorrect-pass'}})).status,403);
 assert.equal((await request(`/api/posts/${ids[0]}`,{method:'PATCH',body:{title:'변경',content:'변경',password:'incorrect-pass'}})).status,403);
 assert.equal((await request(`/api/posts/${ids[0]}`,{method:'DELETE',body:{password:'incorrect-pass'}})).status,403);
@@ -26,6 +36,9 @@ assert.equal((await request(`/api/posts/${ids[3]}`,{method:'POST',body:{password
 let unlocked=await request(`/api/posts/${ids[0]}`,{method:'POST',body:{password}});assert.equal(unlocked.data.post.content,'비밀 본문 테스트 <script>alert(1)</script>');assert.equal('password_hash' in unlocked.data.post,false);
 assert.equal((await request(`/api/posts/${ids[0]}`,{method:'PATCH',body:{title:'수정 검증',content:'수정한 본문',password}})).status,200);
 unlocked=await request(`/api/posts/${ids[0]}`,{method:'POST',body:{password}});assert.equal(unlocked.data.post.content,'수정한 본문');
+assert.equal((await request(`/api/posts/${ids[2]}`,{method:'PATCH',body:{title:'모집 수정',content:'수정한 모집',password,recruitment_status:'closed',deadline:'2027-01-15',headcount:4,roles:'영상, 개발'}})).status,200);
+unlocked=await request(`/api/posts/${ids[2]}`,{method:'POST',body:{password}});
+assert.equal(unlocked.data.post.recruitment_status,'closed');assert.equal(unlocked.data.post.headcount,4);assert.equal(unlocked.data.post.roles,'영상, 개발');
 assert.equal((await request('/api/admin/posts')).status,403);
 assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',body:{action:'approve',updated_at:0}})).status,403);
 let queue=await request('/api/admin/posts',{cookie});let news=queue.data.posts.find(x=>x.id===ids[3]);assert.ok(news);

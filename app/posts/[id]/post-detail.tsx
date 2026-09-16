@@ -1,0 +1,51 @@
+'use client';
+
+import { useEffect, useState, type FormEvent } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronRight, FileText, Layers3, Link2, LockKeyhole, Menu, Newspaper, ShieldCheck, Sparkles, Trophy, UserRound, Users } from 'lucide-react';
+
+type Category='board'|'news'|'clubs'|'contests';
+type Post={id:string;title:string;category:Category;created_at:number;updated_at:number;content?:string;status?:string;recruitment_status?:'open'|'closed'|null;deadline?:string|null;headcount?:number|null;roles?:string|null};
+const labels:Record<Category,string>={board:'자유게시판',news:'학과 뉴스',clubs:'동아리',contests:'공모전 모집'};
+const paths:Record<Category,string>={board:'/',news:'/news',clubs:'/clubs',contests:'/contests'};
+const tabs=[{id:'all',label:'통합 게시판',href:'/',icon:Layers3},{id:'news',label:'학과 뉴스',href:'/news',icon:Newspaper},{id:'clubs',label:'동아리',href:'/clubs',icon:Users},{id:'contests',label:'공모전 모집',href:'/contests',icon:Trophy}] as const;
+const formatDate=(n:number)=>new Intl.DateTimeFormat('ko-KR',{year:'numeric',month:'long',day:'numeric'}).format(n);
+
+async function api<T>(path:string,body?:unknown,method='POST'):Promise<T>{
+ const response=await fetch(path,body?{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{cache:'no-store'});
+ const data=await response.json() as T&{error?:string};if(!response.ok)throw new Error(data.error||'요청을 처리하지 못했습니다.');return data;
+}
+
+export default function PostDetail({id}:{id:string}){
+ const router=useRouter();
+ const [post,setPost]=useState<Post|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [password,setPassword]=useState('');const [busy,setBusy]=useState(false);const [mode,setMode]=useState<'locked'|'view'|'edit'|'delete'>('locked');const [notice,setNotice]=useState('');const [mobileNav,setMobileNav]=useState(false);
+ useEffect(()=>{let active=true;api<{post:Post}>(`/api/posts/${id}`).then(data=>{if(active)setPost(data.post);}).catch(e=>{if(active)setError((e as Error).message);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[id]);
+ async function unlock(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setError('');try{const data=await api<{post:Post}>(`/api/posts/${id}`,{password});setPost(data.post);setMode('view');setPassword('');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ async function edit(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!post)return;setBusy(true);setError('');const form=new FormData(event.currentTarget);const recruitment=post.category==='clubs'||post.category==='contests'?{recruitment_status:form.get('recruitment_status'),deadline:form.get('deadline'),headcount:Number(form.get('headcount')),roles:form.get('roles')}:{};try{const data=await api<{status:string}>(`/api/posts/${id}`,{title:form.get('title'),content:form.get('content'),password:form.get('password'),...recruitment},'PATCH');if(data.status==='pending'){router.push('/news');return;}const unlocked=await api<{post:Post}>(`/api/posts/${id}`,{password:form.get('password')});setPost(unlocked.post);setMode('view');setNotice('수정했습니다.');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ async function remove(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!post)return;setBusy(true);setError('');const form=new FormData(event.currentTarget);try{await api(`/api/posts/${id}`,{password:form.get('password')},'DELETE');router.push(paths[post.category]);}catch(e){setError((e as Error).message);setBusy(false);}}
+ async function copyLink(){try{await navigator.clipboard.writeText(window.location.href);setNotice('게시글 링크를 복사했습니다.');}catch{setError('링크를 복사하지 못했습니다. 주소창의 주소를 복사해주세요.');}}
+ const category=post?.category;
+ return <div className="app-shell">
+  <aside className={`sidebar ${mobileNav?'mobile-open':''}`}>
+   <Link className="brand" href="/" aria-label="미컴 라운지 홈"><span className="brand-mark">m<span>·</span></span><span>미컴<span className="brand-light">라운지</span><small>OUR CAMPUS, CONNECTED</small></span></Link>
+   <div className="workspace"><span className="workspace-icon"><Users size={20}/></span><div>학과 커뮤니티<small>함께 만드는 우리 공간</small></div><span className="online-dot"/></div>
+   <p className="nav-caption">커뮤니티</p><nav aria-label="주요 메뉴">{tabs.map(t=><a key={t.id} className="nav-item" href={t.href}><t.icon size={20}/>{t.label}</a>)}</nav>
+   <div className="sidebar-bottom"><div className="sidebar-note"><Sparkles size={19}/><strong>작은 이야기가 연결이 되는 곳</strong><p>우리 학과의 소식과 관심사를<br/>함께 나눠보세요.</p></div><a href="/admin" className="nav-item"><ShieldCheck size={20}/>뉴스 승인</a><div className="sidebar-footer">MICOM LOUNGE <span>© {new Date().getFullYear()}</span></div></div>
+  </aside>
+  <div className="main-wrap"><header className="topbar"><div><button className="icon-button mobile-menu" aria-label="메뉴 열기" onClick={()=>setMobileNav(!mobileNav)}><Menu size={22}/></button><span className="breadcrumb"><Link href="/">라운지</Link><ChevronRight size={14}/>{category&&<><a href={paths[category]}>{labels[category]}</a><ChevronRight size={14}/></>}<b>상세</b></span></div><span className="semester"><span className="online-dot"/>게시글 상세</span></header>
+  <main className="detail-main">
+   <a className="back-link" href={category?paths[category]:'/'}><ArrowLeft size={17}/>{category?`${labels[category]} 목록`:'게시판 목록'}</a>
+   {loading?<section className="detail-card loading" role="status">게시글을 불러오는 중입니다…</section>:error&&!post?<section className="detail-card detail-error"><FileText size={32}/><h1>게시글을 찾을 수 없습니다</h1><p>{error}</p><Link className="primary" href="/">게시판으로 돌아가기</Link></section>:post&&<section className="detail-card">
+    <div className="detail-head"><div><span className={`category-tag ${post.category}`}>{labels[post.category]}</span><h1>{post.title}</h1><p>{formatDate(post.created_at)} · 본문 비밀번호 보호</p></div><button className="secondary copy-button" onClick={()=>void copyLink()}><Link2 size={17}/>링크 복사</button></div>
+    {post.recruitment_status&&<div className="recruitment-summary"><span className={`recruitment-status ${post.recruitment_status}`}>{post.recruitment_status==='open'?'모집 중':'마감'}</span>{post.deadline&&<span><CalendarDays size={17}/><small>마감일</small>{post.deadline}</span>}{post.headcount&&<span><UserRound size={17}/><small>모집 인원</small>{post.headcount}명</span>}{post.roles&&<span><Users size={17}/><small>필요한 역할</small>{post.roles}</span>}</div>}
+    {notice&&<p className="inline-notice"><Check size={16}/>{notice}</p>}
+    {mode==='locked'&&<div className="unlock-panel"><div className="lock-symbol"><LockKeyhole size={27}/></div><div><h2>비밀번호로 본문 열기</h2><p>작성할 때 설정한 비밀번호를 입력해주세요.</p></div><form onSubmit={unlock}><label className="sr-only">게시글 비밀번호</label><input autoFocus type="password" required minLength={8} maxLength={128} autoComplete="off" value={password} onChange={e=>setPassword(e.target.value)} placeholder="게시글 비밀번호"/>{error&&<p className="form-error" role="alert">{error}</p>}<button className="primary full" disabled={busy}>{busy?'확인 중…':'본문 확인'}<ArrowRight size={17}/></button></form></div>}
+    {mode==='view'&&<><article className="article-content detail-article">{post.content}</article>{error&&<p className="form-error" role="alert">{error}</p>}<div className="article-actions"><button className="secondary" onClick={()=>{setError('');setMode('edit');}}>수정</button><button className="danger-text" onClick={()=>{setError('');setMode('delete');}}>삭제</button></div></>}
+    {mode==='edit'&&<form className="detail-form" onSubmit={edit}><h2>게시글 수정</h2><label>제목<input name="title" required maxLength={120} defaultValue={post.title}/></label><label>본문<textarea name="content" required maxLength={20000} rows={10} defaultValue={post.content}/></label>{(post.category==='clubs'||post.category==='contests')&&<fieldset className="recruitment-fields"><legend>모집 정보</legend><div className="form-grid"><label>모집 상태<select name="recruitment_status" defaultValue={post.recruitment_status||'open'}><option value="open">모집 중</option><option value="closed">마감</option></select></label><label>모집 마감일<input name="deadline" type="date" required defaultValue={post.deadline||''}/></label><label>모집 인원<input name="headcount" type="number" min="1" max="99" required defaultValue={post.headcount||''}/></label><label>필요한 역할<input name="roles" required maxLength={200} defaultValue={post.roles||''}/></label></div></fieldset>}<label>수정 확인 비밀번호<input name="password" type="password" required minLength={8} maxLength={128} autoComplete="off"/></label>{error&&<p className="form-error" role="alert">{error}</p>}<div className="article-actions"><button type="button" className="secondary" onClick={()=>setMode('view')}>취소</button><button className="primary" disabled={busy}>{busy?'저장 중…':'수정 저장'}</button></div></form>}
+    {mode==='delete'&&<form className="delete-panel" onSubmit={remove}><h2>게시글을 삭제할까요?</h2><p>삭제한 글은 복구할 수 없습니다.</p><label>삭제 확인 비밀번호<input name="password" type="password" required minLength={8} maxLength={128} autoComplete="off"/></label>{error&&<p className="form-error" role="alert">{error}</p>}<div className="article-actions"><button type="button" className="secondary" onClick={()=>setMode('view')}>취소</button><button className="primary danger" disabled={busy}>{busy?'삭제 중…':'게시글 삭제'}</button></div></form>}
+   </section>}
+   <footer className="page-footer"><strong>미컴 라운지</strong><span>서로를 존중하는 말이 좋은 커뮤니티를 만듭니다.</span></footer>
+  </main></div>
+ </div>;
+}

@@ -18,8 +18,14 @@ export async function input(request:Request){
 }
 export const contentFields={title:z.string().trim().min(1,'제목을 입력해주세요.').max(120,'제목은 120자 이내로 입력해주세요.'),content:z.string().trim().min(1,'본문을 입력해주세요.').max(20000,'본문은 20,000자 이내로 입력해주세요.')};
 export const passwordField=z.string().min(8,'비밀번호는 8자 이상 입력해주세요.').max(128,'비밀번호는 128자 이내로 입력해주세요.');
-export const createSchema=z.object({...contentFields,category:z.enum(['board','news','clubs','contests']),password:passwordField});
-export const editSchema=z.object({...contentFields,password:passwordField});
+export const recruitmentFields={recruitment_status:z.enum(['open','closed']).optional().nullable(),deadline:z.string().regex(/^\d{4}-\d{2}-\d{2}$/,'마감일을 확인해주세요.').optional().nullable(),headcount:z.number().int().min(1,'모집 인원은 1명 이상이어야 합니다.').max(99,'모집 인원은 99명 이내로 입력해주세요.').optional().nullable(),roles:z.string().trim().min(1,'필요한 역할을 입력해주세요.').max(200,'필요한 역할은 200자 이내로 입력해주세요.').optional().nullable()};
+export const createSchema=z.object({...contentFields,...recruitmentFields,category:z.enum(['board','news','clubs','contests']),password:passwordField});
+export const editSchema=z.object({...contentFields,...recruitmentFields,password:passwordField});
+export function recruitmentValues(data:{recruitment_status?:'open'|'closed'|null;deadline?:string|null;headcount?:number|null;roles?:string|null},category:string){
+ if(category!=='clubs'&&category!=='contests')return [null,null,null,null] as const;
+ if(!data.recruitment_status||!data.deadline||!data.headcount||!data.roles)throw new HttpError(400,'모집 상태, 마감일, 인원과 필요한 역할을 모두 입력해주세요.');
+ return [data.recruitment_status,data.deadline,data.headcount,data.roles] as const;
+}
 export async function identity(){const user=await getChatGPTUser();const email=env.ADMIN_EMAIL?.trim().toLowerCase();return {admin:!!email&&!!user&&user.email.toLowerCase()===email,signedIn:!!user,configured:!!email};}
 export async function requireAdmin(){const user=await identity();if(!user.admin)throw new HttpError(403,'뉴스 승인 권한이 필요합니다.');}
 export async function limit(request:Request,scope:string,max=30){
@@ -31,6 +37,7 @@ export async function limit(request:Request,scope:string,max=30){
  const result=await db().prepare('INSERT INTO attempts (key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count').bind(key,now+60000).first<{count:number}>();
  if(result&&result.count>max)throw new HttpError(429,'요청이 너무 많습니다. 1분 후 다시 시도해주세요.');
 }
-export type PostRow={id:string;category:string;title:string;content:string;password_hash:string;salt:string;status:string;created_at:number;updated_at:number};
+export type PostRow={id:string;category:string;title:string;content:string;password_hash:string;salt:string;status:string;recruitment_status:'open'|'closed'|null;deadline:string|null;headcount:number|null;roles:string|null;created_at:number;updated_at:number};
 export async function publishedPost(id:string){const post=await db().prepare("SELECT * FROM posts WHERE id=? AND status='published'").bind(id).first<PostRow>();if(!post)throw new HttpError(404,'게시글을 찾을 수 없습니다.');return post;}
-export function publicPost(post:PostRow){return {id:post.id,category:post.category,title:post.title,content:post.content,status:post.status,created_at:post.created_at,updated_at:post.updated_at};}
+export function publicPost(post:PostRow){return {id:post.id,category:post.category,title:post.title,content:post.content,status:post.status,recruitment_status:post.recruitment_status,deadline:post.deadline,headcount:post.headcount,roles:post.roles,created_at:post.created_at,updated_at:post.updated_at};}
+export function publicMetadata(post:PostRow){return {id:post.id,category:post.category,title:post.title,status:post.status,recruitment_status:post.recruitment_status,deadline:post.deadline,headcount:post.headcount,roles:post.roles,created_at:post.created_at,updated_at:post.updated_at};}
