@@ -16,4 +16,19 @@ const session=await request('/api/session',{cookie:fixture.activeCookie});
 assert.equal(session.data.signedIn,false,'deleted account session cannot be reused');
 fixture.cleanup();
 
-console.log('PASS: account API rejects anonymous or unverified changes and removes member sessions on deletion.');
+const adminFixture=await createMemberFixture();
+const adminCode='Local-admin-code-1234';
+assert.equal((await request('/api/admin/join',{method:'POST',cookie:adminFixture.activeCookie,body:{code:adminCode}})).status,201);
+assert.equal((await request('/api/admin/users',{cookie:adminFixture.secondCookie})).status,403,'regular member cannot list users');
+let users=await request('/api/admin/users?q=second',{cookie:adminFixture.activeCookie});
+assert.equal(users.status,200);assert.equal(users.data.users.length,1);assert.equal(users.data.users[0].email,'second@ks.ac.kr');
+assert.equal((await request('/api/admin/users/test-member-active',{method:'PATCH',cookie:adminFixture.activeCookie,body:{status:'suspended'}})).status,400,'administrator cannot suspend their own account');
+assert.equal((await request('/api/admin/users/test-member-second',{method:'PATCH',cookie:adminFixture.activeCookie,body:{status:'suspended'}})).status,200,'administrator can suspend another member');
+assert.equal((await request('/api/posts',{cookie:adminFixture.secondCookie})).status,401,'suspension revokes existing sessions immediately');
+users=await request('/api/admin/users?status=suspended',{cookie:adminFixture.activeCookie});
+assert.ok(users.data.users.some(user=>user.id==='test-member-second'&&user.status==='suspended'));
+assert.equal((await request('/api/admin/users/test-member-second',{method:'PATCH',cookie:adminFixture.activeCookie,body:{status:'active'}})).status,200,'administrator can restore a member');
+assert.equal((await request('/api/posts',{cookie:adminFixture.secondCookie})).status,401,'restored account must sign in again');
+adminFixture.cleanup();
+
+console.log('PASS: account deletion, administrator member search, suspension, session revocation and restoration.');
