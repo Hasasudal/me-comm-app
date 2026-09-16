@@ -18,6 +18,7 @@ export async function createMemberFixture(){
  const now=Date.now();
  const members=[
   {id:'test-member-active',email:'active@ks.ac.kr',name:'활성회원',status:'active',token:`active-${crypto.randomUUID()}`,expires:now+60_000},
+  {id:'test-member-second',email:'second@ks.ac.kr',name:'두번째회원',status:'active',token:`second-${crypto.randomUUID()}`,expires:now+60_000},
   {id:'test-member-expired',email:'expired@ks.ac.kr',name:'만료회원',status:'active',token:`expired-${crypto.randomUUID()}`,expires:now-1_000},
   {id:'test-member-suspended',email:'suspended@ks.ac.kr',name:'정지회원',status:'suspended',token:`suspended-${crypto.randomUUID()}`,expires:now+60_000},
  ];
@@ -28,8 +29,9 @@ export async function createMemberFixture(){
  }
  return {
   activeCookie:`micom_session=${members[0].token}`,
-  expiredCookie:`micom_session=${members[1].token}`,
-  suspendedCookie:`micom_session=${members[2].token}`,
+  secondCookie:`micom_session=${members[1].token}`,
+  expiredCookie:`micom_session=${members[2].token}`,
+  suspendedCookie:`micom_session=${members[3].token}`,
   cleanup(){execute(`DELETE FROM sessions WHERE user_id IN (${ids}); DELETE FROM admin_users WHERE user_id IN (${ids}); DELETE FROM users WHERE id IN (${ids});`);},
  };
 }

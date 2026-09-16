@@ -11,9 +11,7 @@ async function request(path,{method='GET',body,cookie=fixture.activeCookie}={}){
 const suffix=Date.now();
 assert.equal((await request('/api/posts',{cookie:''})).status,401,'anonymous list is denied');
 assert.equal((await request('/api/posts',{method:'POST',cookie:'',body:{title:'x',content:'x',password,category:'board'}})).status,401,'anonymous create is denied');
-const login=await fetch(base+'/signin-with-chatgpt?return_to=/',{redirect:'manual'});
-const cookie=login.headers.getSetCookie().map(x=>x.split(';')[0]).join('; ');
-assert.ok(cookie,'local mock sign-in available');
+const cookie=fixture.activeCookie;
 let session=await request('/api/session',{cookie});
 if(!session.data.admin)assert.equal((await request('/api/admin/join',{method:'POST',cookie,body:{code:adminCode}})).status,201,'local test account registers with the admin code');
 session=await request('/api/session',{cookie});assert.equal(session.data.admin,true,'test admin registered locally');
@@ -46,8 +44,8 @@ unlocked=await request(`/api/posts/${ids[0]}`,{method:'POST',body:{password}});a
 assert.equal((await request(`/api/posts/${ids[2]}`,{method:'PATCH',body:{title:'모집 수정',content:'수정한 모집',password,recruitment_status:'closed',deadline:'2027-01-15',headcount:4,roles:'영상, 개발'}})).status,200);
 unlocked=await request(`/api/posts/${ids[2]}`,{method:'POST',body:{password}});
 assert.equal(unlocked.data.post.recruitment_status,'closed');assert.equal(unlocked.data.post.headcount,4);assert.equal(unlocked.data.post.roles,'영상, 개발');
-assert.equal((await request('/api/admin/posts')).status,401);
-assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',body:{action:'approve',updated_at:0}})).status,401);
+assert.equal((await request('/api/admin/posts',{cookie:fixture.secondCookie})).status,403);
+assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',cookie:fixture.secondCookie,body:{action:'approve',updated_at:0}})).status,403);
 let queue=await request('/api/admin/posts',{cookie});let news=queue.data.posts.find(x=>x.id===ids[3]);assert.ok(news);
 assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',cookie,body:{action:'edit',title:'관리자 검토 완료',content:'검토한 본문',updated_at:news.updated_at}})).status,200);
 assert.equal((await request(`/api/admin/posts/${ids[3]}`,{method:'PATCH',cookie,body:{action:'approve',updated_at:news.updated_at}})).status,409,'stale review blocked');

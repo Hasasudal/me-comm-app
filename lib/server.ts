@@ -1,5 +1,4 @@
 import { env } from 'cloudflare:workers';
-import { getChatGPTUser } from '../app/chatgpt-auth';
 import { z } from 'zod';
 import { db } from './database';
 import { HttpError } from './http-error';
@@ -31,12 +30,9 @@ export function recruitmentValues(data:{recruitment_status?:'open'|'closed'|null
 export async function identity(request?:Request){
  const configured=!!env.ADMIN_JOIN_CODE_HASH&&!!env.ADMIN_JOIN_CODE_SALT;
  if(request){const member=await optionalMember(request);if(member){const admin=await db().prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL').bind(member.userId).first();return {admin:!!admin,signedIn:true,configured,userId:member.userId,email:member.email,displayName:member.displayName};}}
- const user=await getChatGPTUser();
- if(!user)return {admin:false,signedIn:false,configured};
- const member=await db().prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL').bind(user.userId).first();
- return {admin:!!member,signedIn:true,configured,userId:user.userId,email:user.email,displayName:user.displayName};
+ return {admin:false,signedIn:false,configured};
 }
-export async function requireAdmin(){const user=await getChatGPTUser();if(!user)throw new HttpError(401,'로그인이 필요합니다.');const member=await db().prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL').bind(user.userId).first();if(!member)throw new HttpError(403,'관리자 권한이 필요합니다.');return user;}
+export async function requireAdmin(request:Request){const user=await requireMember(request);const member=await db().prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL').bind(user.userId).first();if(!member)throw new HttpError(403,'관리자 권한이 필요합니다.');return user;}
 export async function limit(request:Request,scope:string,max=30){
  const ip=request.headers.get('cf-connecting-ip')||'local';
  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`${scope}:${ip}`));
