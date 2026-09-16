@@ -27,4 +27,15 @@ const verify=await fetch(base+'/verify-email');const verifyHtml=await verify.tex
 assert.equal(verify.status,200,'email verification guidance has a dedicated page');
 assert.match(verifyHtml,/학교 이메일/);assert.match(verifyHtml,/인증 메일/);
 
-console.log('PASS: detail URL, title search, admin registration and member authentication pages are rendered.');
+for(const [query,label] of [
+  ['mode=verifyEmail&oobCode=test-code','이메일 인증'],
+  ['mode=resetPassword&oobCode=test-code','비밀번호 재설정'],
+  ['mode=recoverEmail&oobCode=test-code','이메일 복구'],
+  ['mode=unknown','올바르지 않은 요청'],
+]){
+  const action=await fetch(base+`/auth/action?${query}`);const actionHtml=await action.text();
+  assert.equal(action.status,200,`email action page renders for ${query}`);
+  assert.match(actionHtml,new RegExp(label),`email action page explains ${label}`);
+}
+
+console.log('PASS: detail URL, title search, admin registration, member authentication and email action pages are rendered.');
