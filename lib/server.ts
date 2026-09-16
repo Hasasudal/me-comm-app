@@ -1,10 +1,12 @@
 import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '../app/chatgpt-auth';
 import { z } from 'zod';
+import { db } from './database';
+import { HttpError } from './http-error';
+import { optionalMember, requireMember } from './member-auth';
 
-export class HttpError extends Error {constructor(public status:number,message:string){super(message);}}
-export function db(){if(!env.DB)throw new HttpError(503,'저장소에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');return env.DB;}
-export function json(value:unknown,status=200){return Response.json(value,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'}});}
+export {db,HttpError,requireMember};
+export function json(value:unknown,status=200,headers?:HeadersInit){return Response.json(value,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff',...headers}});}
 export async function handle(action:()=>Promise<Response>){try{return await action();}catch(e){if(e instanceof HttpError)return json({error:e.message},e.status);if(e instanceof z.ZodError)return json({error:e.issues[0]?.message||'입력 내용을 확인해주세요.'},400);console.error('Community API failed',e instanceof Error?e.message:'Unknown error');return json({error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.'},503);}}
 export async function input(request:Request){
  const origin=request.headers.get('origin');
@@ -26,8 +28,10 @@ export function recruitmentValues(data:{recruitment_status?:'open'|'closed'|null
  if(!data.recruitment_status||!data.deadline||!data.headcount||!data.roles)throw new HttpError(400,'모집 상태, 마감일, 인원과 필요한 역할을 모두 입력해주세요.');
  return [data.recruitment_status,data.deadline,data.headcount,data.roles] as const;
 }
-export async function identity(){
- const user=await getChatGPTUser();const configured=!!env.ADMIN_JOIN_CODE_HASH&&!!env.ADMIN_JOIN_CODE_SALT;
+export async function identity(request?:Request){
+ const configured=!!env.ADMIN_JOIN_CODE_HASH&&!!env.ADMIN_JOIN_CODE_SALT;
+ if(request){const member=await optionalMember(request);if(member){const admin=await db().prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL').bind(member.userId).first();return {admin:!!admin,signedIn:true,configured,userId:member.userId,email:member.email,displayName:member.displayName};}}
+ const user=await getChatGPTUser();
  if(!user)return {admin:false,signedIn:false,configured};
  const member=await db().prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL').bind(user.userId).first();
  return {admin:!!member,signedIn:true,configured,userId:user.userId,email:user.email,displayName:user.displayName};
