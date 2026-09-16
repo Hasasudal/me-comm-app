@@ -8,6 +8,7 @@ export function firebaseMessage(error: unknown) {
     'auth/weak-password': '비밀번호는 영문과 숫자를 포함해 8자 이상 입력해주세요.',
     'auth/too-many-requests': '요청이 많습니다. 잠시 후 다시 시도해주세요.',
     'auth/network-request-failed': '네트워크 연결을 확인해주세요.',
+    'auth/requires-recent-login': '보안을 위해 로그아웃한 뒤 다시 로그인해주세요.',
   };
   if (messages[code]) return messages[code];
   return error instanceof Error && !code ? error.message : '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.';

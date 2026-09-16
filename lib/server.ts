@@ -1,12 +1,13 @@
 import { env } from 'cloudflare:workers';
 import { z } from 'zod';
+import { FirebaseTokenError } from './firebase-token';
 import { db } from './database';
 import { HttpError } from './http-error';
 import { optionalMember, requireMember } from './member-auth';
 
 export {db,HttpError,requireMember};
 export function json(value:unknown,status=200,headers?:HeadersInit){return Response.json(value,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff',...headers}});}
-export async function handle(action:()=>Promise<Response>){try{return await action();}catch(e){if(e instanceof HttpError)return json({error:e.message},e.status);if(e instanceof z.ZodError)return json({error:e.issues[0]?.message||'입력 내용을 확인해주세요.'},400);console.error('Community API failed',e instanceof Error?e.message:'Unknown error');return json({error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.'},503);}}
+export async function handle(action:()=>Promise<Response>){try{return await action();}catch(e){if(e instanceof HttpError)return json({error:e.message},e.status);if(e instanceof FirebaseTokenError)return json({error:e.message},401);if(e instanceof z.ZodError)return json({error:e.issues[0]?.message||'입력 내용을 확인해주세요.'},400);console.error('Community API failed',e instanceof Error?e.message:'Unknown error');return json({error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.'},503);}}
 export async function input(request:Request){
  const origin=request.headers.get('origin');
  if(origin&&origin!==new URL(request.url).origin)throw new HttpError(403,'허용되지 않은 요청입니다.');
