@@ -1,2 +1,4 @@
 import Community from './community';
-export default function Home() { return <Community />; }
+export default function Home() {
+  return <Community />;
+}

@@ -39,3 +39,15 @@
 6. Firebase 승인 도메인에 배포 주소를 추가합니다. 이메일 작업 URL은 Firebase 기본값을 유지합니다(콘솔에서 사용자 지정 URL 저장 시 400 오류, Identity Platform 미사용). 인증·재설정 링크는 Firebase 기본 화면에서 처리된 뒤 계속 버튼으로 `/login`에 돌아오며, `/auth/action` 화면은 사용자 지정 작업 URL을 설정할 때만 쓰입니다.
 7. 실제 학교 이메일로 가입·인증·로그인·글 작성·뉴스 검토를 확인합니다.
 8. 필요하면 Cloudflare 대시보드에서 Worker에 사용자 도메인을 연결하고 6번을 그 도메인으로 다시 설정합니다.
+
+## 자동 검사와 배포 (GitHub Actions)
+
+`.github/workflows/ci.yml`은 PR과 `main` 푸시마다 타입 검사, 린트, 단위 테스트, 빌드를 실행합니다. `main`에 합쳐지면 이어서 운영 D1에 DB 변경을 적용하고 Worker를 배포합니다.
+
+처음 한 번 GitHub 저장소 비밀 값을 등록해야 합니다.
+
+1. Cloudflare 대시보드 → 내 프로필 → API 토큰 → 토큰 생성 → "Cloudflare Workers 편집" 템플릿을 고릅니다.
+2. 권한에 **계정 · D1 · 편집**을 추가하고, 계정 리소스를 이 계정으로 제한해 토큰을 만듭니다.
+3. GitHub 저장소 → Settings → Secrets and variables → Actions → New repository secret에서 이름 `CLOUDFLARE_API_TOKEN`으로 토큰을 저장합니다.
+
+통합 테스트(`scripts/test-*.mjs`)는 개발 서버와 로컬 비밀 값이 필요해 CI에서 실행하지 않습니다. 기능을 바꾼 PR은 로컬에서 먼저 돌립니다.

@@ -1,10 +1,5 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
-import { readExecutionProfile } from "./scripts/execution-profile.mjs";
-
-// macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
-const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
-const managedLinux = readExecutionProfile() === "managed-linux";
 
 export default defineConfig(async () => {
   // Use Miniflare's local Request.cf placeholder unless fetching is requested.
@@ -22,10 +17,6 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
-    server: {
-      ...(managedLinux ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] } : {}),
-      ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
-    },
     plugins: [
       vinext(),
       // Bindings, name and D1 database come from wrangler.jsonc.

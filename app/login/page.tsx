@@ -7,7 +7,12 @@ export default function LoginPage() {
       eyebrow="WELCOME BACK"
       title="로그인"
       description="인증을 마친 경성대학교 계정으로 미컴 라운지를 이용하세요."
-      footer={<><span>처음 방문했나요?</span><a href="/signup">회원가입</a></>}
+      footer={
+        <>
+          <span>처음 방문했나요?</span>
+          <a href="/signup">회원가입</a>
+        </>
+      }
     >
       <LoginForm />
     </AuthFrame>
