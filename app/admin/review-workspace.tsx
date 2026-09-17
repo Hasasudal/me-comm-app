@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { AnnotatedArticle, statusLabels } from '../annotated-article';
 import type { Mark, Review } from '../../lib/annotations';
+import { api } from '../api-client';
 
 type ReviewStatus = 'pending' | 'feedback' | 'rejected' | 'published';
 type Article = {
@@ -33,16 +34,22 @@ type Article = {
 type AdminMember = { user_id: string; email: string; display_name: string; joined_at: number };
 const reviewTabs: ReviewStatus[] = ['pending', 'feedback', 'rejected', 'published'];
 const formatDate = (n: number) => new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit' }).format(n);
-async function api<T = Record<string, unknown>>(path: string, body?: unknown, method = 'POST'): Promise<T> {
-  const response = await fetch(
-    path,
-    body
-      ? { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-      : { cache: 'no-store' },
-  );
-  const data = (await response.json()) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error || '요청을 처리하지 못했습니다. 다시 시도해주세요.');
-  return data;
+
+// Unsent marks survive reloads in this browser. The key includes updated_at, so a resubmitted article starts clean.
+type Draft = { marks: Mark[]; note: string };
+const draftKey = (article: Article) => `micom:review-draft:${article.id}:${article.updated_at}`;
+function readDraft(article: Article): Draft | null {
+  try {
+    return JSON.parse(localStorage.getItem(draftKey(article)) || 'null') as Draft | null;
+  } catch {
+    return null;
+  }
+}
+function writeDraft(article: Article, draft: Draft | null) {
+  try {
+    if (draft) localStorage.setItem(draftKey(article), JSON.stringify(draft));
+    else localStorage.removeItem(draftKey(article));
+  } catch {}
 }
 
 export default function ReviewWorkspace({
@@ -73,9 +80,10 @@ export default function ReviewWorkspace({
   const dirty = tab === 'pending' && (marks.length > 0 || !!note.trim());
 
   const reset = useCallback((article: Article | null) => {
-    setMarks(article && article.status !== 'pending' ? article.feedback?.marks || [] : []);
-    setNote('');
-    setNoteOpen(false);
+    const draft = article?.status === 'pending' ? readDraft(article) : null;
+    setMarks(draft?.marks || (article && article.status !== 'pending' ? article.feedback?.marks || [] : []));
+    setNote(draft?.note || '');
+    setNoteOpen(!!draft?.note);
     setPanel('review');
     setReason('');
     setMenuOpen(false);
@@ -120,16 +128,17 @@ export default function ReviewWorkspace({
     return () => clearTimeout(timer);
   }, [loadMembers]);
 
-  function confirmDiscard() {
-    return !dirty || window.confirm('보내지 않은 표시와 의견이 사라집니다. 이동할까요?');
-  }
+  useEffect(() => {
+    if (selected?.status === 'pending') writeDraft(selected, dirty ? { marks, note } : null);
+  }, [selected, dirty, marks, note]);
+
   function choose(article: Article) {
-    if (article.id === selectedId || !confirmDiscard()) return;
+    if (article.id === selectedId) return;
     setSelectedId(article.id);
     reset(article);
   }
   function switchTab(next: ReviewStatus) {
-    if (next !== tab && confirmDiscard()) setTab(next);
+    if (next !== tab) setTab(next);
   }
 
   async function run(action: () => Promise<unknown>, message: string) {
@@ -137,6 +146,7 @@ export default function ReviewWorkspace({
     setActionError('');
     try {
       await action();
+      if (selected) writeDraft(selected, null);
       onNotice(message);
       await load(null);
     } catch (e) {
@@ -381,7 +391,11 @@ export default function ReviewWorkspace({
             ) : (
               <>
                 {selected.status === 'pending' ? (
-                  <p className="review-hint">본문을 드래그하면 형광펜·굵게·메모 도구가 나타납니다.</p>
+                  <p className="review-hint">
+                    {dirty
+                      ? '작성 중인 표시와 의견은 이 브라우저에 임시 저장됩니다.'
+                      : '본문을 드래그하면 형광펜·굵게·메모 도구가 나타납니다.'}
+                  </p>
                 ) : (
                   selected.feedback?.note && (
                     <div className={`review-result ${selected.status}`}>

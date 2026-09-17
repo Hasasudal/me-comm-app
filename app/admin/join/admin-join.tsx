@@ -2,20 +2,9 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, Check, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { api } from '../../api-client';
 
 type Session = { admin: boolean; signedIn: boolean; configured: boolean; email?: string; displayName?: string };
-
-async function api<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(
-    path,
-    body
-      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-      : { cache: 'no-store' },
-  );
-  const data = (await response.json()) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error || '요청을 처리하지 못했습니다.');
-  return data;
-}
 
 export default function AdminJoin() {
   const [session, setSession] = useState<Session | null>(null);

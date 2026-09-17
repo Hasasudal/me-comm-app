@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createMemberFixture } from './test-member-fixture.mjs';
+import { createMemberFixture, execute } from './test-member-fixture.mjs';
 const base = 'http://localhost:5173';
 const password = 'Test-only-1234';
 const adminCode = 'Local-admin-code-1234';
@@ -316,6 +316,43 @@ try {
     ).status,
     409,
     'rejected news cannot be edited by its author',
+  );
+  const reviewedAt = (await request('/api/session')).data.newsReviewedAt;
+  assert.ok(reviewedAt >= news.updated_at, 'session reports when the author last received a review result');
+  assert.equal((await request('/api/session', { cookie: admin })).data.newsReviewedAt, null, 'no reviews for admin');
+
+  const searched = await request(`/api/posts?q=${encodeURIComponent('clubs머릿글')}`, { cookie: admin });
+  assert.deepEqual(
+    searched.data.posts.map((x) => x.id),
+    [ids.clubs],
+    'search matches prefixes on the server',
+  );
+  assert.equal((await request('/api/posts?q=%25', { cookie: admin })).data.posts.length, 0, 'LIKE wildcards are escaped');
+  // Insert page fixtures directly: the API allows 10 posts per member per minute. Same created_at on
+  // several rows exercises the id tie-breaker in the cursor.
+  const bulk = Array.from({ length: 31 }, (_, i) => `page-${suffix}-${String(i).padStart(2, '0')}`);
+  execute(
+    bulk
+      .map(
+        (id, i) =>
+          `INSERT INTO posts (id,category,title,content,password_hash,salt,status,author_id,author_name,created_at,updated_at) VALUES ('${id}','board','페이지 ${suffix} ${i}','페이지','x','x','published','test-member-second','페이지',${suffix - (i % 3)},${suffix})`,
+      )
+      .join('; '),
+  );
+  Object.assign(ids, Object.fromEntries(bulk.map((id) => [id, id])));
+  const page1 = await request(`/api/posts?category=board&q=${encodeURIComponent(`페이지 ${suffix}`)}`, { cookie: admin });
+  assert.equal(page1.data.posts.length, 30, 'first page holds 30 posts');
+  assert.ok(page1.data.nextCursor, 'a cursor points to the next page');
+  const page2 = await request(
+    `/api/posts?category=board&q=${encodeURIComponent(`페이지 ${suffix}`)}&cursor=${page1.data.nextCursor}`,
+    { cookie: admin },
+  );
+  assert.equal(page2.data.posts.length, 1, 'second page holds the rest');
+  assert.equal(page2.data.nextCursor, null);
+  assert.equal(
+    new Set([...page1.data.posts, ...page2.data.posts].map((x) => x.id)).size,
+    31,
+    'pages do not overlap or skip',
   );
 
   const second = await request('/api/posts', {

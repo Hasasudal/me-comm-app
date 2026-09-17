@@ -2,16 +2,10 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { RotateCcw, Search, UserX } from 'lucide-react';
+import { api } from '../../api-client';
 
 type User = { id: string; email: string; display_name: string; status: 'active' | 'suspended'; created_at: number };
 type Session = { signedIn: boolean; admin: boolean };
-
-async function getJson<T>(path: string, options?: RequestInit) {
-  const response = await fetch(path, { cache: 'no-store', ...options });
-  const data = (await response.json()) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error || '요청을 처리하지 못했습니다.');
-  return data;
-}
 
 export default function MemberManager() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -27,7 +21,7 @@ export default function MemberManager() {
       setBusy(true);
       setError('');
       try {
-        const result = await getJson<{ users: User[]; total: number }>(
+        const result = await api<{ users: User[]; total: number }>(
           `/api/admin/users?q=${encodeURIComponent(query)}&status=${status}&page=${nextPage}`,
         );
         setUsers(result.users);
@@ -42,7 +36,7 @@ export default function MemberManager() {
     [page, query, status],
   );
   useEffect(() => {
-    getJson<Session>('/api/session')
+    api<Session>('/api/session')
       .then((session) => {
         setAllowed(session.admin);
         if (session.admin) return load(1);
@@ -66,11 +60,7 @@ export default function MemberManager() {
     setBusy(true);
     setError('');
     try {
-      await getJson(`/api/admin/users/${encodeURIComponent(user.id)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: next }),
-      });
+      await api(`/api/admin/users/${encodeURIComponent(user.id)}`, { status: next }, 'PATCH');
       await load(page);
     } catch (cause) {
       setError((cause as Error).message);

@@ -2483,3 +2483,38 @@ label small {
 .member-row.revoked strong {
   color: #8a96a8;
 }
+.nav-alert {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e5484d;
+  margin-left: auto;
+  box-shadow: 0 0 0 3px #e5484d22;
+}
+.nav-item.active .nav-alert {
+  margin-left: 8px;
+}
+.new-badge {
+  display: inline-flex;
+  margin-left: 6px;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: 1px;
+  background: #e5484d;
+  color: #fff;
+}
+.load-more {
+  display: block;
+  width: calc(100% - 48px);
+  margin: 14px 24px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 14px;
+  color: #5d6a7e;
+}
+.load-more:hover {
+  background: #f6f8fc;
+}

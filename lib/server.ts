@@ -141,7 +141,13 @@ export async function identity(request?: Request) {
   if (request) {
     const member = await optionalMember(request);
     if (member) {
+      // Latest review result on the member's own news, so the sidebar can flag unseen feedback.
+      const reviewed = await db()
+        .prepare("SELECT MAX(updated_at) AS at FROM posts WHERE category='news' AND author_id=? AND status<>'pending'")
+        .bind(member.userId)
+        .first<{ at: number | null }>();
       return {
+        newsReviewedAt: reviewed?.at ?? null,
         admin: await isAdmin(member.userId),
         signedIn: true,
         configured,
@@ -152,6 +158,9 @@ export async function identity(request?: Request) {
     }
   }
   return { admin: false, signedIn: false, configured };
+}
+export function escapeLike(value: string) {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 export async function isAdmin(userId: string) {
   return !!(await db()

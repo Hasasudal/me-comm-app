@@ -1,11 +1,7 @@
 import { z } from 'zod';
-import { db, handle, json, requireAdmin } from '../../../../lib/server';
+import { db, escapeLike, handle, json, requireAdmin } from '../../../../lib/server';
 
 export const dynamic = 'force-dynamic';
-
-function escapeLike(value: string) {
-  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
-}
 
 export async function GET(request: Request) {
   return handle(async () => {

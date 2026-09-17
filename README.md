@@ -21,12 +21,12 @@ Firebase는 계정 비밀번호와 이메일 인증을 담당합니다. D1에는
 Node.js 22.13 이상이 필요합니다.
 
 ```sh
-npm run install:ci
-npm run build
+npm ci
+npm run db:migrate:local
 npm run dev
 ```
 
-새 로컬 데이터베이스에는 `npm run db:migrate:local`로 `drizzle/0000`~`0004`를 적용합니다. `.dev.vars.example`을 복사해 `.dev.vars`를 만들고 관리자 코드 해시·salt와 Firebase 공개 설정 네 값을 입력합니다.
+`npm run db:migrate:local`은 새 로컬 데이터베이스에 `drizzle/` 변경을 순서대로 적용합니다. `.dev.vars.example`을 복사해 `.dev.vars`를 만들고 관리자 코드 해시·salt와 Firebase 공개 설정 네 값을 입력합니다.
 
 ## Firebase 웹 앱 설정
 

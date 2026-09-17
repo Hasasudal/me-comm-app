@@ -2,21 +2,11 @@
 
 import { deleteUser, sendPasswordResetEmail, updateProfile, verifyBeforeUpdateEmail } from 'firebase/auth';
 import { FormEvent, useEffect, useState } from 'react';
+import { api } from '../api-client';
 import { firebaseAuth } from '../firebase-client';
 import { firebaseMessage, isSchoolEmail } from '../auth/firebase-errors';
 
 type Session = { signedIn: boolean; email?: string; displayName?: string };
-
-async function api<T = Record<string, unknown>>(method: string, body?: unknown): Promise<T> {
-  const response = await fetch('/api/account', {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = (await response.json()) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error || '요청을 처리하지 못했습니다.');
-  return data;
-}
 
 export default function AccountPanel() {
   const [session, setSession] = useState<Session | null>(null);
@@ -24,8 +14,7 @@ export default function AccountPanel() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   useEffect(() => {
-    fetch('/api/session', { cache: 'no-store' })
-      .then((response) => response.json() as Promise<Session>)
+    api<Session>('/api/session')
       .then(setSession)
       .catch(() => setError('계정 정보를 불러오지 못했습니다.'));
   }, []);
@@ -46,7 +35,7 @@ export default function AccountPanel() {
       const { user } = await currentUser();
       await updateProfile(user, { displayName: name });
       const idToken = await user.getIdToken(true);
-      const result = await api<{ displayName: string }>('PATCH', { idToken });
+      const result = await api<{ displayName: string }>('/api/account', { idToken }, 'PATCH');
       setSession((current) => (current ? { ...current, displayName: result.displayName } : current));
       setNotice('이름을 변경했습니다.');
     } catch (cause) {
@@ -102,10 +91,10 @@ export default function AccountPanel() {
     setNotice('');
     try {
       const confirm = String(new FormData(event.currentTarget).get('confirm') || '');
-      await api('DELETE', { confirm, dryRun: true });
+      await api('/api/account', { confirm, dryRun: true }, 'DELETE');
       const { user } = await currentUser();
       await deleteUser(user);
-      await api('DELETE', { confirm });
+      await api('/api/account', { confirm }, 'DELETE');
       window.location.assign('/');
     } catch (cause) {
       setError(firebaseMessage(cause));

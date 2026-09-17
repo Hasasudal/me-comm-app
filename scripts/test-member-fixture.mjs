@@ -7,7 +7,7 @@ function quote(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-function execute(sql) {
+export function execute(sql) {
   execFileSync(
     process.execPath,
     [
