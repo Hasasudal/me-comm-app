@@ -17,3 +17,8 @@ export function firebaseMessage(error: unknown) {
 export function isSchoolEmail(email: string) {
   return /^[^@\s]+@ks\.ac\.kr$/i.test(email.trim());
 }
+
+export function normalizeSchoolEmail(value: string) {
+  const email = value.trim().toLowerCase();
+  return email.includes('@') ? email : `${email}@ks.ac.kr`;
+}

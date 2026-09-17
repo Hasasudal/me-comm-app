@@ -4,7 +4,7 @@ import { sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPasswo
 import { useSearchParams } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { firebaseAuth, safeReturnTo } from '../firebase-client';
-import { firebaseMessage, isSchoolEmail } from '../auth/firebase-errors';
+import { firebaseMessage, isSchoolEmail, normalizeSchoolEmail } from '../auth/firebase-errors';
 
 export default function LoginForm() {
   const params = useSearchParams();
@@ -17,7 +17,7 @@ export default function LoginForm() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(''); setNotice(''); setUnverified(false);
     const data = new FormData(event.currentTarget);
-    const inputEmail = String(data.get('email') || '').trim().toLowerCase();
+    const inputEmail = normalizeSchoolEmail(String(data.get('email') || ''));
     const password = String(data.get('password') || '');
     if (!isSchoolEmail(inputEmail)) return setError('경성대학교 이메일(@ks.ac.kr)을 입력해주세요.');
     setBusy(true);
@@ -54,11 +54,12 @@ export default function LoginForm() {
 
   async function resetPassword() {
     setError('');
-    if (!isSchoolEmail(email)) return setError('비밀번호를 재설정할 학교 이메일을 입력해주세요.');
+    const schoolEmail = normalizeSchoolEmail(email);
+    if (!isSchoolEmail(schoolEmail)) return setError('비밀번호를 재설정할 학교 이메일을 입력해주세요.');
     setBusy(true);
     try {
       const auth = await firebaseAuth();
-      await sendPasswordResetEmail(auth, email, { url: `${window.location.origin}/login`, handleCodeInApp: false });
+      await sendPasswordResetEmail(auth, schoolEmail, { url: `${window.location.origin}/login`, handleCodeInApp: false });
       setNotice('가입 여부와 관계없이 요청을 접수했습니다. 메일함을 확인해주세요.');
     } catch (cause) {
       const message = firebaseMessage(cause);

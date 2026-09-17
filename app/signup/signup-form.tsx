@@ -4,7 +4,7 @@ import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } 
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { firebaseAuth } from '../firebase-client';
-import { firebaseMessage, isSchoolEmail } from '../auth/firebase-errors';
+import { firebaseMessage, isSchoolEmail, normalizeSchoolEmail } from '../auth/firebase-errors';
 
 export default function SignupForm() {
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function SignupForm() {
     setError('');
     const data = new FormData(event.currentTarget);
     const name = String(data.get('name') || '').trim();
-    const email = String(data.get('email') || '').trim().toLowerCase();
+    const email = normalizeSchoolEmail(String(data.get('email') || ''));
     const password = String(data.get('password') || '');
     const confirm = String(data.get('confirm') || '');
     if (name.length < 2 || name.length > 40) return setError('이름은 2자 이상 40자 이내로 입력해주세요.');
