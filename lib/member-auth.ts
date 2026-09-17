@@ -2,6 +2,7 @@ import { db } from './database';
 import { HttpError } from './http-error';
 
 const COOKIE_NAME = 'micom_session';
+const MAX_SESSIONS = 5;
 const SESSION_SECONDS = 60 * 60 * 24 * 14;
 
 export type Member = { userId: string; email: string; displayName: string; status: 'active' | 'suspended' };
@@ -91,7 +92,13 @@ export async function issueMemberSession(identity: { userId: string; email: stri
         "INSERT INTO users (id,email,display_name,status,suspended_at,created_at,updated_at) VALUES (?,?,?,'active',NULL,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,updated_at=excluded.updated_at",
       )
       .bind(identity.userId, identity.email, identity.displayName, now, now),
-    db().prepare('DELETE FROM sessions WHERE user_id=? OR expires_at<=?').bind(identity.userId, now),
+    // Keep other devices signed in: drop expired sessions and cap each member at MAX_SESSIONS.
+    db().prepare('DELETE FROM sessions WHERE expires_at<=?').bind(now),
+    db()
+      .prepare(
+        'DELETE FROM sessions WHERE user_id=? AND token_hash NOT IN (SELECT token_hash FROM sessions WHERE user_id=? ORDER BY created_at DESC LIMIT ?)',
+      )
+      .bind(identity.userId, identity.userId, MAX_SESSIONS - 1),
     db()
       .prepare('INSERT INTO sessions (token_hash,user_id,created_at,expires_at) VALUES (?,?,?,?)')
       .bind(tokenHash, identity.userId, now, expiresAt),

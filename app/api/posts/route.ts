@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   return handle(async () => {
     const member = await requireMember(request);
     const data = createSchema.parse(await input(request));
-    await limit(request, 'create', 10);
+    await limit(request, 'create', 10, member.userId);
     const id = crypto.randomUUID(),
       salt = crypto.randomUUID(),
       now = Date.now();

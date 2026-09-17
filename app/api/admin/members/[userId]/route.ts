@@ -2,6 +2,23 @@ import { db, handle, HttpError, input, json, requireAdmin } from '../../../../..
 
 export const dynamic = 'force-dynamic';
 
+// Revoked admins cannot rejoin with the shared code, so an active admin restores them here.
+export async function POST(request: Request, context: { params: Promise<{ userId: string }> }) {
+  return handle(async () => {
+    await requireAdmin(request);
+    await input(request);
+    const { userId } = await context.params;
+    const result = await db()
+      .prepare(
+        "UPDATE admin_users SET revoked_at=NULL WHERE user_id=? AND revoked_at IS NOT NULL AND EXISTS (SELECT 1 FROM users WHERE id=? AND status='active')",
+      )
+      .bind(userId, userId)
+      .run();
+    if (!result.meta.changes) throw new HttpError(404, '복구할 수 있는 관리자 계정을 찾을 수 없습니다.');
+    return json({ ok: true });
+  });
+}
+
 export async function DELETE(request: Request, context: { params: Promise<{ userId: string }> }) {
   return handle(async () => {
     const current = await requireAdmin(request);

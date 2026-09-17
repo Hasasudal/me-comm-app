@@ -164,9 +164,10 @@ export async function requireAdmin(request: Request) {
   if (!(await isAdmin(user.userId))) throw new HttpError(403, '관리자 권한이 필요합니다.');
   return user;
 }
-export async function limit(request: Request, scope: string, max = 30) {
-  const ip = request.headers.get('cf-connecting-ip') || 'local';
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${scope}:${ip}`));
+// Counts per signed-in member when `subject` is given; IP is only a fallback because campus Wi-Fi shares one address.
+export async function limit(request: Request, scope: string, max = 30, subject?: string) {
+  const who = subject ? `member:${subject}` : `ip:${request.headers.get('cf-connecting-ip') || 'local'}`;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${scope}:${who}`));
   const key = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
   const now = Date.now();
   await db().prepare('DELETE FROM attempts WHERE expires_at < ?').bind(now).run();
@@ -206,10 +207,16 @@ export async function visiblePost(id: string, member: Member, admin: boolean) {
     throw new HttpError(404, '게시글을 찾을 수 없습니다.');
   return post;
 }
-export async function checkPostPassword(request: Request, post: PostRow, password: string | undefined, admin: boolean) {
+export async function checkPostPassword(
+  request: Request,
+  post: PostRow,
+  password: string | undefined,
+  member: Member,
+  admin: boolean,
+) {
   if (admin) return;
   if (!password) throw new HttpError(400, '게시글 비밀번호를 입력해주세요.');
-  await limit(request, 'password', 30);
+  await limit(request, 'password', 30, member.userId);
   if (!(await verifyPassword(password, post.salt, post.password_hash)))
     throw new HttpError(403, '비밀번호가 일치하지 않습니다.');
 }

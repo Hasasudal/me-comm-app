@@ -30,7 +30,7 @@ export async function PATCH(request: Request, context: Context) {
     const data = editSchema.parse(await input(request));
     const { id } = await context.params;
     const post = await visiblePost(id, member, admin);
-    await checkPostPassword(request, post, data.password, admin);
+    await checkPostPassword(request, post, data.password, member, admin);
     const news = post.category === 'news';
     if (news && post.status === 'rejected' && !admin)
       throw new HttpError(409, '반려된 기사는 수정할 수 없습니다. 새 기사로 작성해주세요.');
@@ -67,7 +67,7 @@ export async function DELETE(request: Request, context: Context) {
     const { password } = z.object({ password: passwordField.optional() }).parse(await input(request));
     const { id } = await context.params;
     const post = await visiblePost(id, member, admin);
-    await checkPostPassword(request, post, password, admin);
+    await checkPostPassword(request, post, password, member, admin);
     await db().prepare('DELETE FROM posts WHERE id=?').bind(id).run();
     return json({ ok: true });
   });

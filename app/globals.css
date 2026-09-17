@@ -2474,3 +2474,12 @@ label small {
     padding: 12px 18px;
   }
 }
+
+.revoked-caption {
+  font-size: 12px;
+  color: #8a96a8;
+  margin: 10px 0 2px;
+}
+.member-row.revoked strong {
+  color: #8a96a8;
+}

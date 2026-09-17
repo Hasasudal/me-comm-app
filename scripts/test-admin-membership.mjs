@@ -56,6 +56,35 @@ assert.equal(
   'an admin cannot revoke their own account',
 );
 
+const second = fixture.secondCookie;
+assert.equal(
+  (await request('/api/admin/join', { method: 'POST', cookie: second, body: { code: adminCode } })).status,
+  201,
+  'a second member registers as admin',
+);
+assert.equal(
+  (await request('/api/admin/members/test-member-second', { method: 'DELETE', cookie, body: {} })).status,
+  200,
+  'an admin revokes another admin',
+);
+const rejoin = await request('/api/admin/join', { method: 'POST', cookie: second, body: { code: adminCode } });
+assert.equal(rejoin.status, 403, 'a revoked admin cannot rejoin with the shared code');
+const roster = await request('/api/admin/members', { cookie });
+assert.ok(roster.data.revoked.some((member) => member.user_id === 'test-member-second'), 'revoked admins are listed');
+assert.equal(
+  (await request('/api/admin/members/test-member-second', { method: 'POST', cookie: second, body: {} })).status,
+  403,
+  'a non-admin cannot restore',
+);
+assert.equal(
+  (await request('/api/admin/members/test-member-second', { method: 'POST', cookie, body: {} })).status,
+  200,
+  'an active admin restores a revoked admin',
+);
+assert.equal((await request('/api/session', { cookie: second })).data.admin, true, 'restored admin regains access');
+
 fixture.cleanup();
 
-console.log('PASS: code registration, role persistence, member listing and self-revocation protection.');
+console.log(
+  'PASS: code registration, role persistence, member listing, self-revocation protection, rejoin block and restore.',
+);

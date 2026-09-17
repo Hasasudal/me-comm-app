@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  RotateCcw,
   StickyNote,
   Trash2,
   UserMinus,
@@ -65,6 +66,7 @@ export default function ReviewWorkspace({
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
   const [members, setMembers] = useState<AdminMember[]>([]);
+  const [revoked, setRevoked] = useState<AdminMember[]>([]);
   const [membersError, setMembersError] = useState('');
   const loadId = useRef(0);
   const selected = articles.find((article) => article.id === selectedId) || null;
@@ -106,7 +108,9 @@ export default function ReviewWorkspace({
   const loadMembers = useCallback(async () => {
     setMembersError('');
     try {
-      setMembers((await api<{ members: AdminMember[] }>('/api/admin/members')).members);
+      const roster = await api<{ members: AdminMember[]; revoked: AdminMember[] }>('/api/admin/members');
+      setMembers(roster.members);
+      setRevoked(roster.revoked);
     } catch (e) {
       setMembersError((e as Error).message);
     }
@@ -174,6 +178,18 @@ export default function ReviewWorkspace({
     try {
       await api(`/api/admin/members/${encodeURIComponent(member.user_id)}`, {}, 'DELETE');
       onNotice(`${member.display_name}님의 관리자 권한을 회수했습니다.`);
+      await loadMembers();
+    } catch (e) {
+      setMembersError((e as Error).message);
+    }
+  }
+
+  async function restoreMember(member: AdminMember) {
+    if (!window.confirm(`${member.display_name}님의 관리자 권한을 복구할까요?`)) return;
+    setMembersError('');
+    try {
+      await api(`/api/admin/members/${encodeURIComponent(member.user_id)}`, {});
+      onNotice(`${member.display_name}님의 관리자 권한을 복구했습니다.`);
       await loadMembers();
     } catch (e) {
       setMembersError((e as Error).message);
@@ -248,6 +264,18 @@ export default function ReviewWorkspace({
                   <UserMinus size={16} />
                 </button>
               )}
+            </div>
+          ))}
+          {revoked.length > 0 && <p className="revoked-caption">회수된 관리자</p>}
+          {revoked.map((member) => (
+            <div className="member-row revoked" key={member.user_id}>
+              <div>
+                <strong>{member.display_name}</strong>
+                <small>{member.email}</small>
+              </div>
+              <button aria-label={`${member.display_name} 권한 복구`} onClick={() => void restoreMember(member)}>
+                <RotateCcw size={16} />
+              </button>
             </div>
           ))}
           {membersError && <p className="form-error">{membersError}</p>}
