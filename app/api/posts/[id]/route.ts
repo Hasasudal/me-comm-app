@@ -1,10 +1,21 @@
 import { z } from 'zod';
-import { db, editSchema, handle, HttpError, input, json, limit, passwordField, publicMetadata, publicPost, publishedPost, recruitmentValues, requireMember } from '../../../../lib/server';
-import { verifyPassword } from '../../../../lib/password';
+import { checkPostPassword, db, editSchema, handle, HttpError, input, isAdmin, json, passwordField, publicPost, recruitmentValues, requireMember, visiblePost } from '../../../../lib/server';
 type Context={params:Promise<{id:string}>};
 export const dynamic='force-dynamic';
-async function authenticated(request:Request,id:string,password:string){await limit(request,'password',30);const post=await publishedPost(id);if(!await verifyPassword(password,post.salt,post.password_hash))throw new HttpError(403,'비밀번호가 일치하지 않습니다.');return post;}
-export async function GET(request:Request,context:Context){return handle(async()=>{await requireMember(request);const {id}=await context.params;return json({post:publicMetadata(await publishedPost(id))});});}
-export async function POST(request:Request,context:Context){return handle(async()=>{await requireMember(request);const {password}=z.object({password:passwordField}).parse(await input(request));const {id}=await context.params;const post=await authenticated(request,id,password);return json({post:publicPost(post)});});}
-export async function PATCH(request:Request,context:Context){return handle(async()=>{await requireMember(request);const data=editSchema.parse(await input(request));const {id}=await context.params;const post=await authenticated(request,id,data.password);const status=post.category==='news'?'pending':'published';const [recruitmentStatus,deadline,headcount,roles]=recruitmentValues(data,post.category);await db().prepare('UPDATE posts SET title=?,content=?,status=?,recruitment_status=?,deadline=?,headcount=?,roles=?,updated_at=? WHERE id=?').bind(data.title,data.content,status,recruitmentStatus,deadline,headcount,roles,Date.now(),id).run();return json({ok:true,status});});}
-export async function DELETE(request:Request,context:Context){return handle(async()=>{await requireMember(request);const {password}=z.object({password:passwordField}).parse(await input(request));const {id}=await context.params;await authenticated(request,id,password);await db().prepare('DELETE FROM posts WHERE id=?').bind(id).run();return json({ok:true});});}
+export async function GET(request:Request,context:Context){return handle(async()=>{const member=await requireMember(request);const {id}=await context.params;return json({post:publicPost(await visiblePost(id,member,await isAdmin(member.userId)))});});}
+export async function PATCH(request:Request,context:Context){return handle(async()=>{
+ const member=await requireMember(request);const admin=await isAdmin(member.userId);const data=editSchema.parse(await input(request));const {id}=await context.params;
+ const post=await visiblePost(id,member,admin);await checkPostPassword(request,post,data.password,admin);
+ const news=post.category==='news';
+ if(news&&post.status==='rejected'&&!admin)throw new HttpError(409,'반려된 기사는 수정할 수 없습니다. 새 기사로 작성해주세요.');
+ // Any change to news sends it back for review and clears the previous feedback.
+ const status=news?'pending':'published';const feedback=news?null:post.feedback;
+ const [recruitmentStatus,deadline,headcount,roles]=recruitmentValues(data,post.category);
+ await db().prepare('UPDATE posts SET title=?,content=?,author_name=?,prefix=?,status=?,feedback=?,recruitment_status=?,deadline=?,headcount=?,roles=?,updated_at=? WHERE id=?').bind(data.title,data.content,data.author_name,data.prefix,status,feedback,recruitmentStatus,deadline,headcount,roles,Date.now(),id).run();
+ return json({ok:true,status});
+});}
+export async function DELETE(request:Request,context:Context){return handle(async()=>{
+ const member=await requireMember(request);const admin=await isAdmin(member.userId);const {password}=z.object({password:passwordField.optional()}).parse(await input(request));const {id}=await context.params;
+ const post=await visiblePost(id,member,admin);await checkPostPassword(request,post,password,admin);
+ await db().prepare('DELETE FROM posts WHERE id=?').bind(id).run();return json({ok:true});
+});}

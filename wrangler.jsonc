@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "micom",
+  "main": "vinext/server/fetch-handler",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "micom-lounge",
+      "database_id": "eee8564e-e13a-4394-b0f7-af5d9688e62d",
+      "migrations_dir": "drizzle"
+    }
+  ]
+}

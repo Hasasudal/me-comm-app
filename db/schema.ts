@@ -12,9 +12,13 @@ export const posts = sqliteTable('posts', {
  deadline: text('deadline'),
  headcount: integer('headcount'),
  roles: text('roles'),
+ author_id: text('author_id'),
+ author_name: text('author_name'),
+ prefix: text('prefix'),
+ feedback: text('feedback'),
  created_at: integer('created_at').notNull(),
  updated_at: integer('updated_at').notNull(),
-},table=>[index('idx_posts_status_created').on(table.status,table.created_at)]);
+},table=>[index('idx_posts_status_created').on(table.status,table.created_at),index('idx_posts_author').on(table.author_id,table.created_at)]);
 
 export const attempts=sqliteTable('attempts',{
  key:text('key').primaryKey(),

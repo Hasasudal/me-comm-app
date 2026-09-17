@@ -1,13 +1,11 @@
 'use client';
 
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { firebaseAuth } from '../firebase-client';
 import { firebaseMessage, isSchoolEmail, normalizeSchoolEmail } from '../auth/firebase-errors';
 
 export default function SignupForm() {
-  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -32,7 +30,7 @@ export default function SignupForm() {
         url: `${window.location.origin}/login?verified=1`,
         handleCodeInApp: false,
       });
-      router.push('/verify-email');
+      window.location.assign('/verify-email');
     } catch (cause) {
       setError(firebaseMessage(cause));
     } finally {
