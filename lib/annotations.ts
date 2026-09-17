@@ -1,7 +1,7 @@
 export type MarkType='highlight'|'bold'|'memo';
 export type Mark={start:number;end:number;type:MarkType;memo?:string};
 export type Review={note:string;marks:Mark[]};
-export type Segment={text:string;bold:boolean;highlight:boolean;memo:boolean;memoEnds:number[]};
+export type Segment={text:string;bold:boolean;highlight:boolean;memo:boolean;memoStarts:number[];memoEnds:number[]};
 
 // Memo numbers follow reading order so the list under the article matches the badges.
 export function memoNumbers(marks:Mark[]){
@@ -23,8 +23,12 @@ export function segments(content:string,marks:Mark[]):Segment[]{
    bold:active.some(mark=>mark.type==='bold'),
    highlight:active.some(mark=>mark.type==='highlight'),
    memo:active.some(mark=>mark.type==='memo'),
+   memoStarts:active.filter(mark=>mark.type==='memo'&&mark.start===from).map(mark=>numbers.get(mark)!),
    memoEnds:active.filter(mark=>mark.type==='memo'&&mark.end===to).map(mark=>numbers.get(mark)!),
   });
  }
  return result;
 }
+
+// Marks touching [start,end) — used to clear formatting from a selection.
+export function overlaps(mark:Mark,start:number,end:number){return mark.start<end&&mark.end>start;}
