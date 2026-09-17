@@ -10,9 +10,8 @@ assert.match(detailHtml,/로그인/);
 
 const boardHtml=await (await fetch(base+'/')).text();
 assert.doesNotMatch(boardHtml,/aria-label="제목 검색"/,'anonymous page does not expose board controls');
-assert.match(boardHtml,/로그인/,'public home offers member login');
-assert.match(boardHtml,/회원가입/,'public home offers school sign-up');
-assert.match(boardHtml,/학교 이메일/,'public home explains the member gate');
+assert.match(boardHtml,/계정 정보를 확인하고 있습니다/,'initial page waits for the member session before choosing a signed-in or guest view');
+assert.doesNotMatch(boardHtml,/학교 이메일 인증 후 이용할 수 있어요/,'initial page does not flash the guest gate before session loading finishes');
 
 const join=await fetch(base+'/admin/join');
 const joinHtml=await join.text();
