@@ -1,7 +1,6 @@
 'use client';
 
 import { applyActionCode, checkActionCode, confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
-import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { firebaseAuth } from '../../firebase-client';
 import { firebaseMessage } from '../firebase-errors';
@@ -61,7 +60,7 @@ export default function ActionHandler({ mode, oobCode, continueUrl }: { mode: Ac
 
   if (!mode || !oobCode) return <div className="action-state error-box" role="alert">{error}</div>;
   if (busy) return <div className="action-state">요청을 확인하고 있습니다…</div>;
-  if (done) return <div className="action-state success"><strong>{mode === 'verifyEmail' ? '학교 이메일 인증을 마쳤습니다.' : mode === 'recoverEmail' ? '이메일을 복구했습니다.' : '비밀번호를 변경했습니다.'}</strong><p>이제 학교 계정으로 로그인할 수 있습니다.</p><Link className="primary full" href={destination}>계속하기</Link></div>;
+  if (done) return <div className="action-state success"><strong>{mode === 'verifyEmail' ? '학교 이메일 인증을 마쳤습니다.' : mode === 'recoverEmail' ? '이메일을 복구했습니다.' : '비밀번호를 변경했습니다.'}</strong><p>이제 학교 계정으로 로그인할 수 있습니다.</p><a className="primary full" href={destination}>계속하기</a></div>;
 
   if (mode === 'resetPassword' && !error) return (
     <form className="auth-form" onSubmit={reset}>

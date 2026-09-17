@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import AuthFrame from '../auth-frame';
 import ActionHandler, { type ActionMode } from './action-handler';
 
@@ -17,7 +16,7 @@ export default async function EmailActionPage({ searchParams }: { searchParams: 
   } as const;
   const copy = mode ? titles[mode] : ['INVALID REQUEST', '올바르지 않은 요청', '이메일 링크가 잘못되었거나 지원하지 않는 작업입니다.'];
   return (
-    <AuthFrame eyebrow={copy[0]} title={copy[1]} description={copy[2]} footer={<Link href="/login">로그인 화면으로 돌아가기</Link>}>
+    <AuthFrame eyebrow={copy[0]} title={copy[1]} description={copy[2]} footer={<a href="/login">로그인 화면으로 돌아가기</a>}>
       <ActionHandler mode={mode} oobCode={oobCode} continueUrl={continueUrl} />
     </AuthFrame>
   );

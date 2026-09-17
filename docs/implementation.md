@@ -9,10 +9,18 @@
 
 ## 게시판
 
-- `/`, `/news`, `/clubs`, `/contests`는 서로 다른 주소와 게시판 화면을 제공합니다.
-- 목록에는 제목·분류·작성일과 모집 정보만 표시합니다. 본문은 게시글 비밀번호 확인 후 반환합니다.
+- `/`, `/board`, `/news`, `/clubs`, `/contests`는 서로 다른 주소와 게시판 화면을 제공합니다. 통합 게시판(`/`)에는 뉴스를 제외한 글이 모입니다.
+- 로그인 회원은 비밀번호 없이 본문을 봅니다. 게시글 비밀번호는 수정·삭제 확인에만 쓰며, 관리자는 비밀번호 없이 수정·삭제할 수 있습니다.
+- 글마다 작성자 계정(`author_id`), 직접 입력한 작성자 이름, 선택 입력 머릿글을 저장합니다. 이 컬럼이 생기기 전의 글은 작성자 계정이 비어 있습니다.
 - 게시글 비밀번호는 무작위 salt와 PBKDF2 해시로 저장합니다.
-- 뉴스는 제출 후 승인 대기가 되며 `/admin`에서 승인된 뒤 공개됩니다. 공개 뉴스를 작성자가 수정하면 다시 승인 대기로 전환합니다.
+
+## 학과 뉴스 검토
+
+- 뉴스는 작성자 본인과 관리자만 볼 수 있습니다. 승인된 기사도 다른 회원에게 공개하지 않습니다.
+- 상태는 `pending`(승인 대기), `feedback`(피드백), `rejected`(반려), `published`(승인) 네 가지입니다.
+- `/admin`은 상태별 탭으로 기사를 보여줍니다. 승인 대기 기사에서 본문을 드래그해 형광펜·굵게·메모를 남기고 피드백을 보내거나, 사유를 적어 반려하거나, 승인합니다.
+- 피드백은 `{note, marks[]}` JSON으로 `feedback` 컬럼에 저장하며, 표시 위치는 본문 문자열 오프셋입니다.
+- 작성자가 피드백 받은 기사나 승인된 기사를 수정하면 다시 승인 대기로 바뀌고 이전 피드백은 지워집니다. 반려된 기사는 작성자가 수정할 수 없습니다.
 
 ## 계정과 관리자
 
@@ -21,13 +29,13 @@
 - `/admin/join`에서 로그인 회원이 관리자 초대 코드를 등록합니다. 코드 원문은 저장하지 않고 PBKDF2 해시와 salt만 환경 변수에 둡니다.
 - `/admin/members`에서 관리자가 회원을 검색하고 이용 정지·복구할 수 있습니다. 현재 관리자 자기 정지와 마지막 관리자 제거는 차단합니다.
 
-## 운영 설정 순서
+## 운영 설정 순서 (Cloudflare Workers + D1)
 
-1. Firebase 웹 앱을 등록하고 Email/Password 로그인을 활성화합니다.
-2. 운영 도메인을 Firebase 승인 도메인에 추가합니다.
-3. 이메일 작업 템플릿의 사용자 지정 작업 URL을 `https://micom-campus-20260915.sudal0-0.chatgpt.site/auth/action`으로 설정합니다.
-4. Sites 환경에 `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID`를 추가합니다.
-5. 기존 `ADMIN_JOIN_CODE_HASH`, `ADMIN_JOIN_CODE_SALT`를 보존합니다.
-6. D1에 `drizzle/0003_school_members.sql`을 적용합니다.
-7. 사이트를 소유자 전용으로 먼저 배포해 실제 학교 이메일 인증을 확인합니다.
-8. 성공한 뒤 Sites 접근 정책을 공개로 바꿉니다.
+1. `npx wrangler login`으로 Cloudflare 계정에 로그인합니다.
+2. `npx wrangler d1 create micom-lounge`를 실행하고 출력된 `database_id`를 `wrangler.jsonc`에 넣습니다.
+3. `npm run db:migrate:remote`로 `drizzle/0000`~`0004`를 운영 D1에 적용합니다.
+4. `npx wrangler secret put <이름>`으로 `ADMIN_JOIN_CODE_HASH`, `ADMIN_JOIN_CODE_SALT`, `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID`를 등록합니다.
+5. `npm run deploy`로 빌드와 배포를 진행합니다. 기본 주소는 `https://micom-lounge.<계정 서브도메인>.workers.dev`입니다.
+6. Firebase 승인 도메인에 배포 주소를 추가합니다. 이메일 작업 URL은 Firebase 기본값을 유지합니다(콘솔에서 사용자 지정 URL 저장 시 400 오류, Identity Platform 미사용). 인증·재설정 링크는 Firebase 기본 화면에서 처리된 뒤 계속 버튼으로 `/login`에 돌아오며, `/auth/action` 화면은 사용자 지정 작업 URL을 설정할 때만 쓰입니다.
+7. 실제 학교 이메일로 가입·인증·로그인·글 작성·뉴스 검토를 확인합니다.
+8. 필요하면 Cloudflare 대시보드에서 Worker에 사용자 도메인을 연결하고 6번을 그 도메인으로 다시 설정합니다.
