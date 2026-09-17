@@ -1,93 +1,383 @@
 import assert from 'node:assert/strict';
 import { createMemberFixture } from './test-member-fixture.mjs';
-const base='http://localhost:5173';
-const password='Test-only-1234';
-const adminCode='Local-admin-code-1234';
-const fixture=await createMemberFixture();
-const admin=fixture.activeCookie,author=fixture.secondCookie;
-async function request(path,{method='GET',body,cookie=author}={}){
- const res=await fetch(base+path,{method,headers:{...(body?{'Content-Type':'application/json',Origin:base}:{}),...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});
- const data=await res.json();return {status:res.status,data};
+const base = 'http://localhost:5173';
+const password = 'Test-only-1234';
+const adminCode = 'Local-admin-code-1234';
+const fixture = await createMemberFixture();
+const admin = fixture.activeCookie,
+  author = fixture.secondCookie;
+async function request(path, { method = 'GET', body, cookie = author } = {}) {
+  const res = await fetch(base + path, {
+    method,
+    headers: {
+      ...(body ? { 'Content-Type': 'application/json', Origin: base } : {}),
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  return { status: res.status, data };
 }
-const suffix=Date.now();
-const ids={};
-try{
- assert.equal((await request('/api/posts',{cookie:''})).status,401,'anonymous list is denied');
- assert.equal((await request('/api/posts',{method:'POST',cookie:'',body:{title:'x',content:'x',author_name:'x',password,category:'board'}})).status,401,'anonymous create is denied');
+const suffix = Date.now();
+const ids = {};
+try {
+  assert.equal((await request('/api/posts', { cookie: '' })).status, 401, 'anonymous list is denied');
+  assert.equal(
+    (
+      await request('/api/posts', {
+        method: 'POST',
+        cookie: '',
+        body: { title: 'x', content: 'x', author_name: 'x', password, category: 'board' },
+      })
+    ).status,
+    401,
+    'anonymous create is denied',
+  );
 
- for(const category of ['board','clubs','contests','news']){
-  const recruitment=category==='clubs'||category==='contests'?{recruitment_status:'open',deadline:'2026-12-31',headcount:3,roles:'기획, 디자인'}:{};
-  const r=await request('/api/posts',{method:'POST',body:{title:`검증 ${category} ${suffix}`,content:'본문 테스트 <script>alert(1)</script>',category,author_name:'작성자',prefix:`${category}머릿글`,password,...recruitment}});
-  assert.equal(r.status,201);assert.equal(r.data.status,category==='news'?'pending':'published');ids[category]=r.data.id;
- }
- assert.equal((await request('/api/posts',{method:'POST',body:{title:'x',content:'x',category:'board',password}})).status,400,'author name is required');
+  for (const category of ['board', 'clubs', 'contests', 'news']) {
+    const recruitment =
+      category === 'clubs' || category === 'contests'
+        ? { recruitment_status: 'open', deadline: '2026-12-31', headcount: 3, roles: '기획, 디자인' }
+        : {};
+    const r = await request('/api/posts', {
+      method: 'POST',
+      body: {
+        title: `검증 ${category} ${suffix}`,
+        content: '본문 테스트 <script>alert(1)</script>',
+        category,
+        author_name: '작성자',
+        prefix: `${category}머릿글`,
+        password,
+        ...recruitment,
+      },
+    });
+    assert.equal(r.status, 201);
+    assert.equal(r.data.status, category === 'news' ? 'pending' : 'published');
+    ids[category] = r.data.id;
+  }
+  assert.equal(
+    (await request('/api/posts', { method: 'POST', body: { title: 'x', content: 'x', category: 'board', password } }))
+      .status,
+    400,
+    'author name is required',
+  );
 
- // Before joining as admin, the first member is an ordinary reader.
- let list=await request('/api/posts',{cookie:admin});assert.equal(list.status,200);
- assert.equal(list.data.posts.some(x=>x.id===ids.news),false,'combined board never lists news');
- const board=list.data.posts.find(x=>x.id===ids.board);
- assert.equal(board.prefix,'board머릿글','prefix listed');assert.equal(board.author_name,'작성자','author name listed');
- assert.equal(JSON.stringify(list.data).includes('본문 테스트'),false,'list does not include bodies');
- assert.equal(JSON.stringify(list.data).includes('password_hash'),false,'hash not leaked');
- const contest=list.data.posts.find(x=>x.id===ids.contests);
- assert.equal(contest.recruitment_status,'open');assert.equal(contest.deadline,'2026-12-31');assert.equal(contest.headcount,3);assert.equal(contest.roles,'기획, 디자인');
- assert.equal((await request('/api/posts?category=news',{cookie:admin})).data.posts.length,0,'news tab lists only own articles');
- assert.equal((await request(`/api/posts/${ids.news}`,{cookie:admin})).status,404,'other members cannot open news');
- const read=await request(`/api/posts/${ids.board}`,{cookie:admin});
- assert.equal(read.status,200);assert.equal(read.data.post.content,'본문 테스트 <script>alert(1)</script>','members read bodies without a password');
- assert.equal('password_hash' in read.data.post,false);
+  // Before joining as admin, the first member is an ordinary reader.
+  let list = await request('/api/posts', { cookie: admin });
+  assert.equal(list.status, 200);
+  assert.equal(
+    list.data.posts.some((x) => x.id === ids.news),
+    false,
+    'combined board never lists news',
+  );
+  const board = list.data.posts.find((x) => x.id === ids.board);
+  assert.equal(board.prefix, 'board머릿글', 'prefix listed');
+  assert.equal(board.author_name, '작성자', 'author name listed');
+  assert.equal(JSON.stringify(list.data).includes('본문 테스트'), false, 'list does not include bodies');
+  assert.equal(JSON.stringify(list.data).includes('password_hash'), false, 'hash not leaked');
+  const contest = list.data.posts.find((x) => x.id === ids.contests);
+  assert.equal(contest.recruitment_status, 'open');
+  assert.equal(contest.deadline, '2026-12-31');
+  assert.equal(contest.headcount, 3);
+  assert.equal(contest.roles, '기획, 디자인');
+  assert.equal(
+    (await request('/api/posts?category=news', { cookie: admin })).data.posts.length,
+    0,
+    'news tab lists only own articles',
+  );
+  assert.equal(
+    (await request(`/api/posts/${ids.news}`, { cookie: admin })).status,
+    404,
+    'other members cannot open news',
+  );
+  const read = await request(`/api/posts/${ids.board}`, { cookie: admin });
+  assert.equal(read.status, 200);
+  assert.equal(
+    read.data.post.content,
+    '본문 테스트 <script>alert(1)</script>',
+    'members read bodies without a password',
+  );
+  assert.equal('password_hash' in read.data.post, false);
 
- const mine=await request('/api/posts?category=news');
- assert.deepEqual(mine.data.posts.map(x=>[x.id,x.status]),[[ids.news,'pending']],'author sees own pending news');
+  const mine = await request('/api/posts?category=news');
+  assert.deepEqual(
+    mine.data.posts.map((x) => [x.id, x.status]),
+    [[ids.news, 'pending']],
+    'author sees own pending news',
+  );
 
- assert.equal((await request(`/api/posts/${ids.board}`,{method:'PATCH',cookie:admin,body:{title:'변경',content:'변경',author_name:'x',password:'incorrect-pass'}})).status,403,'wrong password blocks edit');
- assert.equal((await request(`/api/posts/${ids.board}`,{method:'PATCH',cookie:admin,body:{title:'변경',content:'변경',author_name:'x'}})).status,400,'non-admin edit needs a password');
- assert.equal((await request(`/api/posts/${ids.board}`,{method:'DELETE',cookie:admin,body:{password:'incorrect-pass'}})).status,403,'wrong password blocks delete');
- assert.equal((await request(`/api/posts/${ids.board}`,{method:'PATCH',body:{title:'수정 검증',content:'수정한 본문',author_name:'새이름',prefix:'',password}})).status,200);
- const edited=(await request(`/api/posts/${ids.board}`)).data.post;
- assert.equal(edited.content,'수정한 본문');assert.equal(edited.author_name,'새이름');assert.equal(edited.prefix,null,'empty prefix clears it');
- assert.equal((await request(`/api/posts/${ids.contests}`,{method:'PATCH',body:{title:'모집 수정',content:'수정한 모집',author_name:'작성자',password,recruitment_status:'closed',deadline:'2027-01-15',headcount:4,roles:'영상, 개발'}})).status,200);
- const recruit=(await request(`/api/posts/${ids.contests}`)).data.post;
- assert.equal(recruit.recruitment_status,'closed');assert.equal(recruit.headcount,4);assert.equal(recruit.roles,'영상, 개발');
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.board}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: { title: '변경', content: '변경', author_name: 'x', password: 'incorrect-pass' },
+      })
+    ).status,
+    403,
+    'wrong password blocks edit',
+  );
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.board}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: { title: '변경', content: '변경', author_name: 'x' },
+      })
+    ).status,
+    400,
+    'non-admin edit needs a password',
+  );
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.board}`, {
+        method: 'DELETE',
+        cookie: admin,
+        body: { password: 'incorrect-pass' },
+      })
+    ).status,
+    403,
+    'wrong password blocks delete',
+  );
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.board}`, {
+        method: 'PATCH',
+        body: { title: '수정 검증', content: '수정한 본문', author_name: '새이름', prefix: '', password },
+      })
+    ).status,
+    200,
+  );
+  const edited = (await request(`/api/posts/${ids.board}`)).data.post;
+  assert.equal(edited.content, '수정한 본문');
+  assert.equal(edited.author_name, '새이름');
+  assert.equal(edited.prefix, null, 'empty prefix clears it');
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.contests}`, {
+        method: 'PATCH',
+        body: {
+          title: '모집 수정',
+          content: '수정한 모집',
+          author_name: '작성자',
+          password,
+          recruitment_status: 'closed',
+          deadline: '2027-01-15',
+          headcount: 4,
+          roles: '영상, 개발',
+        },
+      })
+    ).status,
+    200,
+  );
+  const recruit = (await request(`/api/posts/${ids.contests}`)).data.post;
+  assert.equal(recruit.recruitment_status, 'closed');
+  assert.equal(recruit.headcount, 4);
+  assert.equal(recruit.roles, '영상, 개발');
 
- assert.equal((await request('/api/admin/posts')).status,403,'non-admin cannot open the review queue');
- assert.equal((await request(`/api/admin/posts/${ids.news}`,{method:'PATCH',body:{action:'approve',updated_at:0}})).status,403);
- if(!(await request('/api/session',{cookie:admin})).data.admin)assert.equal((await request('/api/admin/join',{method:'POST',cookie:admin,body:{code:adminCode}})).status,201,'local test account registers with the admin code');
- assert.equal((await request(`/api/posts/${ids.news}`,{cookie:admin})).status,200,'admin can open any news');
+  assert.equal((await request('/api/admin/posts')).status, 403, 'non-admin cannot open the review queue');
+  assert.equal(
+    (await request(`/api/admin/posts/${ids.news}`, { method: 'PATCH', body: { action: 'approve', updated_at: 0 } }))
+      .status,
+    403,
+  );
+  if (!(await request('/api/session', { cookie: admin })).data.admin)
+    assert.equal(
+      (await request('/api/admin/join', { method: 'POST', cookie: admin, body: { code: adminCode } })).status,
+      201,
+      'local test account registers with the admin code',
+    );
+  assert.equal((await request(`/api/posts/${ids.news}`, { cookie: admin })).status, 200, 'admin can open any news');
 
- const pending=async()=>(await request('/api/admin/posts?status=pending',{cookie:admin})).data.posts.find(x=>x.id===ids.news);
- let news=await pending();assert.ok(news,'news waits in the pending tab');
- assert.equal((await request(`/api/admin/posts/${ids.news}`,{method:'PATCH',cookie:admin,body:{action:'edit',title:'관리자 검토',content:'관리자가 다듬은 기사 본문',prefix:'행사',updated_at:news.updated_at}})).status,200);
- assert.equal((await request(`/api/admin/posts/${ids.news}`,{method:'PATCH',cookie:admin,body:{action:'approve',updated_at:news.updated_at}})).status,409,'stale review blocked');
- news=await pending();
- assert.equal((await request(`/api/admin/posts/${ids.news}`,{method:'PATCH',cookie:admin,body:{action:'feedback',note:'',marks:[{start:0,end:999,type:'bold'}],updated_at:news.updated_at}})).status,400,'marks must stay inside the body');
- assert.equal((await request(`/api/admin/posts/${ids.news}`,{method:'PATCH',cookie:admin,body:{action:'feedback',note:'',marks:[{start:0,end:3,type:'memo'}],updated_at:news.updated_at}})).status,400,'memo marks need text');
- const marks=[{start:0,end:3,type:'highlight'},{start:4,end:7,type:'memo',memo:'근거 보완'}];
- assert.equal((await request(`/api/admin/posts/${ids.news}`,{method:'PATCH',cookie:admin,body:{action:'feedback',note:'보완해주세요',marks,updated_at:news.updated_at}})).status,200);
- let authored=(await request(`/api/posts/${ids.news}`)).data.post;
- assert.equal(authored.status,'feedback');assert.equal(authored.feedback.note,'보완해주세요');assert.deepEqual(authored.feedback.marks,marks,'author receives feedback marks');
- assert.equal((await request(`/api/posts/${ids.news}`,{method:'PATCH',body:{title:'다시 제출',content:'보완한 본문',author_name:'작성자',password}})).data.status,'pending','resubmission returns to pending');
- authored=(await request(`/api/posts/${ids.news}`)).data.post;assert.equal(authored.feedback,null,'resubmission clears feedback');
+  const pending = async () =>
+    (await request('/api/admin/posts?status=pending', { cookie: admin })).data.posts.find((x) => x.id === ids.news);
+  let news = await pending();
+  assert.ok(news, 'news waits in the pending tab');
+  assert.equal(
+    (
+      await request(`/api/admin/posts/${ids.news}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: {
+          action: 'edit',
+          title: '관리자 검토',
+          content: '관리자가 다듬은 기사 본문',
+          prefix: '행사',
+          updated_at: news.updated_at,
+        },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await request(`/api/admin/posts/${ids.news}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: { action: 'approve', updated_at: news.updated_at },
+      })
+    ).status,
+    409,
+    'stale review blocked',
+  );
+  news = await pending();
+  assert.equal(
+    (
+      await request(`/api/admin/posts/${ids.news}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: {
+          action: 'feedback',
+          note: '',
+          marks: [{ start: 0, end: 999, type: 'bold' }],
+          updated_at: news.updated_at,
+        },
+      })
+    ).status,
+    400,
+    'marks must stay inside the body',
+  );
+  assert.equal(
+    (
+      await request(`/api/admin/posts/${ids.news}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: {
+          action: 'feedback',
+          note: '',
+          marks: [{ start: 0, end: 3, type: 'memo' }],
+          updated_at: news.updated_at,
+        },
+      })
+    ).status,
+    400,
+    'memo marks need text',
+  );
+  const marks = [
+    { start: 0, end: 3, type: 'highlight' },
+    { start: 4, end: 7, type: 'memo', memo: '근거 보완' },
+  ];
+  assert.equal(
+    (
+      await request(`/api/admin/posts/${ids.news}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: { action: 'feedback', note: '보완해주세요', marks, updated_at: news.updated_at },
+      })
+    ).status,
+    200,
+  );
+  let authored = (await request(`/api/posts/${ids.news}`)).data.post;
+  assert.equal(authored.status, 'feedback');
+  assert.equal(authored.feedback.note, '보완해주세요');
+  assert.deepEqual(authored.feedback.marks, marks, 'author receives feedback marks');
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.news}`, {
+        method: 'PATCH',
+        body: { title: '다시 제출', content: '보완한 본문', author_name: '작성자', password },
+      })
+    ).data.status,
+    'pending',
+    'resubmission returns to pending',
+  );
+  authored = (await request(`/api/posts/${ids.news}`)).data.post;
+  assert.equal(authored.feedback, null, 'resubmission clears feedback');
 
- news=await pending();
- assert.equal((await request(`/api/admin/posts/${ids.news}`,{method:'PATCH',cookie:admin,body:{action:'reject',note:'',updated_at:news.updated_at}})).status,400,'rejection needs a reason');
- assert.equal((await request(`/api/admin/posts/${ids.news}`,{method:'PATCH',cookie:admin,body:{action:'reject',note:'주제 불일치',updated_at:news.updated_at}})).status,200);
- assert.equal((await request(`/api/posts/${ids.news}`)).data.post.feedback.note,'주제 불일치');
- assert.equal((await request(`/api/posts/${ids.news}`,{method:'PATCH',body:{title:'x',content:'x',author_name:'x',password}})).status,409,'rejected news cannot be edited by its author');
+  news = await pending();
+  assert.equal(
+    (
+      await request(`/api/admin/posts/${ids.news}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: { action: 'reject', note: '', updated_at: news.updated_at },
+      })
+    ).status,
+    400,
+    'rejection needs a reason',
+  );
+  assert.equal(
+    (
+      await request(`/api/admin/posts/${ids.news}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: { action: 'reject', note: '주제 불일치', updated_at: news.updated_at },
+      })
+    ).status,
+    200,
+  );
+  assert.equal((await request(`/api/posts/${ids.news}`)).data.post.feedback.note, '주제 불일치');
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.news}`, {
+        method: 'PATCH',
+        body: { title: 'x', content: 'x', author_name: 'x', password },
+      })
+    ).status,
+    409,
+    'rejected news cannot be edited by its author',
+  );
 
- const second=await request('/api/posts',{method:'POST',body:{title:`승인 검증 ${suffix}`,content:'승인될 기사',category:'news',author_name:'작성자',password}});ids.news2=second.data.id;
- news=(await request('/api/admin/posts?status=pending',{cookie:admin})).data.posts.find(x=>x.id===ids.news2);
- assert.equal((await request(`/api/admin/posts/${ids.news2}`,{method:'PATCH',cookie:admin,body:{action:'approve',updated_at:news.updated_at}})).status,200);
- const tabs=Object.fromEntries(await Promise.all(['rejected','published'].map(async s=>[s,(await request(`/api/admin/posts?status=${s}`,{cookie:admin})).data.posts.map(x=>x.id)])));
- assert.ok(tabs.rejected.includes(ids.news));assert.ok(tabs.published.includes(ids.news2));
- assert.equal((await request('/api/posts',{cookie:admin})).data.posts.some(x=>x.id===ids.news2),false,'approved news stays private');
+  const second = await request('/api/posts', {
+    method: 'POST',
+    body: { title: `승인 검증 ${suffix}`, content: '승인될 기사', category: 'news', author_name: '작성자', password },
+  });
+  ids.news2 = second.data.id;
+  news = (await request('/api/admin/posts?status=pending', { cookie: admin })).data.posts.find(
+    (x) => x.id === ids.news2,
+  );
+  assert.equal(
+    (
+      await request(`/api/admin/posts/${ids.news2}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: { action: 'approve', updated_at: news.updated_at },
+      })
+    ).status,
+    200,
+  );
+  const tabs = Object.fromEntries(
+    await Promise.all(
+      ['rejected', 'published'].map(async (s) => [
+        s,
+        (await request(`/api/admin/posts?status=${s}`, { cookie: admin })).data.posts.map((x) => x.id),
+      ]),
+    ),
+  );
+  assert.ok(tabs.rejected.includes(ids.news));
+  assert.ok(tabs.published.includes(ids.news2));
+  assert.equal(
+    (await request('/api/posts', { cookie: admin })).data.posts.some((x) => x.id === ids.news2),
+    false,
+    'approved news stays private',
+  );
 
- assert.equal((await request(`/api/posts/${ids.clubs}`,{method:'DELETE',cookie:admin,body:{}})).status,200,'admin deletes without a password');
- delete ids.clubs;
- assert.equal((await request('/api/posts',{method:'POST',body:{title:' ',content:'x',author_name:'x',password,category:'board'}})).status,400);
- const cross=await fetch(base+'/api/posts',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://untrusted.example',Cookie:author},body:JSON.stringify({title:'x',content:'x',author_name:'x',password,category:'board'})});assert.equal(cross.status,403);
+  assert.equal(
+    (await request(`/api/posts/${ids.clubs}`, { method: 'DELETE', cookie: admin, body: {} })).status,
+    200,
+    'admin deletes without a password',
+  );
+  delete ids.clubs;
+  assert.equal(
+    (
+      await request('/api/posts', {
+        method: 'POST',
+        body: { title: ' ', content: 'x', author_name: 'x', password, category: 'board' },
+      })
+    ).status,
+    400,
+  );
+  const cross = await fetch(base + '/api/posts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://untrusted.example', Cookie: author },
+    body: JSON.stringify({ title: 'x', content: 'x', author_name: 'x', password, category: 'board' }),
+  });
+  assert.equal(cross.status, 403);
 } finally {
- for(const id of Object.values(ids))await request(`/api/posts/${id}`,{method:'DELETE',cookie:admin,body:{}}).catch(()=>{});
- fixture.cleanup();
+  for (const id of Object.values(ids))
+    await request(`/api/posts/${id}`, { method: 'DELETE', cookie: admin, body: {} }).catch(() => {});
+  fixture.cleanup();
 }
-console.log('PASS: open reading, authors and prefixes, private news, password-checked edit/delete, admin edit/feedback/reject/approve, stale review, resubmission, validation, cross-origin rejection. Test posts removed.');
+console.log(
+  'PASS: open reading, authors and prefixes, private news, password-checked edit/delete, admin edit/feedback/reject/approve, stale review, resubmission, validation, cross-origin rejection. Test posts removed.',
+);

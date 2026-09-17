@@ -1,29 +1,60 @@
 import assert from 'node:assert/strict';
 import { createMemberFixture } from './test-member-fixture.mjs';
 
-const base='http://localhost:5173';
-const adminCode='Local-admin-code-1234';
+const base = 'http://localhost:5173';
+const adminCode = 'Local-admin-code-1234';
 
-async function request(path,{method='GET',body,cookie}={}){
- const res=await fetch(base+path,{method,headers:{...(body?{'Content-Type':'application/json',Origin:base}:{}),...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});
- const raw=await res.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{}return {status:res.status,data};
+async function request(path, { method = 'GET', body, cookie } = {}) {
+  const res = await fetch(base + path, {
+    method,
+    headers: {
+      ...(body ? { 'Content-Type': 'application/json', Origin: base } : {}),
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const raw = await res.text();
+  let data = {};
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {}
+  return { status: res.status, data };
 }
 
-const fixture=await createMemberFixture();
-const cookie=fixture.activeCookie;
+const fixture = await createMemberFixture();
+const cookie = fixture.activeCookie;
 
-assert.equal((await request('/api/admin/join',{method:'POST',body:{code:adminCode}})).status,401,'sign-in is required');
-assert.equal((await request('/api/admin/join',{method:'POST',cookie,body:{code:'incorrect-admin-code'}})).status,403,'wrong code is rejected');
-assert.equal((await request('/api/admin/join',{method:'POST',cookie,body:{code:adminCode}})).status,201,'valid code registers the signed-in account');
+assert.equal(
+  (await request('/api/admin/join', { method: 'POST', body: { code: adminCode } })).status,
+  401,
+  'sign-in is required',
+);
+assert.equal(
+  (await request('/api/admin/join', { method: 'POST', cookie, body: { code: 'incorrect-admin-code' } })).status,
+  403,
+  'wrong code is rejected',
+);
+assert.equal(
+  (await request('/api/admin/join', { method: 'POST', cookie, body: { code: adminCode } })).status,
+  201,
+  'valid code registers the signed-in account',
+);
 
-const session=await request('/api/session',{cookie});
-assert.equal(session.status,200);assert.equal(session.data.admin,true);assert.equal(session.data.signedIn,true);
+const session = await request('/api/session', { cookie });
+assert.equal(session.status, 200);
+assert.equal(session.data.admin, true);
+assert.equal(session.data.signedIn, true);
 
-const members=await request('/api/admin/members',{cookie});
-assert.equal(members.status,200);assert.ok(members.data.members.some(member=>member.email==='active@ks.ac.kr'));
-assert.equal('code' in members.data,false,'admin code is never returned');
+const members = await request('/api/admin/members', { cookie });
+assert.equal(members.status, 200);
+assert.ok(members.data.members.some((member) => member.email === 'active@ks.ac.kr'));
+assert.equal('code' in members.data, false, 'admin code is never returned');
 
-assert.equal((await request('/api/admin/members/test-member-active',{method:'DELETE',cookie,body:{}})).status,400,'an admin cannot revoke their own account');
+assert.equal(
+  (await request('/api/admin/members/test-member-active', { method: 'DELETE', cookie, body: {} })).status,
+  400,
+  'an admin cannot revoke their own account',
+);
 
 fixture.cleanup();
 
