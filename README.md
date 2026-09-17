@@ -26,7 +26,7 @@ npm run build
 npm run dev
 ```
 
-새 로컬 데이터베이스에는 `drizzle/0000`부터 `drizzle/0004_post_authors_reviews.sql`까지 순서대로 적용합니다. `.dev.vars.example`을 복사해 `.dev.vars`를 만들고 관리자 코드 해시·salt와 Firebase 공개 설정 네 값을 입력합니다.
+새 로컬 데이터베이스에는 `npm run db:migrate:local`로 `drizzle/0000`~`0004`를 적용합니다. `.dev.vars.example`을 복사해 `.dev.vars`를 만들고 관리자 코드 해시·salt와 Firebase 공개 설정 네 값을 입력합니다.
 
 ## Firebase 웹 앱 설정
 
