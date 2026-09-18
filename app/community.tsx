@@ -11,6 +11,7 @@ import {
   ChevronRight,
   CircleHelp,
   FileText,
+  Inbox,
   LockKeyhole,
   MessageSquare,
   Newspaper,
@@ -30,8 +31,8 @@ import {
   boardLabels,
   boardPaths,
   boards,
-  markNewsSeen,
-  newsSeenAt,
+  markSeen,
+  seenAt,
   type BoardId,
   type ShellIdentity,
 } from './app-shell';
@@ -58,6 +59,7 @@ type Identity = ShellIdentity & { admin: boolean; configured: boolean };
 const prefixHints: Record<WritableBoard, string> = {
   board: '예: 질문, 정보',
   qna: '예: 수강신청, 졸업요건',
+  inquiry: '예: 장학, 휴학',
   news: '예: 행사, 인터뷰',
   clubs: '예: 동아리 이름',
   contests: '예: 공모전 이름',
@@ -141,8 +143,8 @@ export default function Community({ category = 'all', admin = false }: { categor
     if (category !== 'news' || !identity.userId) return;
     const userId = identity.userId;
     const timer = setTimeout(() => {
-      setNewsSeenBefore(newsSeenAt(userId));
-      markNewsSeen(userId);
+      setNewsSeenBefore(seenAt('news', userId));
+      markSeen('news', userId);
     }, 0);
     return () => clearTimeout(timer);
   }, [category, identity.userId]);
@@ -229,7 +231,7 @@ export default function Community({ category = 'all', admin = false }: { categor
         {!admin && identity.signedIn && (
           <button className="primary" onClick={openCreate}>
             <Plus size={19} />
-            {category === 'news' ? '기사 제출하기' : '글 작성하기'}
+            {category === 'news' ? '기사 제출하기' : category === 'inquiry' ? '문의하기' : '글 작성하기'}
           </button>
         )}
       </section>
@@ -346,7 +348,7 @@ export default function Community({ category = 'all', admin = false }: { categor
             {category === 'all' && (
               <div className="filter-row" aria-label="게시글 분류">
                 {boards
-                  .filter((board) => board.id !== 'news')
+                  .filter((board) => board.id !== 'news' && board.id !== 'inquiry')
                   .map((board) => (
                     <a key={board.id} className={board.id === 'all' ? 'filter selected' : 'filter'} href={board.href}>
                       {board.id === 'all' ? '전체' : board.label}
@@ -385,7 +387,12 @@ export default function Community({ category = 'all', admin = false }: { categor
                 </p>
                 {!search && (
                   <button className="text-button" onClick={openCreate}>
-                    {category === 'news' ? '첫 기사 제출하기' : '첫 글 작성하기'} <ArrowRight size={16} />
+                    {category === 'news'
+                      ? '첫 기사 제출하기'
+                      : category === 'inquiry'
+                        ? '문의 남기기'
+                        : '첫 글 작성하기'}{' '}
+                    <ArrowRight size={16} />
                   </button>
                 )}
               </div>
@@ -400,6 +407,8 @@ export default function Community({ category = 'all', admin = false }: { categor
                         <Users size={21} />
                       ) : post.category === 'contests' ? (
                         <Trophy size={21} />
+                      ) : post.category === 'inquiry' ? (
+                        <Inbox size={21} />
                       ) : post.category === 'qna' ? (
                         <CircleHelp size={21} />
                       ) : (
@@ -409,6 +418,11 @@ export default function Community({ category = 'all', admin = false }: { categor
                     <div className="post-info">
                       <span className={`category-tag ${post.category}`}>{boardLabels[post.category]}</span>
                       {post.pinned_at && <span className="status-badge feedback">고정</span>}
+                      {post.category === 'inquiry' && (
+                        <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
+                          {post.resolved_at ? '답변 완료' : '답변 대기'}
+                        </span>
+                      )}
                       {post.category === 'qna' && (
                         <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
                           {post.resolved_at ? '해결됨' : '미해결'}
@@ -474,7 +488,9 @@ export default function Community({ category = 'all', admin = false }: { categor
               <LockKeyhole size={14} />{' '}
               {category === 'news'
                 ? '학과 뉴스는 작성자와 관리자만 볼 수 있습니다.'
-                : '학교 인증을 마친 회원만 게시글을 볼 수 있습니다.'}
+                : category === 'inquiry'
+                  ? '학사문의는 문의한 사람과 관리자만 볼 수 있습니다.'
+                  : '학교 인증을 마친 회원만 게시글을 볼 수 있습니다.'}
             </div>
           </section>
           <aside className="right-rail">
@@ -552,7 +568,13 @@ export default function Community({ category = 'all', admin = false }: { categor
           {creating && (
             <>
               <p className="eyebrow">WRITE A STORY</p>
-              <h2>{draftCategory === 'news' ? '기사 제출' : '새로운 이야기'}</h2>
+              <h2>
+                {draftCategory === 'news'
+                  ? '기사 제출'
+                  : draftCategory === 'inquiry'
+                    ? '1:1 학사문의'
+                    : '새로운 이야기'}
+              </h2>
               <form onSubmit={submit}>
                 {category !== 'all' ? (
                   <>
@@ -569,6 +591,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                     >
                       <option value="board">자유게시판</option>
                       <option value="qna">학사 Q&amp;A</option>
+                      <option value="inquiry">학사문의 · 1:1 비공개</option>
                       <option value="news">학과 뉴스 · 관리자 검토</option>
                       <option value="clubs">동아리</option>
                       <option value="contests">공모전 모집</option>

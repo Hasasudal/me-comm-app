@@ -5,6 +5,7 @@ import {
   handle,
   HttpError,
   input,
+  isAdmin,
   json,
   limit,
   listColumns,
@@ -22,18 +23,19 @@ export async function GET(request: Request) {
     const member = await requireMember(request);
     const url = new URL(request.url);
     const category = url.searchParams.get('category');
-    if (category && !['board', 'qna', 'news', 'clubs', 'contests'].includes(category))
+    if (category && !['board', 'qna', 'inquiry', 'news', 'clubs', 'contests'].includes(category))
       throw new HttpError(400, '지원하지 않는 게시판입니다.');
     const where: string[] = [];
     const binds: (string | number)[] = [];
-    // News tab lists only the member's own submissions; the combined board never includes news.
-    if (category === 'news') {
-      where.push("category='news' AND author_id=?");
-      binds.push(member.userId);
+    // News lists only the member's own submissions; inquiries list the member's own, or all of them for admins.
+    // The combined board never includes private boards.
+    if (category === 'news' || (category === 'inquiry' && !(await isAdmin(member.userId)))) {
+      where.push('category=? AND author_id=?');
+      binds.push(category, member.userId);
     } else if (category) {
       where.push("status='published' AND category=?");
       binds.push(category);
-    } else where.push("status='published' AND category<>'news'");
+    } else where.push("status='published' AND category NOT IN ('news','inquiry')");
     // "Open only" mirrors recruitmentState: open and not past its deadline.
     if ((category === 'clubs' || category === 'contests') && url.searchParams.get('open') === '1') {
       where.push("recruitment_status='open' AND (deadline IS NULL OR deadline>=?)");

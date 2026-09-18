@@ -1,5 +1,15 @@
 import { z } from 'zod';
-import { db, handle, HttpError, input, isAdmin, json, requireMember, visiblePost } from '../../../../../lib/server';
+import {
+  db,
+  handle,
+  HttpError,
+  input,
+  isAdmin,
+  json,
+  privateCategories,
+  requireMember,
+  visiblePost,
+} from '../../../../../lib/server';
 
 type Context = { params: Promise<{ id: string }> };
 export const dynamic = 'force-dynamic';
@@ -25,7 +35,7 @@ export async function POST(request: Request, context: Context) {
     }
     if (flags.pinned !== undefined) {
       if (!admin) throw new HttpError(403, '관리자만 글을 고정할 수 있습니다.');
-      if (post.category === 'news') throw new HttpError(400, '학과 뉴스는 고정할 수 없습니다.');
+      if (privateCategories.includes(post.category)) throw new HttpError(400, '비공개 글은 고정할 수 없습니다.');
       await db()
         .prepare('UPDATE posts SET pinned_at=? WHERE id=?')
         .bind(flags.pinned ? now : null, id)

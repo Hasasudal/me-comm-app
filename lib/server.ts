@@ -104,7 +104,7 @@ export const createSchema = z.object({
   ...contentFields,
   ...recruitmentFields,
   ...authorFields,
-  category: z.enum(['board', 'qna', 'news', 'clubs', 'contests']),
+  category: z.enum(['board', 'qna', 'inquiry', 'news', 'clubs', 'contests']),
   password: passwordField,
 });
 export const editSchema = z.object({
@@ -145,9 +145,25 @@ export async function identity(request?: Request) {
         .prepare("SELECT MAX(updated_at) AS at FROM posts WHERE category='news' AND author_id=? AND status<>'pending'")
         .bind(member.userId)
         .first<{ at: number | null }>();
+      // Latest comment someone else left on the member's posts, for the reply bell.
+      const replied = await db()
+        .prepare(
+          'SELECT MAX(comments.created_at) AS at FROM comments JOIN posts ON posts.id=comments.post_id WHERE posts.author_id=? AND comments.author_id<>?',
+        )
+        .bind(member.userId, member.userId)
+        .first<{ at: number | null }>();
+      const admin = await isAdmin(member.userId);
+      // Admins see how many 1:1 inquiries still wait for an answer.
+      const waiting = admin
+        ? await db()
+            .prepare("SELECT COUNT(*) AS count FROM posts WHERE category='inquiry' AND resolved_at IS NULL")
+            .first<{ count: number }>()
+        : null;
       return {
         newsReviewedAt: reviewed?.at ?? null,
-        admin: await isAdmin(member.userId),
+        repliedAt: replied?.at ?? null,
+        waitingInquiries: waiting?.count ?? 0,
+        admin,
         signedIn: true,
         configured,
         userId: member.userId,
@@ -215,10 +231,11 @@ export const commentSchema = z.object({
   author_name: authorFields.author_name,
   content: z.string().trim().min(1, '댓글을 입력해주세요.').max(1000, '댓글은 1,000자 이내로 입력해주세요.'),
 });
-// News is private to its author and administrators; every other board is readable by any member.
+// News and 1:1 inquiries are private to their author and administrators; other boards are open to members.
+export const privateCategories = ['news', 'inquiry'];
 export async function visiblePost(id: string, member: Member, admin: boolean) {
   const post = await db().prepare('SELECT * FROM posts WHERE id=?').bind(id).first<PostRow>();
-  if (!post || (post.category === 'news' && !admin && post.author_id !== member.userId))
+  if (!post || (privateCategories.includes(post.category) && !admin && post.author_id !== member.userId))
     throw new HttpError(404, '게시글을 찾을 수 없습니다.');
   return post;
 }

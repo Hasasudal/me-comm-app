@@ -45,7 +45,7 @@ export async function GET(request: Request, context: Context) {
 
 export async function POST(request: Request, context: Context) {
   return handle(async () => {
-    const { member, post } = await commentablePost(request, context);
+    const { member, admin, post } = await commentablePost(request, context);
     const data = commentSchema.parse(await input(request));
     await limit(request, 'comment', 20, member.userId);
     const comment = {
@@ -58,6 +58,15 @@ export async function POST(request: Request, context: Context) {
       .prepare('INSERT INTO comments (id,post_id,author_id,author_name,content,created_at) VALUES (?,?,?,?,?,?)')
       .bind(comment.id, post.id, member.userId, comment.author_name, comment.content, comment.created_at)
       .run();
+    // An inquiry is answered once an admin replies, and waits again when the asker follows up.
+    if (post.category === 'inquiry') {
+      const asker = post.author_id === member.userId;
+      if (asker || admin)
+        await db()
+          .prepare('UPDATE posts SET resolved_at=? WHERE id=?')
+          .bind(asker ? null : comment.created_at, post.id)
+          .run();
+    }
     return json({ comment: { ...comment, deletable: true } }, 201);
   });
 }
