@@ -201,6 +201,64 @@ try {
   assert.equal(partial.recruitment_status, null);
   assert.equal(partial.deadline, null);
 
+  // "Open only": open with a future or no deadline; past-deadline, closed and unset posts drop out.
+  const openCases = {
+    past: "'open','2020-01-01'",
+    future: "'open','2999-12-31'",
+    undated: "'open',NULL",
+    closed: "'closed',NULL",
+    unset: 'NULL,NULL',
+  };
+  execute(
+    `INSERT INTO posts (id,category,title,content,password_hash,salt,status,recruitment_status,deadline,author_name,created_at,updated_at) VALUES ${Object.entries(
+      openCases,
+    )
+      .map(([name, values]) => `('open-test-${name}','contests','x','x','x','x','published',${values},'x',1,1)`)
+      .join(',')}`,
+  );
+  try {
+    const listed = async (query) =>
+      (await request(`/api/posts?category=contests${query}`)).data.posts
+        .map((x) => x.id)
+        .filter((id) => id.startsWith('open-test-'))
+        .sort();
+    assert.deepEqual(await listed('&open=1'), ['open-test-future', 'open-test-undated'], 'open filter');
+    assert.equal((await listed('')).length, 5, 'without the filter every post is listed');
+  } finally {
+    execute(`DELETE FROM posts WHERE id LIKE 'open-test-%'`);
+  }
+
+  const question = await request('/api/posts', {
+    method: 'POST',
+    body: { title: `질문 ${suffix}`, content: '졸업요건?', category: 'qna', author_name: '질문자', password },
+  });
+  assert.equal(question.status, 201, 'members ask in the academic Q&A board');
+  assert.equal(question.data.status, 'published');
+  const qna = (await request('/api/posts?category=qna')).data.posts.map((x) => x.id);
+  assert.ok(qna.includes(question.data.id), 'Q&A tab lists the question');
+  assert.equal(
+    (
+      await request(`/api/posts/${question.data.id}/comments`, {
+        method: 'POST',
+        cookie: admin,
+        body: { author_name: '조교', content: '학과 사무실에 문의하세요.' },
+      })
+    ).status,
+    201,
+    'answers are comments',
+  );
+  const flag = (id, body, cookie = author) => request(`/api/posts/${id}/flags`, { method: 'POST', cookie, body });
+  assert.equal((await flag(question.data.id, { resolved: true }, admin)).status, 403, 'others cannot resolve');
+  assert.equal((await flag(question.data.id, { resolved: true })).status, 200, 'the asker marks it resolved');
+  assert.ok((await request(`/api/posts/${question.data.id}`)).data.post.resolved_at, 'resolved is stored');
+  assert.equal((await flag(ids.board, { resolved: true })).status, 400, 'only Q&A questions resolve');
+  assert.equal((await flag(question.data.id, { pinned: true })).status, 403, 'members cannot pin');
+  assert.equal(
+    (await request(`/api/posts/${question.data.id}`, { method: 'DELETE', body: {} })).status,
+    200,
+    'the asker deletes their question without a password',
+  );
+
   assert.equal((await request('/api/admin/posts')).status, 403, 'non-admin cannot open the review queue');
   assert.equal(
     (await request(`/api/admin/posts/${ids.news}`, { method: 'PATCH', body: { action: 'approve', updated_at: 0 } }))
@@ -247,6 +305,29 @@ try {
   } finally {
     execute(`DELETE FROM posts WHERE id LIKE 'page-test-%'`);
   }
+
+  // Admin pins an older board post: it leads the first page once and is not repeated on later pages.
+  const pinnedId = ids.board;
+  assert.equal(
+    (await request(`/api/posts/${pinnedId}/flags`, { method: 'POST', cookie: admin, body: { pinned: true } })).status,
+    200,
+    'admins pin posts',
+  );
+  const newer = await request('/api/posts', {
+    method: 'POST',
+    body: { title: `최신 ${suffix}`, content: 'x', category: 'board', author_name: 'x', password },
+  });
+  const firstPage = (await request('/api/posts?category=board')).data.posts;
+  assert.equal(firstPage[0].id, pinnedId, 'pinned post comes first');
+  assert.equal(firstPage.filter((x) => x.id === pinnedId).length, 1, 'pinned post appears once');
+  assert.equal(
+    (await request(`/api/posts/${ids.news}/flags`, { method: 'POST', cookie: admin, body: { pinned: true } })).status,
+    400,
+    'news cannot be pinned',
+  );
+  await request(`/api/posts/${pinnedId}/flags`, { method: 'POST', cookie: admin, body: { pinned: false } });
+  assert.notEqual((await request('/api/posts?category=board')).data.posts[0].id, pinnedId, 'unpinning restores order');
+  await request(`/api/posts/${newer.data.id}`, { method: 'DELETE', body: {} });
 
   const pending = async () =>
     (await request('/api/admin/posts?status=pending', { cookie: admin })).data.posts.find((x) => x.id === ids.news);

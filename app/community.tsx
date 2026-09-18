@@ -51,10 +51,13 @@ type Post = {
   headcount?: number | null;
   comment_count?: number;
   snippet?: string | null;
+  resolved_at?: number | null;
+  pinned_at?: number | null;
 };
 type Identity = ShellIdentity & { admin: boolean; configured: boolean };
 const prefixHints: Record<WritableBoard, string> = {
   board: '예: 질문, 정보',
+  qna: '예: 수강신청, 졸업요건',
   news: '예: 행사, 인터뷰',
   clubs: '예: 동아리 이름',
   contests: '예: 공모전 이름',
@@ -75,6 +78,8 @@ export default function Community({ category = 'all', admin = false }: { categor
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
+  const [openOnly, setOpenOnly] = useState(false);
+  const recruiting = category === 'clubs' || category === 'contests';
   const [newsSeenBefore, setNewsSeenBefore] = useState(0);
   const [notice, setNotice] = useState('');
   const [creating, setCreating] = useState(false);
@@ -91,6 +96,7 @@ export default function Community({ category = 'all', admin = false }: { categor
       const params = new URLSearchParams();
       if (category !== 'all') params.set('category', category);
       if (search) params.set('q', search);
+      if (recruiting && openOnly) params.set('open', '1');
       if (cursor) params.set('cursor', cursor);
       if (cursor) setLoadingMore(true);
       else {
@@ -112,7 +118,7 @@ export default function Community({ category = 'all', admin = false }: { categor
         }
       }
     },
-    [category, search],
+    [category, search, recruiting, openOnly],
   );
 
   useEffect(() => {
@@ -323,6 +329,20 @@ export default function Community({ category = 'all', admin = false }: { categor
                 placeholder="제목·본문·작성자로 검색"
               />
             </div>
+            {recruiting && (
+              <div className="filter-row" aria-label="모집 상태">
+                {[false, true].map((value) => (
+                  <button
+                    key={String(value)}
+                    className={openOnly === value ? 'filter selected' : 'filter'}
+                    aria-pressed={openOnly === value}
+                    onClick={() => setOpenOnly(value)}
+                  >
+                    {value ? '모집 중만' : '전체'}
+                  </button>
+                ))}
+              </div>
+            )}
             {category === 'all' && (
               <div className="filter-row" aria-label="게시글 분류">
                 {boards
@@ -380,12 +400,20 @@ export default function Community({ category = 'all', admin = false }: { categor
                         <Users size={21} />
                       ) : post.category === 'contests' ? (
                         <Trophy size={21} />
+                      ) : post.category === 'qna' ? (
+                        <CircleHelp size={21} />
                       ) : (
                         <FileText size={21} />
                       )}
                     </div>
                     <div className="post-info">
                       <span className={`category-tag ${post.category}`}>{boardLabels[post.category]}</span>
+                      {post.pinned_at && <span className="status-badge feedback">고정</span>}
+                      {post.category === 'qna' && (
+                        <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
+                          {post.resolved_at ? '해결됨' : '미해결'}
+                        </span>
+                      )}
                       {category === 'news' && post.status && (
                         <span className={`status-badge ${post.status}`}>{statusLabels[post.status]}</span>
                       )}
@@ -540,6 +568,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                       onChange={(e) => setDraftCategory(e.target.value as WritableBoard)}
                     >
                       <option value="board">자유게시판</option>
+                      <option value="qna">학사 Q&amp;A</option>
                       <option value="news">학과 뉴스 · 관리자 검토</option>
                       <option value="clubs">동아리</option>
                       <option value="contests">공모전 모집</option>

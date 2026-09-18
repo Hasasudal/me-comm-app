@@ -13,14 +13,16 @@ import {
 } from '../../../lib/server';
 import { hashPassword } from '../../../lib/password';
 import { searchSnippet } from '../../../lib/search';
+import { seoulToday } from '../../../lib/recruitment';
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 30;
+type ListRow = { id: string; created_at: number; content?: string };
 export async function GET(request: Request) {
   return handle(async () => {
     const member = await requireMember(request);
     const url = new URL(request.url);
     const category = url.searchParams.get('category');
-    if (category && !['board', 'news', 'clubs', 'contests'].includes(category))
+    if (category && !['board', 'qna', 'news', 'clubs', 'contests'].includes(category))
       throw new HttpError(400, '지원하지 않는 게시판입니다.');
     const where: string[] = [];
     const binds: (string | number)[] = [];
@@ -32,6 +34,11 @@ export async function GET(request: Request) {
       where.push("status='published' AND category=?");
       binds.push(category);
     } else where.push("status='published' AND category<>'news'");
+    // "Open only" mirrors recruitmentState: open and not past its deadline.
+    if ((category === 'clubs' || category === 'contests') && url.searchParams.get('open') === '1') {
+      where.push("recruitment_status='open' AND (deadline IS NULL OR deadline>=?)");
+      binds.push(seoulToday());
+    }
     const q = (url.searchParams.get('q') || '').trim().slice(0, 100);
     if (q) {
       where.push(
@@ -45,17 +52,29 @@ export async function GET(request: Request) {
       where.push('(created_at<? OR (created_at=? AND id<?))');
       binds.push(Number(cursor[1]), Number(cursor[1]), cursor[2]);
     }
-    const result = await db()
-      .prepare(
-        `SELECT ${listColumns}${q ? ',content' : ''} FROM posts WHERE ${where.join(' AND ')} ORDER BY created_at DESC, id DESC LIMIT ?`,
-      )
-      .bind(...binds, PAGE_SIZE + 1)
-      .all<{ id: string; created_at: number; content?: string }>();
+    const columns = `${listColumns}${q ? ',content' : ''}`,
+      filter = where.join(' AND ');
+    // Pinned posts lead the first page; the paged feed skips them so nothing shows twice.
+    const [pinned, result] = await Promise.all([
+      cursor
+        ? null
+        : db()
+            .prepare(`SELECT ${columns} FROM posts WHERE ${filter} AND pinned_at IS NOT NULL ORDER BY pinned_at DESC`)
+            .bind(...binds)
+            .all<ListRow>(),
+      db()
+        .prepare(
+          `SELECT ${columns} FROM posts WHERE ${filter} AND pinned_at IS NULL ORDER BY created_at DESC, id DESC LIMIT ?`,
+        )
+        .bind(...binds, PAGE_SIZE + 1)
+        .all<ListRow>(),
+    ]);
+    const page = result.results.slice(0, PAGE_SIZE);
+    const last = page[page.length - 1];
     // Bodies never leave the list endpoint; a search only returns the matching excerpt.
-    const posts = result.results
-      .slice(0, PAGE_SIZE)
-      .map(({ content, ...post }) => (q && content ? { ...post, snippet: searchSnippet(content, q) } : post));
-    const last = posts[posts.length - 1];
+    const posts = [...(pinned?.results || []), ...page].map(({ content, ...post }) =>
+      q && content ? { ...post, snippet: searchSnippet(content, q) } : post,
+    );
     return json({ posts, nextCursor: result.results.length > PAGE_SIZE ? `${last.created_at}:${last.id}` : null });
   });
 }

@@ -20,7 +20,7 @@ import { api } from '../../api-client';
 import { AppShell, boardLabels, boardPaths, type ShellIdentity } from '../../app-shell';
 import Comments from './comments';
 
-type Category = 'board' | 'news' | 'clubs' | 'contests';
+type Category = 'board' | 'qna' | 'news' | 'clubs' | 'contests';
 type Post = {
   id: string;
   title: string;
@@ -37,6 +37,8 @@ type Post = {
   headcount?: number | null;
   roles?: string | null;
   mine?: boolean;
+  resolved_at?: number | null;
+  pinned_at?: number | null;
 };
 type Identity = ShellIdentity & { admin?: boolean };
 const formatDate = (n: number) =>
@@ -129,6 +131,28 @@ export default function PostDetail({ id }: { id: string }) {
       setBusy(false);
     }
   }
+  async function setFlag(flag: 'resolved' | 'pinned', value: boolean) {
+    if (!post) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api(`/api/posts/${id}/flags`, { [flag]: value });
+      setPost({ ...post, [flag === 'resolved' ? 'resolved_at' : 'pinned_at']: value ? Date.now() : null });
+      setNotice(
+        flag === 'resolved'
+          ? value
+            ? '해결된 질문으로 표시했습니다.'
+            : '해결 표시를 취소했습니다.'
+          : value
+            ? '게시판 상단에 고정했습니다.'
+            : '고정을 해제했습니다.',
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -208,6 +232,12 @@ export default function PostDetail({ id }: { id: string }) {
               <div>
                 <span className={`category-tag ${post.category}`}>{boardLabels[post.category]}</span>
                 {news && <span className={`status-badge ${post.status}`}>{statusLabels[post.status]}</span>}
+                {post.pinned_at && <span className="status-badge feedback">고정</span>}
+                {post.category === 'qna' && (
+                  <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
+                    {post.resolved_at ? '해결됨' : '미해결'}
+                  </span>
+                )}
                 <h1>
                   {post.prefix && <span className="post-prefix">[{post.prefix}]</span>}
                   {post.title}
@@ -296,6 +326,24 @@ export default function PostDetail({ id }: { id: string }) {
                   </p>
                 )}
                 <div className="article-actions">
+                  {post.category === 'qna' && (admin || post.mine) && (
+                    <button
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => void setFlag('resolved', !post.resolved_at)}
+                    >
+                      {post.resolved_at ? '해결 취소' : '해결됨으로 표시'}
+                    </button>
+                  )}
+                  {admin && !news && (
+                    <button
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => void setFlag('pinned', !post.pinned_at)}
+                    >
+                      {post.pinned_at ? '고정 해제' : '상단 고정'}
+                    </button>
+                  )}
                   {canEdit && (
                     <button
                       className="secondary"

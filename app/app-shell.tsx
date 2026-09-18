@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import {
   ArrowUpRight,
+  CircleHelp,
   Layers3,
   LogOut,
   Menu,
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from './api-client';
 
-export type BoardId = 'all' | 'board' | 'news' | 'clubs' | 'contests';
+export type BoardId = 'all' | 'board' | 'qna' | 'news' | 'clubs' | 'contests';
 export const boards = [
   { id: 'all', label: '통합 게시판', href: '/', icon: Layers3, sub: '학과의 모든 이야기를 한곳에서 만나보세요.' },
   {
@@ -25,6 +26,13 @@ export const boards = [
     href: '/board',
     icon: MessageSquare,
     sub: '하고 싶은 이야기를 편하게 나눠보세요.',
+  },
+  {
+    id: 'qna',
+    label: '학사 Q&A',
+    href: '/qna',
+    icon: CircleHelp,
+    sub: '수강신청, 졸업요건, 휴학처럼 학사 궁금증을 묻고 답해보세요.',
   },
   { id: 'news', label: '학과 뉴스', href: '/news', icon: Newspaper, sub: '기사를 제출하고 검토 결과를 확인하세요.' },
   { id: 'clubs', label: '동아리', href: '/clubs', icon: Users, sub: '같은 관심사로 시작하는 새로운 연결.' },

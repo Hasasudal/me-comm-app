@@ -18,6 +18,8 @@ export const posts = sqliteTable(
     author_name: text('author_name'),
     prefix: text('prefix'),
     feedback: text('feedback'),
+    resolved_at: integer('resolved_at'),
+    pinned_at: integer('pinned_at'),
     created_at: integer('created_at').notNull(),
     updated_at: integer('updated_at').notNull(),
   },

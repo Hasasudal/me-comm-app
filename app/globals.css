@@ -528,6 +528,10 @@ h1 {
   background: #eaf7f1;
   color: #4b9a7a;
 }
+.category-symbol.qna {
+  background: #f3effd;
+  color: #7b61c4;
+}
 .category-symbol.contests {
   background: #fff4e5;
   color: #ca9655;
@@ -542,6 +546,9 @@ h1 {
 }
 .category-tag.clubs {
   color: #328161;
+}
+.category-tag.qna {
+  color: #6a4fb8;
 }
 .category-tag.contests {
   color: #9d6f32;
