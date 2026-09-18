@@ -48,10 +48,11 @@ try {
         author_name: '작성자',
         prefix: `${category}머릿글`,
         password,
+        images: [],
         ...recruitment,
       },
     });
-    assert.equal(r.status, 201);
+    assert.equal(r.status, 201, 'posts without photos save cleanly (the form always sends images: [])');
     assert.equal(r.data.status, category === 'news' ? 'pending' : 'published');
     ids[category] = r.data.id;
   }
@@ -134,7 +135,7 @@ try {
     (
       await request(`/api/posts/${ids.board}`, {
         method: 'PATCH',
-        body: { title: `검증 board ${suffix}`, content: '작성자 수정', author_name: '작성자' },
+        body: { title: `검증 board ${suffix}`, content: '작성자 수정', author_name: '작성자', images: [] },
       })
     ).status,
     200,
