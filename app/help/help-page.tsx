@@ -111,7 +111,9 @@ export default function HelpPage() {
             </p>
             <ol className="steps">
               <li>
-                오른쪽 위 <strong>회원가입</strong>을 누르고 이름, 학교 이메일, 비밀번호를 입력합니다.
+                오른쪽 위 <strong>회원가입</strong>을 누르고 이름, 학교 이메일, 비밀번호를 입력합니다. 이메일 칸에는{' '}
+                <strong>@ks.ac.kr 앞의 메일 아이디만</strong> 넣으세요. 학번이 아니라 학교 메일에 로그인할 때 쓰는
+                아이디예요.
               </li>
               <li>
                 학교 메일함에 온 <strong>인증 메일</strong>의 링크를 누릅니다. 메일이 안 보이면 스팸함을 확인하세요.

@@ -8,6 +8,8 @@ import { firebaseMessage, isSchoolEmail, normalizeSchoolEmail, rememberVerifyEma
 export default function SignupForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Students often type their student number; mail IDs usually differ, so an all-digit ID gets a gentle check.
+  const [looksLikeStudentNumber, setLooksLikeStudentNumber] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,9 +51,25 @@ export default function SignupForm() {
       <label>
         학교 이메일
         <div className="email-field">
-          <input name="email" type="email" autoComplete="email" required placeholder="student" />
+          <input
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="메일 아이디"
+            aria-describedby="email-hint"
+            onChange={(event) => setLooksLikeStudentNumber(/^\d{5,}$/.test(event.target.value.trim()))}
+          />
           <span>@ks.ac.kr</span>
         </div>
+        <small id="email-hint" className="field-hint">
+          <b>@ks.ac.kr 앞의 메일 아이디만</b> 입력하세요. 학번이 아니라, 학교 메일에 로그인할 때 쓰는 아이디예요.
+        </small>
+        {looksLikeStudentNumber && (
+          <small className="field-hint warn" role="status">
+            숫자만 입력했어요. 학번이 아니라 학교 메일 아이디가 맞는지 한 번 더 확인해주세요.
+          </small>
+        )}
       </label>
       <label>
         비밀번호
