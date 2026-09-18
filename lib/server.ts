@@ -227,7 +227,8 @@ export async function checkPostPassword(
   member: Member,
   admin: boolean,
 ) {
-  if (admin) return;
+  // Admins and the signed-in author skip it; the password lets others (e.g. co-organisers) manage a post.
+  if (admin || (post.author_id && post.author_id === member.userId)) return;
   if (!password) throw new HttpError(400, '게시글 비밀번호를 입력해주세요.');
   await limit(request, 'password', 30, member.userId);
   if (!(await verifyPassword(password, post.salt, post.password_hash)))

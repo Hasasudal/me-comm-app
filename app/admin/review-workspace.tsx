@@ -33,6 +33,7 @@ type Article = {
   created_at: number;
   updated_at: number;
 };
+type ReviewPage = { posts: Article[]; total: number; nextCursor: string | null };
 type AdminMember = { user_id: string; email: string; display_name: string; joined_at: number };
 const reviewTabs: ReviewStatus[] = ['pending', 'feedback', 'rejected', 'published'];
 const formatDate = (n: number) => new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit' }).format(n);
@@ -63,6 +64,9 @@ export default function ReviewWorkspace({
 }) {
   const [tab, setTab] = useState<ReviewStatus>('pending');
   const [articles, setArticles] = useState<Article[]>([]);
+  const [total, setTotal] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -98,9 +102,11 @@ export default function ReviewWorkspace({
       setLoading(true);
       setError('');
       try {
-        const data = await api<{ posts: Article[] }>(`/api/admin/posts?status=${tab}`);
+        const data = await api<ReviewPage>(`/api/admin/posts?status=${tab}`);
         if (id !== loadId.current) return;
         setArticles(data.posts);
+        setTotal(data.total);
+        setNextCursor(data.nextCursor);
         const next = data.posts.find((article) => article.id === keepId) || data.posts[0] || null;
         setSelectedId(next?.id || null);
         reset(next);
@@ -135,6 +141,22 @@ export default function ReviewWorkspace({
     if (selected?.status === 'pending') writeDraft(selected, dirty ? { marks, note } : null);
   }, [selected, dirty, marks, note]);
 
+  async function loadMore() {
+    if (!nextCursor) return;
+    const id = loadId.current;
+    setLoadingMore(true);
+    try {
+      const data = await api<ReviewPage>(`/api/admin/posts?status=${tab}&cursor=${encodeURIComponent(nextCursor)}`);
+      if (id !== loadId.current) return;
+      setArticles((list) => [...list, ...data.posts]);
+      setTotal(data.total);
+      setNextCursor(data.nextCursor);
+    } catch (e) {
+      if (id === loadId.current) setError((e as Error).message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
   function choose(article: Article) {
     if (article.id === selectedId) return;
     setSelectedId(article.id);
@@ -201,6 +223,25 @@ export default function ReviewWorkspace({
       setExporting(false);
     }
   }
+  // The bundle covers every approved article, not just the pages loaded so far.
+  async function exportAllPublished() {
+    setExporting(true);
+    try {
+      const all: Article[] = [];
+      let cursor: string | null = '';
+      do {
+        const data: ReviewPage = await api<ReviewPage>(
+          `/api/admin/posts?status=published${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+        );
+        all.push(...data.posts);
+        cursor = data.nextCursor;
+      } while (cursor);
+      await exportWord(all);
+    } catch (e) {
+      onNotice((e as Error).message);
+      setExporting(false);
+    }
+  }
   async function revokeMember(member: AdminMember) {
     if (!window.confirm(`${member.display_name}님의 관리자 권한을 회수할까요?`)) return;
     setMembersError('');
@@ -258,9 +299,9 @@ export default function ReviewWorkspace({
           <ul>
             {tab === 'published' && (
               <li>
-                <button className="export-all" disabled={exporting} onClick={() => void exportWord(articles)}>
+                <button className="export-all" disabled={exporting} onClick={() => void exportAllPublished()}>
                   <FileDown size={16} />
-                  {exporting ? 'Word 파일 만드는 중…' : `승인 기사 모두 Word로 (${articles.length})`}
+                  {exporting ? 'Word 파일 만드는 중…' : `승인 기사 모두 Word로 (${total})`}
                 </button>
               </li>
             )}
@@ -281,6 +322,13 @@ export default function ReviewWorkspace({
                 </button>
               </li>
             ))}
+            {nextCursor && (
+              <li>
+                <button className="load-more" disabled={loadingMore} onClick={() => void loadMore()}>
+                  {loadingMore ? '불러오는 중…' : `더 보기 (${articles.length}/${total})`}
+                </button>
+              </li>
+            )}
           </ul>
         )}
         <details className="review-admins">

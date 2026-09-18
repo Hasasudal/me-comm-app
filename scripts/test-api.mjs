@@ -128,6 +128,18 @@ try {
     400,
     'non-admin edit needs a password',
   );
+  assert.equal((await request(`/api/posts/${ids.board}`)).data.post.mine, true, 'author sees the post as theirs');
+  assert.equal((await request(`/api/posts/${ids.board}`, { cookie: admin })).data.post.mine, false);
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.board}`, {
+        method: 'PATCH',
+        body: { title: `검증 board ${suffix}`, content: '작성자 수정', author_name: '작성자' },
+      })
+    ).status,
+    200,
+    'the signed-in author edits without a password',
+  );
   assert.equal(
     (
       await request(`/api/posts/${ids.board}`, {
@@ -202,6 +214,39 @@ try {
       'local test account registers with the admin code',
     );
   assert.equal((await request(`/api/posts/${ids.news}`, { cookie: admin })).status, 200, 'admin can open any news');
+
+  // 31 rejected articles with one shared timestamp: pages must split on the id tie-breaker without gaps.
+  const pageIds = Array.from({ length: 31 }, (_, i) => `page-test-${String(i).padStart(2, '0')}`);
+  execute(
+    `INSERT INTO posts (id,category,title,content,password_hash,salt,status,author_name,created_at,updated_at) VALUES ${pageIds
+      .map((id) => `('${id}','news','페이지','본문','x','x','rejected','기자',1,1)`)
+      .join(',')}`,
+  );
+  try {
+    const seen = [];
+    let cursor = '',
+      pages = 0,
+      total = 0;
+    do {
+      const page = await request(`/api/admin/posts?status=rejected${cursor ? `&cursor=${cursor}` : ''}`, {
+        cookie: admin,
+      });
+      assert.ok(page.data.posts.length <= 30, 'review pages hold at most 30 articles');
+      seen.push(...page.data.posts.map((x) => x.id));
+      total = page.data.total;
+      cursor = page.data.nextCursor;
+      pages++;
+    } while (cursor);
+    assert.ok(pages >= 2, 'more than 30 articles span pages');
+    assert.equal(new Set(seen).size, seen.length, 'no article repeats across pages');
+    assert.equal(seen.length, total, 'every article is reachable and matches the total');
+    assert.ok(
+      pageIds.every((id) => seen.includes(id)),
+      'no tied article is skipped',
+    );
+  } finally {
+    execute(`DELETE FROM posts WHERE id LIKE 'page-test-%'`);
+  }
 
   const pending = async () =>
     (await request('/api/admin/posts?status=pending', { cookie: admin })).data.posts.find((x) => x.id === ids.news);

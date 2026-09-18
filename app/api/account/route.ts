@@ -5,6 +5,9 @@ import { expiredSessionCookie, requireMember, revokeMemberSessions } from '../..
 import { db, handle, HttpError, input, json } from '../../../lib/server';
 
 export const dynamic = 'force-dynamic';
+// Firebase uids never take this form, so no account can claim the withdrawn member's content.
+const WITHDRAWN_ID = 'withdrawn';
+const WITHDRAWN_NAME = '탈퇴한 회원';
 
 export async function PATCH(request: Request) {
   return handle(async () => {
@@ -55,7 +58,18 @@ export async function DELETE(request: Request) {
         throw new HttpError(409, '마지막 활성 관리자는 먼저 다른 관리자를 등록해야 탈퇴할 수 있습니다.');
     }
     if (dryRun) return json({ ok: true });
+    // Posts and comments stay for the community, credited to a withdrawn member; unfinished news is dropped
+    // and approved news stays for the admin archive.
     await db().batch([
+      db()
+        .prepare("DELETE FROM posts WHERE author_id=? AND category='news' AND status<>'published'")
+        .bind(member.userId),
+      db()
+        .prepare('UPDATE posts SET author_id=?,author_name=? WHERE author_id=?')
+        .bind(WITHDRAWN_ID, WITHDRAWN_NAME, member.userId),
+      db()
+        .prepare('UPDATE comments SET author_id=?,author_name=? WHERE author_id=?')
+        .bind(WITHDRAWN_ID, WITHDRAWN_NAME, member.userId),
       db().prepare('DELETE FROM sessions WHERE user_id=?').bind(member.userId),
       db().prepare('DELETE FROM admin_users WHERE user_id=?').bind(member.userId),
       db().prepare('DELETE FROM users WHERE id=?').bind(member.userId),

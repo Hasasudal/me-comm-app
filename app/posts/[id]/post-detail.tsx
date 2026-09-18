@@ -1,5 +1,6 @@
 'use client';
 
+import { recruitmentState } from '../../../lib/recruitment';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
   ArrowLeft,
@@ -35,6 +36,7 @@ type Post = {
   deadline?: string | null;
   headcount?: number | null;
   roles?: string | null;
+  mine?: boolean;
 };
 type Identity = ShellIdentity & { admin?: boolean };
 const formatDate = (n: number) =>
@@ -139,7 +141,7 @@ export default function PostDetail({ id }: { id: string }) {
   const news = category === 'news';
   const admin = !!identity.admin;
   const canEdit = !!post && (admin || !(news && post.status === 'rejected'));
-  const passwordField = !admin && (
+  const passwordField = !admin && !post?.mine && (
     <label>
       {mode === 'edit' ? '수정 확인 비밀번호' : '삭제 확인 비밀번호'}
       <input name="password" type="password" required minLength={8} maxLength={128} autoComplete="off" />
@@ -223,9 +225,9 @@ export default function PostDetail({ id }: { id: string }) {
             </div>
             {(post.recruitment_status || post.deadline || post.headcount || post.roles) && (
               <div className="recruitment-summary">
-                {post.recruitment_status && (
-                  <span className={`recruitment-status ${post.recruitment_status}`}>
-                    {post.recruitment_status === 'open' ? '모집 중' : '마감'}
+                {recruitmentState(post.recruitment_status, post.deadline) && (
+                  <span className={`recruitment-status ${recruitmentState(post.recruitment_status, post.deadline)}`}>
+                    {recruitmentState(post.recruitment_status, post.deadline) === 'open' ? '모집 중' : '마감'}
                   </span>
                 )}
                 {post.deadline && (
