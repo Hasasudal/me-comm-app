@@ -20,7 +20,8 @@ export async function GET(request: Request, context: Context) {
   return handle(async () => {
     const member = await requireMember(request);
     const { id } = await context.params;
-    return json({ post: publicPost(await visiblePost(id, member, await isAdmin(member.userId))) });
+    const post = await visiblePost(id, member, await isAdmin(member.userId));
+    return json({ post: { ...publicPost(post), mine: post.author_id === member.userId } });
   });
 }
 export async function PATCH(request: Request, context: Context) {

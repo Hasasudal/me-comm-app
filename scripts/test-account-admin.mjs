@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createMemberFixture } from './test-member-fixture.mjs';
+import { createMemberFixture, query } from './test-member-fixture.mjs';
 
 const base = 'http://localhost:5173';
 async function request(path, { method = 'GET', body, cookie } = {}) {
@@ -37,6 +37,19 @@ assert.equal(
   400,
   'account deletion requires the exact phrase',
 );
+const post = (fields) =>
+  request('/api/posts', {
+    method: 'POST',
+    cookie: fixture.activeCookie,
+    body: { title: '탈퇴 테스트', content: '본문', author_name: '원래이름', password: 'password123', ...fields },
+  }).then((r) => r.data.id);
+const boardId = await post({ category: 'board' });
+const newsId = await post({ category: 'news' });
+await request(`/api/posts/${boardId}/comments`, {
+  method: 'POST',
+  cookie: fixture.activeCookie,
+  body: { author_name: '원래이름', content: '댓글' },
+});
 assert.equal(
   (await request('/api/account', { method: 'DELETE', cookie: fixture.activeCookie, body: { confirm: '회원탈퇴' } }))
     .status,
@@ -45,6 +58,17 @@ assert.equal(
 );
 const session = await request('/api/session', { cookie: fixture.activeCookie });
 assert.equal(session.data.signedIn, false, 'deleted account session cannot be reused');
+const kept = (await request(`/api/posts/${boardId}`, { cookie: fixture.secondCookie })).data.post;
+assert.equal(kept.author_name, '탈퇴한 회원', 'posts stay, credited to a withdrawn member');
+const [comment] = (await request(`/api/posts/${boardId}/comments`, { cookie: fixture.secondCookie })).data.comments;
+assert.equal(comment.author_name, '탈퇴한 회원', 'comments stay, credited to a withdrawn member');
+assert.equal(query(`SELECT id FROM posts WHERE id='${newsId}'`).length, 0, 'unfinished news is removed');
+assert.equal(
+  query("SELECT id FROM posts WHERE author_id='test-member-active'").length,
+  0,
+  'no content keeps the old id',
+);
+query(`DELETE FROM posts WHERE id='${boardId}'`);
 fixture.cleanup();
 
 const adminFixture = await createMemberFixture();

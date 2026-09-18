@@ -1,5 +1,6 @@
 'use client';
 
+import { recruitmentState } from '../lib/recruitment';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowDown,
@@ -397,9 +398,11 @@ export default function Community({ category = 'all', admin = false }: { categor
                       </h3>
                       {(post.recruitment_status || post.deadline || post.headcount) && (
                         <div className="recruitment-line">
-                          {post.recruitment_status && (
-                            <span className={`recruitment-status ${post.recruitment_status}`}>
-                              {post.recruitment_status === 'open' ? '모집 중' : '마감'}
+                          {recruitmentState(post.recruitment_status, post.deadline) && (
+                            <span
+                              className={`recruitment-status ${recruitmentState(post.recruitment_status, post.deadline)}`}
+                            >
+                              {recruitmentState(post.recruitment_status, post.deadline) === 'open' ? '모집 중' : '마감'}
                             </span>
                           )}
                           {post.deadline && (
@@ -466,8 +469,8 @@ export default function Community({ category = 'all', admin = false }: { categor
               <div className="guide-item">
                 <span>01</span>
                 <div>
-                  <strong>비밀번호를 기억해주세요</strong>
-                  <p>글을 수정·삭제할 때 필요해요.</p>
+                  <strong>내 글은 바로 수정해요</strong>
+                  <p>작성한 계정으로는 비밀번호 없이 수정·삭제할 수 있어요.</p>
                 </div>
               </div>
               <div className="guide-item">
@@ -605,7 +608,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                     autoComplete="new-password"
                     placeholder="8자 이상 입력해주세요"
                   />
-                  <small>글을 수정하거나 삭제할 때 필요해요. 비밀번호를 기억해주세요.</small>
+                  <small>내 계정에서는 없이 수정·삭제할 수 있고, 다른 계정에서 관리할 때 필요해요.</small>
                 </label>
                 {draftCategory === 'news' && (
                   <p className="form-note">

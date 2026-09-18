@@ -7,8 +7,8 @@ function quote(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-export function execute(sql) {
-  execFileSync(
+export function execute(sql, json = false) {
+  return execFileSync(
     process.execPath,
     [
       '--import',
@@ -24,9 +24,13 @@ export function execute(sql) {
       '.wrangler/state',
       '--command',
       sql,
+      ...(json ? ['--json'] : []),
     ],
-    { cwd: process.cwd(), stdio: 'ignore' },
+    { cwd: process.cwd(), stdio: json ? ['ignore', 'pipe', 'ignore'] : 'ignore', encoding: 'utf8' },
   );
+}
+export function query(sql) {
+  return JSON.parse(execute(sql, true))[0].results;
 }
 
 async function hash(value) {
