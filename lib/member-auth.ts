@@ -87,7 +87,13 @@ export async function requireMember(request: Request) {
   return member;
 }
 
-export async function issueMemberSession(identity: { userId: string; email: string; displayName: string }) {
+type Identity = { userId: string; email: string; displayName: string; emailVerified: boolean };
+const PENDING_MESSAGE =
+  '학교 메일 인증이 안 된 계정이라 관리자 승인을 기다리고 있어요. 승인되면 다시 로그인해주세요. 인증 메일의 링크를 눌러도 바로 이용할 수 있어요.';
+
+// A school address whose verification mail never arrived can still ask to join: it is recorded as 'pending'
+// until an admin approves it (status 'active') or turns it down ('suspended'). Verified mail skips the wait.
+export async function issueMemberSession(identity: Identity) {
   const existing = await db()
     .prepare('SELECT id,status FROM users WHERE id=? OR email=?')
     .bind(identity.userId, identity.email)
@@ -96,6 +102,18 @@ export async function issueMemberSession(identity: { userId: string; email: stri
   if (conflict) throw new HttpError(409, '이미 다른 계정에서 사용 중인 학교 이메일입니다.');
   const current = existing.results.find((row) => row.id === identity.userId);
   if (current?.status === 'suspended') throw new HttpError(403, '이용이 정지된 계정입니다. 관리자에게 문의해주세요.');
+  if (!identity.emailVerified && current?.status !== 'active') {
+    if (!current) {
+      const now = Date.now();
+      await db()
+        .prepare(
+          "INSERT INTO users (id,email,display_name,status,suspended_at,created_at,updated_at) VALUES (?,?,?,'pending',NULL,?,?)",
+        )
+        .bind(identity.userId, identity.email, identity.displayName, now, now)
+        .run();
+    }
+    throw new HttpError(403, PENDING_MESSAGE);
+  }
   const token = randomToken(),
     tokenHash = await sha256(token),
     now = Date.now(),
@@ -103,7 +121,7 @@ export async function issueMemberSession(identity: { userId: string; email: stri
   await db().batch([
     db()
       .prepare(
-        "INSERT INTO users (id,email,display_name,status,suspended_at,created_at,updated_at) VALUES (?,?,?,'active',NULL,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,updated_at=excluded.updated_at",
+        "INSERT INTO users (id,email,display_name,status,suspended_at,created_at,updated_at) VALUES (?,?,?,'active',NULL,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,status=CASE WHEN users.status='pending' THEN 'active' ELSE users.status END,updated_at=excluded.updated_at",
       )
       .bind(identity.userId, identity.email, identity.displayName, now, now),
     // Keep other devices signed in: drop expired sessions and cap each member at MAX_SESSIONS.

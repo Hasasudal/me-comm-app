@@ -241,6 +241,11 @@ export default function Community({ category = 'all', admin = false }: { categor
           <a className="heading-link" href="/admin/members">
             <UserCog size={18} />
             회원·직책 관리
+            {!!identity.pendingMembers && (
+              <span className="heading-count" aria-label={`승인 대기 ${identity.pendingMembers}명`}>
+                {identity.pendingMembers}
+              </span>
+            )}
           </a>
         )}
         {!admin && identity.signedIn && (

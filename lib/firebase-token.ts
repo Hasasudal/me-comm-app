@@ -17,7 +17,7 @@ type TokenClaims = {
   name?: unknown;
 };
 
-export type FirebaseIdentity = { userId: string; email: string; displayName: string };
+export type FirebaseIdentity = { userId: string; email: string; displayName: string; emailVerified: boolean };
 
 export class FirebaseTokenError extends Error {
   constructor(message = '로그인 인증을 확인해주세요.') {
@@ -106,11 +106,11 @@ export async function verifyFirebaseIdToken(token: string, options: VerifyOption
   if (typeof claims.sub !== 'string' || !claims.sub || claims.sub.length > 128) throw new FirebaseTokenError();
   if (typeof claims.iat !== 'number' || claims.iat > now + CLOCK_SKEW_SECONDS) throw new FirebaseTokenError();
   if (typeof claims.exp !== 'number' || claims.exp <= now) throw new FirebaseTokenError();
-  if (claims.email_verified !== true || typeof claims.email !== 'string') throw new FirebaseTokenError();
+  if (typeof claims.email !== 'string') throw new FirebaseTokenError();
 
   const email = claims.email.trim().toLowerCase();
   if (!/^[^@\s]+@ks\.ac\.kr$/.test(email)) throw new FirebaseTokenError('인증된 경성대학교 학교 이메일이 필요합니다.');
   const displayName = typeof claims.name === 'string' ? claims.name.trim() : '';
   if (displayName.length < 2 || displayName.length > 40) throw new FirebaseTokenError('회원 이름을 확인해주세요.');
-  return { userId: claims.sub, email, displayName };
+  return { userId: claims.sub, email, displayName, emailVerified: claims.email_verified === true };
 }

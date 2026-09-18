@@ -28,12 +28,8 @@ export default function LoginForm() {
       const auth = await firebaseAuth();
       const credential = await signInWithEmailAndPassword(auth, inputEmail, password);
       await credential.user.reload();
-      if (!credential.user.emailVerified) {
-        setUnverified(true);
-        return setError(
-          '학교 이메일 인증이 아직 안 됐어요. 메일함과 스팸 격리함을 확인하거나, 아래 버튼으로 인증 메일을 다시 받아주세요.',
-        );
-      }
+      // Unverified accounts still go to the server: it records an approval request for an admin to review.
+      setUnverified(!credential.user.emailVerified);
       const idToken = await credential.user.getIdToken(true);
       const response = await fetch('/api/auth/session', {
         method: 'POST',

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createMemberFixture, setRole } from './test-member-fixture.mjs';
+import { createMemberFixture, execute, setRole } from './test-member-fixture.mjs';
 
 const base = 'http://localhost:5173';
 const fixture = await createMemberFixture();
@@ -46,6 +46,54 @@ try {
     'role changes are recorded newest first',
   );
   assert.equal((await request('/api/admin/audit', { cookie: other })).status, 403, 'members cannot read the log');
+  // Accounts whose verification mail never arrived wait for an admin to approve or decline them.
+  const now = Date.now();
+  execute(
+    `INSERT INTO users (id,email,display_name,status,role,created_at,updated_at) VALUES ('test-pending-1','pending1@ks.ac.kr','대기일','pending','member',${now},${now}),('test-pending-2','pending2@ks.ac.kr','대기이','pending','member',${now},${now})`,
+  );
+  try {
+    const session = (await request('/api/session')).data;
+    assert.ok(session.pendingMembers >= 2, 'admins see how many members wait for approval');
+    assert.equal((await request('/api/session', { cookie: other })).data.pendingMembers, 0, 'members do not');
+    const bell = (await request('/api/notifications')).data.replies;
+    assert.ok(
+      bell.some((r) => r.kind === 'signup' && r.excerpt === 'pending1@ks.ac.kr'),
+      'the admin bell lists approval requests',
+    );
+    const waitingList = (await request('/api/admin/users?status=pending&limit=50')).data.users.map((u) => u.id);
+    assert.ok(waitingList.includes('test-pending-1') && waitingList.includes('test-pending-2'));
+    assert.equal(
+      (await request('/api/admin/users/test-pending-1', { method: 'PATCH', body: { status: 'active' } })).status,
+      200,
+      'admins approve',
+    );
+    assert.equal(
+      (await request('/api/admin/users/test-pending-2', { method: 'PATCH', body: { status: 'suspended' } })).status,
+      200,
+      'admins decline',
+    );
+    const after = (await request('/api/admin/users?q=pending&limit=50')).data.users;
+    assert.deepEqual(
+      after
+        .filter((u) => u.id.startsWith('test-pending-'))
+        .map((u) => [u.id, u.status])
+        .sort(),
+      [
+        ['test-pending-1', 'active'],
+        ['test-pending-2', 'suspended'],
+      ],
+    );
+    const logged = (await request('/api/admin/audit')).data.entries.find((e) => e.target_email === 'pending1@ks.ac.kr');
+    assert.deepEqual(
+      [logged.action, logged.before, logged.after],
+      ['status', 'pending', 'active'],
+      'approval is logged',
+    );
+  } finally {
+    execute(
+      "DELETE FROM member_audit WHERE target_id LIKE 'test-pending-%'; DELETE FROM users WHERE id LIKE 'test-pending-%'",
+    );
+  }
   assert.equal((await assign('test-member-second', 'owner')).status, 400, 'unknown roles are rejected');
   assert.equal((await assign('test-member-active', 'member')).status, 400, 'admins cannot demote themselves');
 

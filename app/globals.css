@@ -2022,7 +2022,8 @@ label small {
   .member-search .primary {
     grid-column: 1 / -1;
   }
-  .managed-list li {
+  .managed-list li,
+  .managed-list li.pending {
     grid-template-columns: minmax(0, 1fr) auto;
   }
   .member-info {
@@ -3252,4 +3253,30 @@ label small {
     grid-template-columns: minmax(0, 1fr);
     gap: 2px;
   }
+}
+.status-chip.pending {
+  background: #fff4e0;
+  color: #8f6118;
+}
+.approve-actions {
+  display: flex;
+  gap: 6px;
+}
+.approve-actions button {
+  white-space: nowrap;
+}
+.managed-list li.pending {
+  grid-template-columns: minmax(0, 1fr) 120px auto;
+  background: #fffaf0;
+}
+.heading-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
 }

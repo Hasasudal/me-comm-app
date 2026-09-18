@@ -51,13 +51,18 @@ assert.deepEqual(identity, {
   userId: 'firebase-user-1',
   email: 'student@ks.ac.kr',
   displayName: '김미컴',
+  emailVerified: true,
 });
 
 await assert.rejects(() => verify(validClaims, attacker.privateKey), /인증/);
 await assert.rejects(() => verify({ ...validClaims, aud: 'other-project' }), /인증/);
 await assert.rejects(() => verify({ ...validClaims, iss: 'https://securetoken.google.com/other-project' }), /인증/);
 await assert.rejects(() => verify({ ...validClaims, exp: now - 1 }), /인증/);
-await assert.rejects(() => verify({ ...validClaims, email_verified: false }), /인증/);
+assert.equal(
+  (await verify({ ...validClaims, email_verified: false })).emailVerified,
+  false,
+  'unverified mail is reported',
+);
 await assert.rejects(() => verify({ ...validClaims, email: 'student@example.com' }), /학교 이메일/);
 await assert.rejects(() => verify({ ...validClaims, email: 'student@sub.ks.ac.kr' }), /학교 이메일/);
 await assert.rejects(() => verify({ ...validClaims, name: ' ' }), /이름/);

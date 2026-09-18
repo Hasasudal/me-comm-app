@@ -13,7 +13,7 @@ export async function GET(request: Request) {
       .parse(url.searchParams.get('q') || '')
       .trim();
     const status = z
-      .enum(['all', 'active', 'suspended'])
+      .enum(['all', 'active', 'suspended', 'pending'])
       .catch('all')
       .parse(url.searchParams.get('status') || 'all');
     const role = z
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     const [rows, total] = await Promise.all([
       db()
         .prepare(
-          `SELECT id,email,display_name,status,role,suspended_at,created_at,updated_at FROM users WHERE ${where} ORDER BY (role<>'member') DESC, created_at DESC LIMIT ? OFFSET ?`,
+          `SELECT id,email,display_name,status,role,suspended_at,created_at,updated_at FROM users WHERE ${where} ORDER BY (status='pending') DESC, (role<>'member') DESC, created_at DESC LIMIT ? OFFSET ?`,
         )
         .bind(status, status, role, role, query, pattern, pattern, limit, offset)
         .all(),
