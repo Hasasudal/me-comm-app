@@ -46,6 +46,12 @@ assert.equal(verify.status, 200, 'email verification guidance has a dedicated pa
 assert.match(verifyHtml, /학교 이메일/);
 assert.match(verifyHtml, /인증 메일/);
 
+const help = await fetch(base + '/help');
+const helpHtml = await help.text();
+assert.equal(help.status, 200, 'the help page is open without signing in');
+assert.match(helpHtml, /가입과 로그인/);
+assert.match(helpHtml, /관리자 등록/);
+
 for (const [query, label] of [
   ['mode=verifyEmail&oobCode=test-code', '이메일 인증'],
   ['mode=resetPassword&oobCode=test-code', '비밀번호 재설정'],
