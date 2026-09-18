@@ -35,6 +35,17 @@ try {
   assert.ok(staff.length && staff.every((u) => u.role === 'academic'), 'the role filter lists only that role');
   assert.ok(staff.some((u) => u.id === 'test-member-second'));
   await assign('test-member-second', 'member');
+  // Each change leaves a record naming who changed what; members cannot read the log.
+  const log = (await request('/api/admin/audit')).data.entries.filter((e) => e.target_email === 'second@ks.ac.kr');
+  assert.deepEqual(
+    log.slice(0, 2).map((e) => [e.action, e.before, e.after, e.actor_name]),
+    [
+      ['role', 'academic', 'member', '활성회원'],
+      ['role', 'member', 'academic', '활성회원'],
+    ],
+    'role changes are recorded newest first',
+  );
+  assert.equal((await request('/api/admin/audit', { cookie: other })).status, 403, 'members cannot read the log');
   assert.equal((await assign('test-member-second', 'owner')).status, 400, 'unknown roles are rejected');
   assert.equal((await assign('test-member-active', 'member')).status, 400, 'admins cannot demote themselves');
 

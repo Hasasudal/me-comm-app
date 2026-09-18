@@ -18,9 +18,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
     if (userId === current.userId && (change.status === 'suspended' || (change.role && change.role !== 'admin')))
       throw new HttpError(400, '내 계정의 관리자 직책은 직접 바꾸거나 정지할 수 없습니다.');
     const target = await db()
-      .prepare('SELECT id,status,role FROM users WHERE id=?')
+      .prepare('SELECT id,email,display_name,status,role FROM users WHERE id=?')
       .bind(userId)
-      .first<{ id: string; status: string; role: string }>();
+      .first<{ id: string; email: string; display_name: string; status: string; role: string }>();
     if (!target) throw new HttpError(404, '회원을 찾을 수 없습니다.');
     const losesAdmin =
       target.role === 'admin' && (change.status === 'suspended' || (change.role && change.role !== 'admin'));
@@ -33,7 +33,34 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
     const status = change.status || target.status;
     const role = change.role || target.role;
     const now = Date.now();
+    // Every real change is recorded with who made it, so role and suspension history can be traced.
+    const audit = (
+      [
+        ['role', target.role, role],
+        ['status', target.status, status],
+      ] as const
+    )
+      .filter(([, before, after]) => before !== after)
+      .map(([action, before, after]) =>
+        db()
+          .prepare(
+            'INSERT INTO member_audit (id,actor_id,actor_name,target_id,target_name,target_email,action,before,after,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+          )
+          .bind(
+            crypto.randomUUID(),
+            current.userId,
+            current.displayName,
+            target.id,
+            target.display_name,
+            target.email,
+            action,
+            before,
+            after,
+            now,
+          ),
+      );
     await db().batch([
+      ...audit,
       db()
         .prepare(
           "UPDATE users SET status=?,role=?,suspended_at=CASE WHEN ?=status THEN suspended_at WHEN ?='suspended' THEN ? ELSE NULL END,updated_at=? WHERE id=?",

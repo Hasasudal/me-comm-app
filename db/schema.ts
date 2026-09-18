@@ -95,3 +95,21 @@ export const images = sqliteTable(
   },
   (table) => [index('idx_images_post').on(table.post_id, table.position)],
 );
+
+// Who changed whose role or status, and when. Names and emails are copied so the record outlives the accounts.
+export const memberAudit = sqliteTable(
+  'member_audit',
+  {
+    id: text('id').primaryKey(),
+    actor_id: text('actor_id').notNull(),
+    actor_name: text('actor_name').notNull(),
+    target_id: text('target_id').notNull(),
+    target_name: text('target_name').notNull(),
+    target_email: text('target_email').notNull(),
+    action: text('action').notNull(), // 'role' | 'status'
+    before: text('before').notNull(),
+    after: text('after').notNull(),
+    created_at: integer('created_at').notNull(),
+  },
+  (table) => [index('idx_member_audit_created').on(table.created_at)],
+);

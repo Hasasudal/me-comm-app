@@ -91,7 +91,9 @@ export async function createMemberFixture() {
     expiredCookie: `micom_session=${members[2].token}`,
     suspendedCookie: `micom_session=${members[3].token}`,
     cleanup() {
-      execute(`DELETE FROM sessions WHERE user_id IN (${ids}); DELETE FROM users WHERE id IN (${ids});`);
+      execute(
+        `DELETE FROM sessions WHERE user_id IN (${ids}); DELETE FROM member_audit WHERE target_id IN (${ids}); DELETE FROM users WHERE id IN (${ids});`,
+      );
     },
   };
 }
