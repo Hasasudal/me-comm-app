@@ -55,12 +55,14 @@ export async function attachImages(postId: string, keys: string[] | undefined, u
   const current = await postImages(postId);
   await checkImages(keys, userId, current);
   const removed = current.filter((key) => !keys.includes(key));
-  await db().batch([
+  const statements = [
     ...keys.map((key, position) =>
       db().prepare('UPDATE images SET post_id=?,position=? WHERE key=?').bind(postId, position, key),
     ),
     ...removed.map((key) => db().prepare('DELETE FROM images WHERE key=?').bind(key)),
-  ]);
+  ];
+  // D1 rejects an empty batch, and most posts have no photos.
+  if (statements.length) await db().batch(statements);
   if (removed.length) await bucket().delete(removed);
 }
 
