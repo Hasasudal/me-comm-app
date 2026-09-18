@@ -174,6 +174,20 @@ try {
   assert.equal(recruit.recruitment_status, 'closed');
   assert.equal(recruit.headcount, 4);
   assert.equal(recruit.roles, '영상, 개발');
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.contests}`, {
+        method: 'PATCH',
+        body: { title: '모집 수정', content: '수정한 모집', author_name: '작성자', password, headcount: 2 },
+      })
+    ).status,
+    200,
+    'recruitment fields are optional',
+  );
+  const partial = (await request(`/api/posts/${ids.contests}`)).data.post;
+  assert.equal(partial.headcount, 2);
+  assert.equal(partial.recruitment_status, null);
+  assert.equal(partial.deadline, null);
 
   assert.equal((await request('/api/admin/posts')).status, 403, 'non-admin cannot open the review queue');
   assert.equal(

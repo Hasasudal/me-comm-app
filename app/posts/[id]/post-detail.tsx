@@ -85,10 +85,10 @@ export default function PostDetail({ id }: { id: string }) {
     const recruitment =
       post.category === 'clubs' || post.category === 'contests'
         ? {
-            recruitment_status: form.get('recruitment_status'),
-            deadline: form.get('deadline'),
-            headcount: Number(form.get('headcount')),
-            roles: form.get('roles'),
+            recruitment_status: form.get('recruitment_status') || null,
+            deadline: form.get('deadline') || null,
+            headcount: form.get('headcount') ? Number(form.get('headcount')) : null,
+            roles: String(form.get('roles') || '').trim() || null,
           }
         : {};
     try {
@@ -221,11 +221,13 @@ export default function PostDetail({ id }: { id: string }) {
                 </button>
               )}
             </div>
-            {post.recruitment_status && (
+            {(post.recruitment_status || post.deadline || post.headcount || post.roles) && (
               <div className="recruitment-summary">
-                <span className={`recruitment-status ${post.recruitment_status}`}>
-                  {post.recruitment_status === 'open' ? '모집 중' : '마감'}
-                </span>
+                {post.recruitment_status && (
+                  <span className={`recruitment-status ${post.recruitment_status}`}>
+                    {post.recruitment_status === 'open' ? '모집 중' : '마감'}
+                  </span>
+                )}
                 {post.deadline && (
                   <span>
                     <CalendarDays size={17} />
@@ -347,33 +349,27 @@ export default function PostDetail({ id }: { id: string }) {
                 </label>
                 {(post.category === 'clubs' || post.category === 'contests') && (
                   <fieldset className="recruitment-fields">
-                    <legend>모집 정보</legend>
+                    <legend>모집 정보 (선택)</legend>
                     <div className="form-grid">
                       <label>
                         모집 상태
-                        <select name="recruitment_status" defaultValue={post.recruitment_status || 'open'}>
+                        <select name="recruitment_status" defaultValue={post.recruitment_status || ''}>
+                          <option value="">선택 안 함</option>
                           <option value="open">모집 중</option>
                           <option value="closed">마감</option>
                         </select>
                       </label>
                       <label>
                         모집 마감일
-                        <input name="deadline" type="date" required defaultValue={post.deadline || ''} />
+                        <input name="deadline" type="date" defaultValue={post.deadline || ''} />
                       </label>
                       <label>
                         모집 인원
-                        <input
-                          name="headcount"
-                          type="number"
-                          min="1"
-                          max="99"
-                          required
-                          defaultValue={post.headcount || ''}
-                        />
+                        <input name="headcount" type="number" min="1" max="99" defaultValue={post.headcount || ''} />
                       </label>
                       <label>
                         필요한 역할
-                        <input name="roles" required maxLength={200} defaultValue={post.roles || ''} />
+                        <input name="roles" maxLength={200} defaultValue={post.roles || ''} />
                       </label>
                     </div>
                   </fieldset>

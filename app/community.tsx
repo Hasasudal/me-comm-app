@@ -168,10 +168,10 @@ export default function Community({ category = 'all', admin = false }: { categor
     const recruitment =
       formCategory === 'clubs' || formCategory === 'contests'
         ? {
-            recruitment_status: form.get('recruitment_status'),
-            deadline: form.get('deadline'),
-            headcount: Number(form.get('headcount')),
-            roles: form.get('roles'),
+            recruitment_status: form.get('recruitment_status') || null,
+            deadline: form.get('deadline') || null,
+            headcount: form.get('headcount') ? Number(form.get('headcount')) : null,
+            roles: String(form.get('roles') || '').trim() || null,
           }
         : {};
     try {
@@ -395,11 +395,13 @@ export default function Community({ category = 'all', admin = false }: { categor
                         {post.prefix && <span className="post-prefix">[{post.prefix}]</span>}
                         {post.title}
                       </h3>
-                      {post.recruitment_status && (
+                      {(post.recruitment_status || post.deadline || post.headcount) && (
                         <div className="recruitment-line">
-                          <span className={`recruitment-status ${post.recruitment_status}`}>
-                            {post.recruitment_status === 'open' ? '모집 중' : '마감'}
-                          </span>
+                          {post.recruitment_status && (
+                            <span className={`recruitment-status ${post.recruitment_status}`}>
+                              {post.recruitment_status === 'open' ? '모집 중' : '마감'}
+                            </span>
+                          )}
                           {post.deadline && (
                             <span>
                               <CalendarDays size={13} />
@@ -567,26 +569,27 @@ export default function Community({ category = 'all', admin = false }: { categor
                 </label>
                 {(draftCategory === 'clubs' || draftCategory === 'contests') && (
                   <fieldset className="recruitment-fields">
-                    <legend>모집 정보</legend>
+                    <legend>모집 정보 (선택)</legend>
                     <div className="form-grid">
                       <label>
                         모집 상태
-                        <select name="recruitment_status" defaultValue="open">
+                        <select name="recruitment_status" defaultValue="">
+                          <option value="">선택 안 함</option>
                           <option value="open">모집 중</option>
                           <option value="closed">마감</option>
                         </select>
                       </label>
                       <label>
                         모집 마감일
-                        <input name="deadline" type="date" required />
+                        <input name="deadline" type="date" />
                       </label>
                       <label>
                         모집 인원
-                        <input name="headcount" type="number" min="1" max="99" required placeholder="예: 3" />
+                        <input name="headcount" type="number" min="1" max="99" placeholder="예: 3" />
                       </label>
                       <label>
                         필요한 역할
-                        <input name="roles" required maxLength={200} placeholder="예: 기획, 디자인, 개발" />
+                        <input name="roles" maxLength={200} placeholder="예: 기획, 디자인, 개발" />
                       </label>
                     </div>
                   </fieldset>

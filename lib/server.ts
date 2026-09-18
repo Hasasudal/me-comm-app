@@ -132,9 +132,8 @@ export function recruitmentValues(
   category: string,
 ) {
   if (category !== 'clubs' && category !== 'contests') return [null, null, null, null] as const;
-  if (!data.recruitment_status || !data.deadline || !data.headcount || !data.roles)
-    throw new HttpError(400, '모집 상태, 마감일, 인원과 필요한 역할을 모두 입력해주세요.');
-  return [data.recruitment_status, data.deadline, data.headcount, data.roles] as const;
+  // Every recruitment field is optional; blanks are stored as null.
+  return [data.recruitment_status || null, data.deadline || null, data.headcount || null, data.roles || null] as const;
 }
 export async function identity(request?: Request) {
   const configured = !!env.ADMIN_JOIN_CODE_HASH && !!env.ADMIN_JOIN_CODE_SALT;
