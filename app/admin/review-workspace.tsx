@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ArrowRight,
   Check,
   FileDown,
   FileText,
@@ -281,9 +280,6 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
             )}
           </ul>
         )}
-        <a className="text-button review-members-link" href="/admin/members">
-          회원·직책 관리 <ArrowRight size={15} />
-        </a>
       </section>
 
       <section className="review-panel" aria-label="기사 검토">

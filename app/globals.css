@@ -316,6 +316,24 @@ h1 {
 .primary:hover {
   background: #1641c6;
 }
+.heading-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 11px 17px;
+  min-height: 45px;
+  border: 1px solid #d5ddec;
+  border-radius: 8px;
+  background: white;
+  color: #34405a;
+  font-size: 14px;
+  font-weight: 600;
+}
+.heading-link:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
 .welcome-panel {
   display: flex;
   justify-content: space-between;
@@ -1198,25 +1216,6 @@ label small {
   font-size: 12px;
   color: #7e8a9b;
 }
-.code-input {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid #dce2ed;
-  border-radius: 8px;
-  padding: 0 12px;
-  color: #8090a7;
-}
-.code-input:focus-within {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px #2454e617;
-}
-.code-input input {
-  border: 0;
-  box-shadow: none !important;
-  margin: 0;
-  padding-left: 2px;
-}
 .join-success {
   text-align: center;
   background: #ecf7f1;
@@ -1248,48 +1247,6 @@ label small {
 }
 .join-back {
   margin: 20px 0 0;
-}
-.member-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 11px 0;
-  border-bottom: 1px solid #eef1f5;
-}
-.member-row:last-child {
-  border-bottom: 0;
-}
-.member-row strong,
-.member-row small {
-  display: block;
-  overflow-wrap: anywhere;
-}
-.member-row strong {
-  font-size: 13px;
-}
-.member-row small {
-  font-size: 11px;
-  color: #8792a3;
-}
-.member-row > span {
-  font-size: 10px;
-  color: var(--blue);
-  background: #edf2ff;
-  border-radius: 5px;
-  padding: 2px 5px;
-  white-space: nowrap;
-}
-.member-row button {
-  width: 31px;
-  height: 31px;
-  display: grid;
-  place-items: center;
-  border-radius: 7px;
-  color: #b14a50;
-}
-.member-row button:hover {
-  background: #fff0f0;
 }
 .admin-members > p {
   margin-bottom: 5px;
@@ -1852,9 +1809,6 @@ label small {
   padding: 11px;
   border-radius: 8px;
 }
-.admin-member-link {
-  margin-top: 14px;
-}
 .member-panel {
   background: white;
   border: 1px solid var(--line);
@@ -2366,40 +2320,6 @@ label small {
   font-size: 13px;
   color: #8490a1;
 }
-.review-admins {
-  border-top: 1px solid var(--line);
-  padding: 0 14px;
-}
-.review-admins summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 0;
-  font-size: 13px;
-  color: #5d6a7e;
-  cursor: pointer;
-  list-style: none;
-}
-.review-admins summary::-webkit-details-marker {
-  display: none;
-}
-.review-admins summary span {
-  font-size: 11px;
-  background: #edf2ff;
-  color: var(--blue);
-  border-radius: 6px;
-  padding: 0 6px;
-}
-.review-admins summary svg {
-  margin-left: auto;
-}
-.review-admins[open] summary svg {
-  transform: rotate(180deg);
-}
-.review-admins .text-button {
-  margin: 6px 0 14px;
-  font-size: 13px;
-}
 .review-panel {
   background: #fff;
   border: 1px solid var(--line);
@@ -2567,16 +2487,12 @@ label small {
     margin: 18px -18px -20px;
     padding: 12px 18px;
   }
+  .review-actionbar button {
+    white-space: nowrap;
+    padding-inline: 12px;
+  }
 }
 
-.revoked-caption {
-  font-size: 12px;
-  color: #8a96a8;
-  margin: 10px 0 2px;
-}
-.member-row.revoked strong {
-  color: #8a96a8;
-}
 .nav-alert {
   width: 8px;
   height: 8px;
