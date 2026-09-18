@@ -14,6 +14,27 @@ type User = {
   created_at: number;
 };
 type Session = ShellIdentity & { admin?: boolean };
+type AuditEntry = {
+  id: string;
+  actor_name: string;
+  target_name: string;
+  target_email: string;
+  action: 'role' | 'status';
+  before: string;
+  after: string;
+  created_at: number;
+};
+const statusLabels: Record<string, string> = { active: '이용 중', suspended: '정지' };
+const auditValue = (entry: AuditEntry, value: string) =>
+  entry.action === 'role' ? roleLabels[value as Role] || value : statusLabels[value] || value;
+const formatWhen = (n: number) =>
+  new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(n);
 const roleHints: Record<Role, string> = {
   member: '일반 회원 권한만 갖습니다',
   academic: '학사문의를 모두 보고 답변합니다',
@@ -32,6 +53,14 @@ export default function MemberManager() {
   const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [audit, setAudit] = useState<AuditEntry[] | null>(null);
+  const loadAudit = useCallback(async () => {
+    try {
+      setAudit((await api<{ entries: AuditEntry[] }>('/api/admin/audit')).entries);
+    } catch {
+      setAudit([]);
+    }
+  }, []);
   const load = useCallback(
     async (nextPage = page) => {
       setBusy(true);
@@ -55,7 +84,9 @@ export default function MemberManager() {
     api<Session>('/api/session')
       .then((session) => {
         setIdentity({ ...session, loaded: true });
-        if (session.admin) return load(1);
+        if (!session.admin) return;
+        void loadAudit();
+        return load(1);
       })
       .catch(() => setIdentity((value) => ({ ...value, loaded: true })));
     // Load once on entry; later searches go through the form.
@@ -71,7 +102,7 @@ export default function MemberManager() {
     setError('');
     try {
       await api(`/api/admin/users/${encodeURIComponent(user.id)}`, change, 'PATCH');
-      await load(page);
+      await Promise.all([load(page), loadAudit()]);
     } catch (cause) {
       setError((cause as Error).message);
       setBusy(false);
@@ -210,6 +241,30 @@ export default function MemberManager() {
               다음
             </button>
           </div>
+          <details className="member-audit">
+            <summary>
+              변경 기록 <span>{audit?.length ?? 0}</span>
+            </summary>
+            {!audit ? (
+              <p className="member-audit-empty">불러오는 중…</p>
+            ) : audit.length === 0 ? (
+              <p className="member-audit-empty">아직 직책이나 상태를 바꾼 기록이 없습니다.</p>
+            ) : (
+              <ol>
+                {audit.map((entry) => (
+                  <li key={entry.id}>
+                    <time>{formatWhen(entry.created_at)}</time>
+                    <span>
+                      <strong>{entry.actor_name}</strong>님이 <strong>{entry.target_name}</strong>
+                      <small>({entry.target_email})</small>의 {entry.action === 'role' ? '직책을' : '상태를'}{' '}
+                      <em>{auditValue(entry, entry.before)}</em> → <em>{auditValue(entry, entry.after)}</em>(으)로
+                      바꿨습니다.
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </details>
         </section>
       )}
     </AppShell>

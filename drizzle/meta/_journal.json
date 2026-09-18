@@ -71,6 +71,13 @@
       "when": 1789727675815,
       "tag": "0009_user_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1789732051256,
+      "tag": "0010_member_audit",
+      "breakpoints": true
     }
   ]
 }
