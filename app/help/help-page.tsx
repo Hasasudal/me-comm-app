@@ -637,8 +637,14 @@ export default function HelpPage() {
               <summary>인증 메일이 오지 않아요.</summary>
               <div>
                 <p>
-                  학교 메일의 스팸함을 확인하세요. 그래도 없으면 로그인 화면에서 다시 로그인하면 인증 메일을 다시 보낼
-                  수 있습니다.
+                  인증 메일은 <code>noreply@mecomm-project.firebaseapp.com</code>에서 옵니다. 도착까지 몇 분 걸릴 수
+                  있고, 학교 메일의 <strong>스팸 메일함</strong>이나 <strong>스팸 격리함(차단 메일함)</strong>으로 갈 수
+                  있으니 “firebaseapp”으로 검색해 보세요.
+                </p>
+                <p>
+                  그래도 없으면 <strong>다시 가입하지 말고</strong> 로그인 화면에서 같은 이메일·비밀번호로 로그인한 뒤{' '}
+                  <strong>인증 메일 다시 보내기</strong>를 누르세요. 다시 가입하면 “이미 가입된 이메일” 오류가 납니다.
+                  이메일 주소를 잘못 입력했다면 관리자에게 알려주세요.
                 </p>
               </div>
             </details>

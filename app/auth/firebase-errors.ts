@@ -1,7 +1,24 @@
+// Firebase sends verification and reset mail from this address; school spam filters sometimes quarantine it.
+export const MAIL_SENDER = 'noreply@mecomm-project.firebaseapp.com';
+const VERIFY_EMAIL_KEY = 'micom:verify-email';
+export function rememberVerifyEmail(email: string) {
+  try {
+    sessionStorage.setItem(VERIFY_EMAIL_KEY, email);
+  } catch {}
+}
+export function verifyEmail() {
+  try {
+    return sessionStorage.getItem(VERIFY_EMAIL_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
 export function firebaseMessage(error: unknown) {
   const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
   const messages: Record<string, string> = {
-    'auth/email-already-in-use': '이미 가입된 이메일입니다. 로그인해주세요.',
+    'auth/email-already-in-use':
+      '이미 가입된 이메일입니다. 인증 메일을 못 받았다면 다시 가입하지 말고, 로그인한 뒤 ‘인증 메일 다시 보내기’를 눌러주세요.',
     'auth/invalid-email': '학교 이메일 형식을 확인해주세요.',
     'auth/invalid-credential': '이메일 또는 비밀번호가 올바르지 않습니다.',
     'auth/user-disabled': '사용이 중지된 계정입니다. 관리자에게 문의해주세요.',
