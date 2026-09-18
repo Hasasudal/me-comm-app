@@ -1,6 +1,7 @@
 'use client';
 
 import { recruitmentState } from '../lib/recruitment';
+import { ImagePicker } from './image-picker';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowDown,
@@ -11,6 +12,8 @@ import {
   ChevronRight,
   CircleHelp,
   FileText,
+  Image as ImageIcon,
+  Megaphone,
   Inbox,
   LockKeyhole,
   MessageSquare,
@@ -29,6 +32,7 @@ import { api } from './api-client';
 import {
   AppShell,
   boardLabels,
+  deskStatus,
   boardPaths,
   boards,
   markSeen,
@@ -51,6 +55,7 @@ type Post = {
   deadline?: string | null;
   headcount?: number | null;
   comment_count?: number;
+  image_count?: number;
   snippet?: string | null;
   resolved_at?: number | null;
   pinned_at?: number | null;
@@ -58,8 +63,8 @@ type Post = {
 type Identity = ShellIdentity & { admin: boolean; configured: boolean };
 const prefixHints: Record<WritableBoard, string> = {
   board: '예: 질문, 정보',
-  qna: '예: 수강신청, 졸업요건',
   inquiry: '예: 장학, 휴학',
+  complaint: '예: 시설, 행사',
   news: '예: 행사, 인터뷰',
   clubs: '예: 동아리 이름',
   contests: '예: 공모전 이름',
@@ -87,6 +92,8 @@ export default function Community({ category = 'all', admin = false }: { categor
   const [creating, setCreating] = useState(false);
   const [modalError, setModalError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [draftCategory, setDraftCategory] = useState<WritableBoard>(category === 'all' ? 'board' : category);
   const dialog = useRef<HTMLDialogElement>(null);
   const loadId = useRef(0);
@@ -161,6 +168,7 @@ export default function Community({ category = 'all', admin = false }: { categor
   function openCreate() {
     setModalError('');
     setDraftCategory(category === 'all' ? 'board' : category);
+    setImages([]);
     setCreating(true);
   }
   function closeCreate() {
@@ -190,6 +198,7 @@ export default function Community({ category = 'all', admin = false }: { categor
         category: formCategory,
         author_name: form.get('author_name'),
         prefix: form.get('prefix'),
+        images,
         password: form.get('password'),
         ...recruitment,
       });
@@ -348,7 +357,7 @@ export default function Community({ category = 'all', admin = false }: { categor
             {category === 'all' && (
               <div className="filter-row" aria-label="게시글 분류">
                 {boards
-                  .filter((board) => board.id !== 'news' && board.id !== 'inquiry')
+                  .filter((board) => board.id !== 'news' && !deskStatus[board.id])
                   .map((board) => (
                     <a key={board.id} className={board.id === 'all' ? 'filter selected' : 'filter'} href={board.href}>
                       {board.id === 'all' ? '전체' : board.label}
@@ -409,8 +418,8 @@ export default function Community({ category = 'all', admin = false }: { categor
                         <Trophy size={21} />
                       ) : post.category === 'inquiry' ? (
                         <Inbox size={21} />
-                      ) : post.category === 'qna' ? (
-                        <CircleHelp size={21} />
+                      ) : post.category === 'complaint' ? (
+                        <Megaphone size={21} />
                       ) : (
                         <FileText size={21} />
                       )}
@@ -418,14 +427,9 @@ export default function Community({ category = 'all', admin = false }: { categor
                     <div className="post-info">
                       <span className={`category-tag ${post.category}`}>{boardLabels[post.category]}</span>
                       {post.pinned_at && <span className="status-badge feedback">고정</span>}
-                      {post.category === 'inquiry' && (
+                      {deskStatus[post.category] && (
                         <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
-                          {post.resolved_at ? '답변 완료' : '답변 대기'}
-                        </span>
-                      )}
-                      {post.category === 'qna' && (
-                        <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
-                          {post.resolved_at ? '해결됨' : '미해결'}
+                          {deskStatus[post.category]?.[post.resolved_at ? 1 : 0]}
                         </span>
                       )}
                       {category === 'news' && post.status && (
@@ -472,6 +476,12 @@ export default function Community({ category = 'all', admin = false }: { categor
                             {post.comment_count}
                           </span>
                         )}
+                        {!!post.image_count && (
+                          <span className="comment-count" aria-label={`사진 ${post.image_count}장`}>
+                            <ImageIcon size={12} />
+                            {post.image_count}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <ChevronRight className="row-arrow" size={19} />
@@ -488,8 +498,8 @@ export default function Community({ category = 'all', admin = false }: { categor
               <LockKeyhole size={14} />{' '}
               {category === 'news'
                 ? '학과 뉴스는 작성자와 관리자만 볼 수 있습니다.'
-                : category === 'inquiry'
-                  ? '학사문의는 문의한 사람과 관리자만 볼 수 있습니다.'
+                : deskStatus[category]
+                  ? `${current.label}은 작성한 사람과 관리자만 볼 수 있습니다.`
                   : '학교 인증을 마친 회원만 게시글을 볼 수 있습니다.'}
             </div>
           </section>
@@ -590,8 +600,8 @@ export default function Community({ category = 'all', admin = false }: { categor
                       onChange={(e) => setDraftCategory(e.target.value as WritableBoard)}
                     >
                       <option value="board">자유게시판</option>
-                      <option value="qna">학사 Q&amp;A</option>
                       <option value="inquiry">학사문의 · 1:1 비공개</option>
+                      <option value="complaint">학생회 민원 · 비공개</option>
                       <option value="news">학과 뉴스 · 관리자 검토</option>
                       <option value="clubs">동아리</option>
                       <option value="contests">공모전 모집</option>
@@ -622,6 +632,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                     placeholder="소식이나 모집 내용을 자유롭게 작성해주세요."
                   />
                 </label>
+                <ImagePicker value={images} onChange={setImages} onBusy={setUploading} />
                 {(draftCategory === 'clubs' || draftCategory === 'contests') && (
                   <fieldset className="recruitment-fields">
                     <legend>모집 정보 (선택)</legend>
@@ -672,7 +683,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                     {modalError}
                   </p>
                 )}
-                <button className="primary full" disabled={busy}>
+                <button className="primary full" disabled={busy || uploading}>
                   {busy ? '저장 중…' : draftCategory === 'news' ? '기사 제출' : '작성 완료'}
                   <ArrowRight size={17} />
                 </button>

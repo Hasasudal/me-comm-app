@@ -14,6 +14,7 @@ import {
   requireMember,
   visiblePost,
 } from '../../../../lib/server';
+import { attachImages, deletePostImages, postImages } from '../../../../lib/images';
 type Context = { params: Promise<{ id: string }> };
 export const dynamic = 'force-dynamic';
 export async function GET(request: Request, context: Context) {
@@ -21,7 +22,9 @@ export async function GET(request: Request, context: Context) {
     const member = await requireMember(request);
     const { id } = await context.params;
     const post = await visiblePost(id, member, await isAdmin(member.userId));
-    return json({ post: { ...publicPost(post), mine: post.author_id === member.userId } });
+    return json({
+      post: { ...publicPost(post), mine: post.author_id === member.userId, images: await postImages(id) },
+    });
   });
 }
 export async function PATCH(request: Request, context: Context) {
@@ -58,6 +61,7 @@ export async function PATCH(request: Request, context: Context) {
         id,
       )
       .run();
+    await attachImages(id, data.images, member.userId);
     return json({ ok: true, status });
   });
 }
@@ -69,6 +73,7 @@ export async function DELETE(request: Request, context: Context) {
     const { id } = await context.params;
     const post = await visiblePost(id, member, admin);
     await checkPostPassword(request, post, password, member, admin);
+    await deletePostImages([id]);
     await db().batch([
       db().prepare('DELETE FROM comments WHERE post_id=?').bind(id),
       db().prepare('DELETE FROM posts WHERE id=?').bind(id),

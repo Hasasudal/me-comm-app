@@ -6,6 +6,7 @@ import { HttpError } from './http-error';
 import { optionalMember, requireMember, type Member } from './member-auth';
 import { verifyPassword } from './password';
 import type { Review } from './annotations';
+import { imagesField } from './images';
 
 export { db, HttpError, requireMember };
 export function json(value: unknown, status = 200, headers?: HeadersInit) {
@@ -102,13 +103,15 @@ export const authorFields = {
 };
 export const createSchema = z.object({
   ...contentFields,
+  images: imagesField,
   ...recruitmentFields,
   ...authorFields,
-  category: z.enum(['board', 'qna', 'inquiry', 'news', 'clubs', 'contests']),
+  category: z.enum(['board', 'inquiry', 'complaint', 'news', 'clubs', 'contests']),
   password: passwordField,
 });
 export const editSchema = z.object({
   ...contentFields,
+  images: imagesField,
   ...recruitmentFields,
   ...authorFields,
   password: passwordField.optional(),
@@ -153,16 +156,18 @@ export async function identity(request?: Request) {
         .bind(member.userId, member.userId)
         .first<{ at: number | null }>();
       const admin = await isAdmin(member.userId);
-      // Admins see how many 1:1 inquiries still wait for an answer.
+      // Admins see how many inquiries and complaints still wait for an answer.
       const waiting = admin
         ? await db()
-            .prepare("SELECT COUNT(*) AS count FROM posts WHERE category='inquiry' AND resolved_at IS NULL")
-            .first<{ count: number }>()
+            .prepare(
+              "SELECT category, COUNT(*) AS count FROM posts WHERE category IN ('inquiry','complaint') AND resolved_at IS NULL GROUP BY category",
+            )
+            .all<{ category: string; count: number }>()
         : null;
       return {
         newsReviewedAt: reviewed?.at ?? null,
         repliedAt: replied?.at ?? null,
-        waitingInquiries: waiting?.count ?? 0,
+        waiting: Object.fromEntries((waiting?.results || []).map((row) => [row.category, row.count])),
         admin,
         signedIn: true,
         configured,
@@ -226,13 +231,16 @@ export type PostRow = {
 };
 export const listColumns =
   'id,title,category,prefix,author_name,status,recruitment_status,deadline,headcount,roles,resolved_at,pinned_at,created_at,updated_at,' +
-  '(SELECT COUNT(*) FROM comments WHERE comments.post_id=posts.id) AS comment_count';
+  '(SELECT COUNT(*) FROM comments WHERE comments.post_id=posts.id) AS comment_count,' +
+  '(SELECT COUNT(*) FROM images WHERE images.post_id=posts.id) AS image_count';
 export const commentSchema = z.object({
   author_name: authorFields.author_name,
   content: z.string().trim().min(1, '댓글을 입력해주세요.').max(1000, '댓글은 1,000자 이내로 입력해주세요.'),
 });
-// News and 1:1 inquiries are private to their author and administrators; other boards are open to members.
-export const privateCategories = ['news', 'inquiry'];
+// News and the desks (1:1 inquiries, student-council complaints) are private to their author and administrators;
+// other boards are open to members. Desks are answered by admins through comments.
+export const deskCategories = ['inquiry', 'complaint'];
+export const privateCategories = ['news', ...deskCategories];
 export async function visiblePost(id: string, member: Member, admin: boolean) {
   const post = await db().prepare('SELECT * FROM posts WHERE id=?').bind(id).first<PostRow>();
   if (!post || (privateCategories.includes(post.category) && !admin && post.author_id !== member.userId))

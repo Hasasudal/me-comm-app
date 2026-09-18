@@ -13,5 +13,6 @@
       "database_id": "eee8564e-e13a-4394-b0f7-af5d9688e62d",
       "migrations_dir": "drizzle"
     }
-  ]
+  ],
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "micom-images" }]
 }

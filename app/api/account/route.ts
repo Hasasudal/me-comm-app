@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { verifyFirebaseIdToken } from '../../../lib/firebase-token';
 import { expiredSessionCookie, requireMember, revokeMemberSessions } from '../../../lib/member-auth';
 import { db, handle, HttpError, input, json } from '../../../lib/server';
+import { deletePostImages } from '../../../lib/images';
 
 export const dynamic = 'force-dynamic';
 // Firebase uids never take this form, so no account can claim the withdrawn member's content.
@@ -58,9 +59,15 @@ export async function DELETE(request: Request) {
         throw new HttpError(409, '마지막 활성 관리자는 먼저 다른 관리자를 등록해야 탈퇴할 수 있습니다.');
     }
     if (dryRun) return json({ ok: true });
-    // Posts and comments stay for the community, credited to a withdrawn member; unfinished news and private
-    // inquiries are dropped and approved news stays for the admin archive.
-    const dropped = "author_id=? AND (category='inquiry' OR (category='news' AND status<>'published'))";
+    // Posts and comments stay for the community, credited to a withdrawn member; unfinished news, inquiries and
+    // complaints are dropped (with their photos) and approved news stays for the admin archive.
+    const dropped =
+      "author_id=? AND (category IN ('inquiry','complaint') OR (category='news' AND status<>'published'))";
+    const doomed = await db()
+      .prepare(`SELECT id FROM posts WHERE ${dropped}`)
+      .bind(member.userId)
+      .all<{ id: string }>();
+    await deletePostImages(doomed.results.map((row) => row.id));
     await db().batch([
       db().prepare(`DELETE FROM comments WHERE post_id IN (SELECT id FROM posts WHERE ${dropped})`).bind(member.userId),
       db().prepare(`DELETE FROM posts WHERE ${dropped}`).bind(member.userId),
