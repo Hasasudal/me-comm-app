@@ -2842,3 +2842,29 @@ label small {
   height: 100%;
   object-fit: cover;
 }
+.bot-dialog {
+  width: min(380px, calc(100vw - 32px));
+  text-align: center;
+}
+.bot-dialog .dialog-inner {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+.bot-dialog h2 {
+  margin: 0;
+}
+.bot-dialog img {
+  width: 200px;
+  height: 200px;
+  image-rendering: pixelated;
+}
+.bot-dialog p {
+  margin: 0;
+  color: #4d5a70;
+  font-size: 14px;
+}
+.bot-dialog small {
+  color: #7a879b;
+  font-size: 12px;
+}
