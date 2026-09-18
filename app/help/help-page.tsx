@@ -266,10 +266,10 @@ export default function HelpPage() {
               <li>내가 쓴 댓글은 휴지통 아이콘으로 지울 수 있습니다. 다른 사람 댓글은 지울 수 없습니다.</li>
               <li>글 목록에서 💬 옆 숫자는 댓글 수, 🖼 옆 숫자는 사진 수입니다.</li>
             </ul>
-            <h3>댓글 알림</h3>
+            <h3>알림</h3>
             <p>
               누군가 <strong>내 글에 댓글을 달면</strong> 오른쪽 위 🔔 종 아이콘에 빨간 점이 뜹니다. 종을 누르면 최근
-              댓글 20개가 보이고, 누르면 그 글로 이동합니다. 아직 안 본 댓글은 파란 배경으로 표시됩니다.
+              알림 20개가 보이고, 누르면 그 글로 이동합니다. 아직 안 본 알림은 파란 배경으로 표시됩니다.
             </p>
             <div className="note">
               읽음 표시는 <strong>브라우저마다 따로</strong> 기억합니다. 휴대폰에서 확인했어도 노트북에는 빨간 점이 남아
@@ -463,7 +463,8 @@ export default function HelpPage() {
           <section id="admin-review">
             <h2>뉴스 검토</h2>
             <p>
-              <strong>뉴스 승인</strong> 화면은 왼쪽 기사 목록, 오른쪽 기사 본문으로 나뉩니다. 위쪽 탭(
+              관리자에게만 보이는 사이드바의 <strong>뉴스 승인</strong> 화면은 왼쪽 기사 목록, 오른쪽 기사 본문으로
+              나뉩니다. 위쪽 탭(
               <span className="pill wait">승인 대기</span> <span className="pill fb">피드백</span>{' '}
               <span className="pill no">반려</span> <span className="pill done">승인</span>)으로 상태별 기사를 봅니다.
               목록은 30개씩 나오고 <strong>더 보기</strong>로 이어서 봅니다.
@@ -539,6 +540,10 @@ export default function HelpPage() {
               </li>
             </ol>
             <p>학생이 추가 질문을 댓글로 달면 다시 대기 상태로 돌아와 숫자가 올라갑니다.</p>
+            <p>
+              담당 게시판에 <strong>새 글</strong>이 올라오거나 학생이 <strong>추가 문의</strong>를 남기면 🔔 알림에도
+              표시됩니다.
+            </p>
           </section>
 
           <section id="admin-board">

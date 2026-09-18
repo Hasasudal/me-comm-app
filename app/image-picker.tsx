@@ -102,6 +102,24 @@ export function ImagePicker({
   );
 }
 
+// Word cannot embed WebP, so photos are re-encoded as JPEG for the export.
+export async function photoForWord(key: string) {
+  const response = await fetch(imageUrl(key));
+  if (!response.ok) throw new Error('사진을 불러오지 못했습니다.');
+  const bitmap = await createImageBitmap(await response.blob());
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const context = canvas.getContext('2d')!;
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/jpeg', 0.85));
+  if (!blob) throw new Error('사진을 변환하지 못했습니다.');
+  return { data: new Uint8Array(await blob.arrayBuffer()), width: canvas.width, height: canvas.height };
+}
+
 export function ImageGallery({ keys }: { keys: string[] }) {
   if (!keys.length) return null;
   return (

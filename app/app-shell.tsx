@@ -95,7 +95,16 @@ export type ShellIdentity = {
   waiting?: Partial<Record<BoardId, number>>;
   admin?: boolean;
 };
-type Reply = { id: string; post_id: string; title: string; author_name: string; excerpt: string; created_at: number };
+type Reply = {
+  kind: 'reply' | 'desk' | 'followup';
+  id: string;
+  post_id: string;
+  title: string;
+  author_name: string;
+  excerpt: string;
+  created_at: number;
+};
+const replyKinds: Record<Reply['kind'], string> = { reply: '댓글', desk: '새 글', followup: '추가 문의' };
 
 // "Seen" is a per-browser convenience: when the member last looked at review results ("news") or replies.
 type SeenKind = 'news' | 'replies';
@@ -141,26 +150,26 @@ function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number |
 
   return (
     <div className="reply-bell">
-      <button aria-label={fresh ? '새 댓글 알림' : '댓글 알림'} aria-expanded={open} onClick={() => void toggle()}>
+      <button aria-label={fresh ? '새 알림' : '알림'} aria-expanded={open} onClick={() => void toggle()}>
         <Bell size={18} />
         {fresh && <span className="nav-alert" />}
       </button>
       {open && (
-        <div className="reply-panel" role="dialog" aria-label="내 글에 달린 댓글">
-          <strong>내 글에 달린 댓글</strong>
+        <div className="reply-panel" role="dialog" aria-label="알림">
+          <strong>알림</strong>
           {error ? (
             <p className="reply-empty">{error}</p>
           ) : replies === null ? (
             <p className="reply-empty">불러오는 중…</p>
           ) : replies.length === 0 ? (
-            <p className="reply-empty">아직 달린 댓글이 없어요.</p>
+            <p className="reply-empty">아직 알림이 없어요.</p>
           ) : (
             <ul>
               {replies.map((reply) => (
                 <li key={reply.id} className={reply.created_at > seenBefore ? 'unread' : undefined}>
                   <a href={`/posts/${reply.post_id}`}>
                     <small>
-                      {reply.author_name} · {formatWhen(reply.created_at)}
+                      {replyKinds[reply.kind]} · {reply.author_name} · {formatWhen(reply.created_at)}
                     </small>
                     <span>{reply.excerpt}</span>
                     <em>{reply.title}</em>
@@ -310,15 +319,16 @@ export function AppShell({
             <CircleHelp size={20} />
             도움말
           </a>
-          <a
-            href="/admin"
-            aria-current={active === 'admin' ? 'page' : undefined}
-            className={`nav-item ${active === 'admin' ? 'active' : ''}`}
-          >
-            <ShieldCheck size={20} />
-            뉴스 승인
-            <ArrowUpRight size={16} />
-          </a>
+          {identity.admin && (
+            <a
+              href="/admin"
+              aria-current={active === 'admin' ? 'page' : undefined}
+              className={`nav-item ${active === 'admin' ? 'active' : ''}`}
+            >
+              <ShieldCheck size={20} />
+              뉴스 승인
+            </a>
+          )}
           <div className="sidebar-footer">
             MICOM LOUNGE <span>© {new Date().getFullYear()}</span>
           </div>

@@ -15,7 +15,7 @@ import {
 } from '../../../lib/server';
 import { hashPassword } from '../../../lib/password';
 import { searchSnippet } from '../../../lib/search';
-import { attachImages } from '../../../lib/images';
+import { attachImages, checkImages } from '../../../lib/images';
 import { seoulToday } from '../../../lib/recruitment';
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 30;
@@ -91,6 +91,7 @@ export async function POST(request: Request) {
       salt = crypto.randomUUID(),
       now = Date.now();
     const [recruitmentStatus, deadline, headcount, roles] = recruitmentValues(data, data.category);
+    await checkImages(data.images, member.userId);
     const hash = await hashPassword(data.password, salt);
     const status = data.category === 'news' ? 'pending' : 'published';
     await db()

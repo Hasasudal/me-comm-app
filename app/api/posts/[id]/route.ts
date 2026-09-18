@@ -14,7 +14,7 @@ import {
   requireMember,
   visiblePost,
 } from '../../../../lib/server';
-import { attachImages, deletePostImages, postImages } from '../../../../lib/images';
+import { attachImages, checkImages, deletePostImages, postImages } from '../../../../lib/images';
 type Context = { params: Promise<{ id: string }> };
 export const dynamic = 'force-dynamic';
 export async function GET(request: Request, context: Context) {
@@ -42,6 +42,7 @@ export async function PATCH(request: Request, context: Context) {
     const status = news ? 'pending' : 'published';
     const feedback = news ? null : post.feedback;
     const [recruitmentStatus, deadline, headcount, roles] = recruitmentValues(data, post.category);
+    await checkImages(data.images, member.userId, await postImages(id));
     await db()
       .prepare(
         'UPDATE posts SET title=?,content=?,author_name=?,prefix=?,status=?,feedback=?,recruitment_status=?,deadline=?,headcount=?,roles=?,updated_at=? WHERE id=?',

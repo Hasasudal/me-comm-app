@@ -5,7 +5,11 @@ export type ExportArticle = {
   status: string;
   created_at: number;
   content: string;
+  // Photos already decoded to JPEG by the caller (docx cannot embed WebP), with their pixel size.
+  photos?: { data: Uint8Array; width: number; height: number }[];
 };
+// Word page body is about 6.3 inches wide; images are sized in pixels at 96 dpi.
+const PHOTO_WIDTH = 600;
 
 const statusText: Record<string, string> = {
   pending: '승인 대기',
@@ -37,7 +41,7 @@ export function exportFileName(articles: ExportArticle[], now = Date.now()) {
 
 // Builds the .docx in the browser; docx is loaded only when an admin exports.
 export async function newsDocx(articles: ExportArticle[]) {
-  const { Document, HeadingLevel, Packer, Paragraph, TextRun } = await import('docx');
+  const { Document, HeadingLevel, ImageRun, Packer, Paragraph, TextRun } = await import('docx');
   const children = articles.flatMap((article, index) => {
     const blocks = articleBlocks(article);
     return [
@@ -47,6 +51,19 @@ export async function newsDocx(articles: ExportArticle[]) {
         spacing: { after: 240 },
       }),
       ...blocks.paragraphs.map((line) => new Paragraph({ children: [new TextRun(line)], spacing: { after: 120 } })),
+      ...(article.photos || []).map((photo) => {
+        const scale = Math.min(1, PHOTO_WIDTH / photo.width);
+        return new Paragraph({
+          children: [
+            new ImageRun({
+              type: 'jpg',
+              data: photo.data,
+              transformation: { width: Math.round(photo.width * scale), height: Math.round(photo.height * scale) },
+            }),
+          ],
+          spacing: { before: 120, after: 120 },
+        });
+      }),
     ];
   });
   const document = new Document({
