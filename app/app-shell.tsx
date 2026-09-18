@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight,
   Bell,
@@ -17,6 +17,7 @@ import {
   Sparkles,
   Trophy,
   Users,
+  X,
 } from 'lucide-react';
 import { api } from './api-client';
 
@@ -55,7 +56,8 @@ export const boards = [
   },
 ] as const;
 // Equipment rental and student-council requests run through the 미컴봇 KakaoTalk channel.
-const MICOMBOT_URL = 'https://pf.kakao.com/_jaUxiG';
+// "/chat" opens the chat room straight away (in the KakaoTalk app on phones, as web chat on computers).
+const MICOMBOT_URL = 'https://pf.kakao.com/_jaUxiG/chat';
 const botLinks = [{ label: '기자재 대여', icon: Package }];
 // Private boards answered by admins: the badge reads [waiting, answered].
 export const deskStatus: Partial<Record<BoardId, [string, string]>> = {
@@ -171,6 +173,7 @@ export function AppShell({
 }) {
   const [mobileNav, setMobileNav] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const botDialog = useRef<HTMLDialogElement>(null);
   const newsUpdated =
     active !== 'news' && !!identity.userId && (identity.newsReviewedAt || 0) > seenAt('news', identity.userId);
 
@@ -230,13 +233,47 @@ export function AppShell({
         <p className="nav-caption">미컴봇 · 카카오톡</p>
         <nav aria-label="미컴봇 바로가기">
           {botLinks.map((link) => (
-            <a key={link.label} className="nav-item" href={MICOMBOT_URL} target="_blank" rel="noopener noreferrer">
+            <a
+              key={link.label}
+              className="nav-item"
+              href={MICOMBOT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                // Computers cannot open the KakaoTalk app from a link, so offer a QR code for the phone instead.
+                if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+                e.preventDefault();
+                botDialog.current?.showModal();
+              }}
+            >
               <link.icon size={20} />
               {link.label}
               <ArrowUpRight size={16} className="nav-external" />
             </a>
           ))}
         </nav>
+        <dialog
+          ref={botDialog}
+          className="post-dialog bot-dialog"
+          aria-label="미컴봇 채팅 열기"
+          onClick={(e) => {
+            if (e.target === botDialog.current) botDialog.current?.close();
+          }}
+        >
+          <div className="dialog-inner">
+            <button className="dialog-close icon-button" aria-label="닫기" onClick={() => botDialog.current?.close()}>
+              <X size={20} />
+            </button>
+            <h2>미컴봇 채팅 열기</h2>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/micombot-qr.svg" alt="미컴봇 카카오톡 채널 QR코드" width={200} height={200} />
+            <p>휴대폰 카메라로 찍으면 카카오톡에서 바로 채팅이 열려요.</p>
+            <a className="primary" href={MICOMBOT_URL} target="_blank" rel="noopener noreferrer">
+              웹에서 채팅 열기 <ArrowUpRight size={16} />
+            </a>
+            <small>PC 카카오톡에서는 ‘경성대 미컴봇’을 검색해도 돼요.</small>
+          </div>
+        </dialog>
         <div className="sidebar-bottom">
           <div className="sidebar-note">
             <Sparkles size={19} />
