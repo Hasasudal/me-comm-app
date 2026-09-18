@@ -30,7 +30,9 @@ export default function HelpPage() {
           <h1>
             도움말<span className="heading-dot">.</span>
           </h1>
-          <p>미컴 라운지 사용법입니다. 앞부분은 모든 학생, 뒷부분은 관리자(학생회·조교) 안내예요.</p>
+          <p>
+            미컴 라운지 사용법입니다. 앞부분은 모든 학생, 뒷부분은 직책(학사·학생회·관리자)을 맡은 분을 위한 안내예요.
+          </p>
         </div>
       </section>
       <div className="help-layout">
@@ -59,7 +61,7 @@ export default function HelpPage() {
               <a href="#news">학과 뉴스 기사 제출</a>
             </li>
             <li>
-              <a href="#desk">학사문의·학생회 민원</a>
+              <a href="#desk">학사문의·학생회 건의</a>
             </li>
             <li>
               <a href="#rental">대여 신청</a>
@@ -71,19 +73,19 @@ export default function HelpPage() {
           <p className="help-toc-label">관리자</p>
           <ol>
             <li>
-              <a href="#admin-join">관리자 등록</a>
+              <a href="#admin-join">직책 안내</a>
             </li>
             <li>
               <a href="#admin-review">뉴스 검토</a>
             </li>
             <li>
-              <a href="#admin-desk">문의·민원 답변</a>
+              <a href="#admin-desk">문의·건의 답변</a>
             </li>
             <li>
               <a href="#admin-board">게시판 관리</a>
             </li>
             <li>
-              <a href="#admin-members">회원·관리자 관리</a>
+              <a href="#admin-members">회원·직책 관리</a>
             </li>
           </ol>
           <p className="help-toc-label">도움말</p>
@@ -155,14 +157,14 @@ export default function HelpPage() {
                     <td>학사문의</td>
                     <td>장학, 휴학, 수강 등 학과 사무실에 묻는 1:1 문의</td>
                     <td>
-                      <span className="pill lock">나와 관리자만</span>
+                      <span className="pill lock">나와 학사·관리자</span>
                     </td>
                   </tr>
                   <tr>
-                    <td>학생회 민원</td>
+                    <td>학생회 건의</td>
                     <td>학생회에 건의하거나 불편을 알리는 글</td>
                     <td>
-                      <span className="pill lock">나와 관리자만</span>
+                      <span className="pill lock">나와 학생회·관리자</span>
                     </td>
                   </tr>
                   <tr>
@@ -339,24 +341,27 @@ export default function HelpPage() {
           </section>
 
           <section id="desk">
-            <h2>학사문의·학생회 민원</h2>
+            <h2>학사문의·학생회 건의</h2>
             <p>
-              둘 다 <strong>나와 관리자만 보는 비공개 게시판</strong>입니다. 학사문의는 학과 사무실에, 학생회 민원은
-              학생회에 전달됩니다. 글을 올리면 관리자가 <strong>댓글로 답변</strong>합니다.
+              둘 다 <strong>비공개 게시판</strong>입니다. 학사문의는 <strong>학사</strong> 직책(학과 사무실)과 관리자만,
+              학생회 건의는 <strong>학생회</strong> 직책과 관리자만 볼 수 있습니다. 글을 올리면 담당자가{' '}
+              <strong>댓글로 답변</strong>합니다.
             </p>
             <dl className="status">
               <dt>
                 <span className="pill wait">답변 대기</span> <span className="pill wait">처리 대기</span>
               </dt>
-              <dd>아직 관리자가 답하지 않았습니다.</dd>
+              <dd>아직 담당자가 답하지 않았습니다.</dd>
               <dt>
                 <span className="pill done">답변 완료</span> <span className="pill done">처리 완료</span>
               </dt>
-              <dd>관리자가 댓글로 답했습니다. 🔔 알림으로도 알려 줍니다.</dd>
+              <dd>담당자가 댓글로 답했습니다. 🔔 알림으로도 알려 줍니다.</dd>
             </dl>
             <p>
-              답변을 보고 더 궁금한 점이 있으면 <strong>그 글에 댓글로 다시 물어보세요</strong>. 자동으로 다시 대기
-              상태가 되어 관리자에게 알려집니다.
+              담당자 댓글에는 <span className="role-badge academic">학사</span>,{' '}
+              <span className="role-badge council">학생회</span>, <span className="role-badge admin">관리자</span>{' '}
+              배지가 붙어 공식 답변인지 알 수 있습니다. 더 궁금한 점이 있으면{' '}
+              <strong>그 글에 댓글로 다시 물어보세요</strong>. 자동으로 다시 대기 상태가 되어 담당자에게 알려집니다.
             </p>
           </section>
 
@@ -409,29 +414,49 @@ export default function HelpPage() {
                 공개 게시판의 글과 댓글은 남고, 작성자가 <strong>탈퇴한 회원</strong>으로 바뀝니다. 같은 이메일로 다시
                 가입해도 예전 글을 수정할 수 없으니, 지우고 싶은 글은 탈퇴 전에 지우세요.
               </li>
-              <li>학사문의, 학생회 민원, 검토 중인 뉴스 기사는 답변·사진과 함께 삭제됩니다.</li>
+              <li>학사문의, 학생회 건의, 검토 중인 뉴스 기사는 답변·사진과 함께 삭제됩니다.</li>
               <li>승인된 뉴스 기사는 학과 기록으로 남습니다.</li>
             </ul>
           </section>
 
           <div className="part">
-            <span className="part-label">관리자 안내</span>
+            <span className="part-label">직책 안내</span>
           </div>
 
           <section id="admin-join">
-            <h2>관리자 등록</h2>
-            <ol className="steps">
-              <li>먼저 일반 회원으로 가입하고 로그인합니다.</li>
-              <li>
-                사이드바 아래 <strong>뉴스 승인</strong>을 누르면 관리자 코드 입력 화면이 나옵니다.
-              </li>
-              <li>
-                학생회·조교에게 전달받은 <strong>관리자 코드</strong>를 입력하면 관리자가 됩니다.
-              </li>
-            </ol>
-            <div className="note">
-              관리자 코드는 외부에 공유하지 마세요. 코드를 바꿔야 하면 사이트 운영 담당자가 새 코드를 발급해 Cloudflare
-              설정에 다시 넣습니다. 권한이 회수된 계정은 코드를 알아도 다시 등록할 수 없습니다.
+            <h2>직책 안내</h2>
+            <p>
+              회원은 <strong>일반</strong>, <strong>학사</strong>, <strong>학생회</strong>, <strong>관리자</strong> 중
+              하나의 직책을 가집니다. 처음 가입하면 일반이고, <strong>관리자가 직책을 정해 줍니다</strong>. 직책이
+              필요하면 관리자에게 요청하세요.
+            </p>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>직책</th>
+                    <th>할 수 있는 일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>일반</td>
+                    <td>공개 게시판 읽기·쓰기, 내 문의·건의·기사 관리</td>
+                  </tr>
+                  <tr>
+                    <td>학사</td>
+                    <td>일반 + 모든 학사문의 보기·답변</td>
+                  </tr>
+                  <tr>
+                    <td>학생회</td>
+                    <td>일반 + 모든 학생회 건의 보기·답변</td>
+                  </tr>
+                  <tr>
+                    <td>관리자</td>
+                    <td>모든 기능: 뉴스 검토, 모든 문의·건의, 상단 고정, 글·댓글 정리, 회원 정지, 직책 관리</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </section>
 
@@ -495,10 +520,10 @@ export default function HelpPage() {
           </section>
 
           <section id="admin-desk">
-            <h2>문의·민원 답변</h2>
+            <h2>문의·건의 답변</h2>
             <p>
-              관리자는 <strong>학사문의</strong>와 <strong>학생회 민원</strong> 게시판에서 모든 학생의 글을 봅니다.
-              답변이 필요한 글 수가 사이드바에 빨간 숫자로 표시됩니다.
+              학사 직책은 <strong>학사문의</strong>, 학생회 직책은 <strong>학생회 건의</strong> 게시판에서 모든 학생의
+              글을 봅니다. 관리자는 둘 다 봅니다. 답변이 필요한 글 수가 사이드바에 빨간 숫자로 표시됩니다.
             </p>
             <ol className="steps">
               <li>
@@ -510,7 +535,7 @@ export default function HelpPage() {
               </li>
               <li>
                 자동으로 <span className="pill done">답변 완료</span> / <span className="pill done">처리 완료</span>가
-                되고, 학생에게 🔔 알림이 갑니다.
+                되고, 학생에게 🔔 알림이 갑니다. 댓글에는 직책 배지가 붙습니다.
               </li>
             </ol>
             <p>학생이 추가 질문을 댓글로 달면 다시 대기 상태로 돌아와 숫자가 올라갑니다.</p>
@@ -522,7 +547,7 @@ export default function HelpPage() {
               <li>
                 <strong>상단 고정</strong>: 공개 게시판 글 상세 화면의 <strong>상단 고정</strong> 버튼으로 그 게시판 맨
                 위에 고정합니다. 공지나 자주 묻는 안내에 씁니다. <strong>고정 해제</strong>로 원래 순서로 돌려놓습니다.
-                비공개 글(뉴스·문의·민원)은 고정할 수 없습니다.
+                비공개 글(뉴스·문의·건의)은 고정할 수 없습니다.
               </li>
               <li>
                 <strong>글·댓글 정리</strong>: 관리자는 비밀번호 없이 모든 글을 수정·삭제하고, 모든 댓글을 지울 수
@@ -532,34 +557,23 @@ export default function HelpPage() {
           </section>
 
           <section id="admin-members">
-            <h2>회원·관리자 관리</h2>
-            <h3>회원 관리</h3>
+            <h2>회원·직책 관리</h2>
             <p>
-              뉴스 승인 화면 아래 <strong>전체 회원 관리</strong>에서 이름이나 이메일로 회원을 찾습니다.
+              관리자는 뉴스 승인 화면의 <strong>회원·직책 관리</strong>에서 이름이나 이메일로 회원을 찾습니다. 직책이
+              있는 회원이 목록 위쪽에 나옵니다.
             </p>
             <ul className="plain">
               <li>
-                <strong>정지</strong>: 정지된 회원은 모든 기기에서 즉시 로그아웃되고 다시 로그인할 수 없습니다.
+                <strong>직책 바꾸기</strong>: 회원 옆 선택 상자에서 일반·학사·학생회·관리자를 고릅니다. 임기가 끝난
+                학생회는 일반으로 돌려놓으세요. 관리자도 여기서 다른 회원에게 줄 수 있습니다.
               </li>
               <li>
-                <strong>복구</strong>: 정지를 풀어 다시 로그인할 수 있게 합니다.
-              </li>
-            </ul>
-            <h3>관리자 권한</h3>
-            <p>
-              뉴스 승인 화면 왼쪽 아래 <strong>관리자 계정</strong>을 펼치면 현재 관리자 목록이 보입니다.
-            </p>
-            <ul className="plain">
-              <li>
-                <strong>권한 회수</strong>: 이름 옆 버튼으로 임기가 끝난 학생회 등의 관리자 권한을 거둡니다. 회수된
-                계정은 관리자 코드로 다시 등록할 수 없습니다.
+                <strong>정지</strong>: 정지된 회원은 모든 기기에서 즉시 로그아웃되고 다시 로그인할 수 없습니다.{' '}
+                <strong>복구</strong>로 풀어 줍니다.
               </li>
               <li>
-                <strong>권한 복구</strong>: 회수된 계정 목록에서 권한을 되돌립니다.
-              </li>
-              <li>
-                본인 권한은 회수할 수 없고, 마지막 남은 관리자는 정지하거나 탈퇴할 수 없습니다. 인수인계 때는 새
-                관리자를 먼저 등록하세요.
+                내 직책은 직접 바꿀 수 없고(다른 관리자가 바꿉니다), 마지막 남은 관리자는 직책을 바꾸거나 정지·탈퇴할 수
+                없습니다. 인수인계 때는 새 관리자에게 먼저 직책을 주세요.
               </li>
             </ul>
           </section>
@@ -600,7 +614,8 @@ export default function HelpPage() {
               <summary>내가 올린 학사문의를 다른 학생이 볼 수 있나요?</summary>
               <div>
                 <p>
-                  아니요. 학사문의, 학생회 민원, 학과 뉴스는 작성자와 관리자만 볼 수 있고, 첨부한 사진도 마찬가지입니다.
+                  아니요. 학사문의는 작성자와 학사·관리자만, 학생회 건의는 작성자와 학생회·관리자만, 학과 뉴스는
+                  작성자와 관리자만 볼 수 있고, 첨부한 사진도 마찬가지입니다.
                 </p>
               </div>
             </details>

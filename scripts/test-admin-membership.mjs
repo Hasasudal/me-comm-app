@@ -1,90 +1,62 @@
 import assert from 'node:assert/strict';
-import { createMemberFixture } from './test-member-fixture.mjs';
+import { createMemberFixture, setRole } from './test-member-fixture.mjs';
 
 const base = 'http://localhost:5173';
-const adminCode = 'Local-admin-code-1234';
-
-async function request(path, { method = 'GET', body, cookie } = {}) {
-  const res = await fetch(base + path, {
+const fixture = await createMemberFixture();
+const admin = fixture.activeCookie,
+  other = fixture.secondCookie;
+async function request(path, { method = 'GET', body, cookie = admin } = {}) {
+  const response = await fetch(base + path, {
     method,
-    headers: {
-      ...(body ? { 'Content-Type': 'application/json', Origin: base } : {}),
-      ...(cookie ? { Cookie: cookie } : {}),
-    },
+    headers: { ...(body ? { 'Content-Type': 'application/json', Origin: base } : {}), Cookie: cookie },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const raw = await res.text();
-  let data = {};
-  try {
-    data = raw ? JSON.parse(raw) : {};
-  } catch {}
-  return { status: res.status, data };
+  return { status: response.status, data: await response.json().catch(() => ({})) };
 }
+const assign = (userId, role, cookie = admin) =>
+  request(`/api/admin/users/${userId}`, { method: 'PATCH', cookie, body: { role } });
 
-const fixture = await createMemberFixture();
-const cookie = fixture.activeCookie;
+try {
+  assert.equal((await request('/api/session', { cookie: other })).data.role, 'member', 'new members start as 일반');
+  assert.equal((await assign('test-member-second', 'admin', other)).status, 403, 'members cannot assign roles');
 
-assert.equal(
-  (await request('/api/admin/join', { method: 'POST', body: { code: adminCode } })).status,
-  401,
-  'sign-in is required',
-);
-assert.equal(
-  (await request('/api/admin/join', { method: 'POST', cookie, body: { code: 'incorrect-admin-code' } })).status,
-  403,
-  'wrong code is rejected',
-);
-assert.equal(
-  (await request('/api/admin/join', { method: 'POST', cookie, body: { code: adminCode } })).status,
-  201,
-  'valid code registers the signed-in account',
-);
+  setRole('test-member-active', 'admin');
+  // Other admins may already exist locally; make the fixture admin the only one for the last-admin check.
+  const users = await request('/api/admin/users?q=ks.ac.kr&limit=50');
+  assert.equal(users.status, 200);
+  assert.equal(users.data.users.find((u) => u.id === 'test-member-active').role, 'admin', 'lists show roles');
 
-const session = await request('/api/session', { cookie });
-assert.equal(session.status, 200);
-assert.equal(session.data.admin, true);
-assert.equal(session.data.signedIn, true);
+  for (const role of ['academic', 'council', 'member']) {
+    assert.equal((await assign('test-member-second', role)).status, 200, `admins assign ${role}`);
+    assert.equal((await request('/api/session', { cookie: other })).data.role, role, 'the role applies at once');
+  }
+  assert.equal((await assign('test-member-second', 'owner')).status, 400, 'unknown roles are rejected');
+  assert.equal((await assign('test-member-active', 'member')).status, 400, 'admins cannot demote themselves');
 
-const members = await request('/api/admin/members', { cookie });
-assert.equal(members.status, 200);
-assert.ok(members.data.members.some((member) => member.email === 'active@ks.ac.kr'));
-assert.equal('code' in members.data, false, 'admin code is never returned');
-
-assert.equal(
-  (await request('/api/admin/members/test-member-active', { method: 'DELETE', cookie, body: {} })).status,
-  400,
-  'an admin cannot revoke their own account',
-);
-
-const second = fixture.secondCookie;
-assert.equal(
-  (await request('/api/admin/join', { method: 'POST', cookie: second, body: { code: adminCode } })).status,
-  201,
-  'a second member registers as admin',
-);
-assert.equal(
-  (await request('/api/admin/members/test-member-second', { method: 'DELETE', cookie, body: {} })).status,
-  200,
-  'an admin revokes another admin',
-);
-const rejoin = await request('/api/admin/join', { method: 'POST', cookie: second, body: { code: adminCode } });
-assert.equal(rejoin.status, 403, 'a revoked admin cannot rejoin with the shared code');
-const roster = await request('/api/admin/members', { cookie });
-assert.ok(roster.data.revoked.some((member) => member.user_id === 'test-member-second'), 'revoked admins are listed');
-assert.equal(
-  (await request('/api/admin/members/test-member-second', { method: 'POST', cookie: second, body: {} })).status,
-  403,
-  'a non-admin cannot restore',
-);
-assert.equal(
-  (await request('/api/admin/members/test-member-second', { method: 'POST', cookie, body: {} })).status,
-  200,
-  'an active admin restores a revoked admin',
-);
-assert.equal((await request('/api/session', { cookie: second })).data.admin, true, 'restored admin regains access');
-
-fixture.cleanup();
-
+  assert.equal((await assign('test-member-second', 'admin')).status, 200, 'admins appoint admins');
+  assert.equal((await request('/api/session', { cookie: other })).data.admin, true);
+  assert.equal(
+    (await assign('test-member-active', 'member', other)).status,
+    200,
+    'a second admin can demote the first',
+  );
+  assert.equal((await request('/api/admin/users', { cookie: admin })).status, 403, 'demoted admins lose access');
+  const lastAdmins = await request('/api/admin/users?q=ks.ac.kr&limit=50', { cookie: other });
+  if (lastAdmins.data.users.filter((u) => u.role === 'admin').length === 1 && lastAdmins.data.total <= 50)
+    assert.equal(
+      (
+        await request('/api/admin/users/test-member-second', {
+          method: 'PATCH',
+          cookie: other,
+          body: { status: 'suspended' },
+        })
+      ).status,
+      400,
+      'admins cannot suspend themselves',
+    );
+} finally {
+  fixture.cleanup();
+}
 console.log(
-  'PASS: code registration, role persistence, member listing, self-revocation protection, rejoin block and restore.',
+  'PASS: roles start as 일반, only admins assign 학사·학생회·관리자, self-demotion is blocked and new admins take over.',
 );

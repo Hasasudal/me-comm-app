@@ -12,7 +12,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       .bind(id)
       .first<{ author_id: string }>();
     if (!comment) throw new HttpError(404, '댓글을 찾을 수 없습니다.');
-    if (comment.author_id !== member.userId && !(await isAdmin(member.userId)))
+    if (comment.author_id !== member.userId && !isAdmin(member))
       throw new HttpError(403, '내가 쓴 댓글만 삭제할 수 있습니다.');
     await db().prepare('DELETE FROM comments WHERE id=?').bind(id).run();
     return json({ ok: true });

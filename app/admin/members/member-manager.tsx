@@ -3,12 +3,27 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { RotateCcw, Search, UserX } from 'lucide-react';
 import { api } from '../../api-client';
+import { roleLabels, type Role } from '../../app-shell';
 
-type User = { id: string; email: string; display_name: string; status: 'active' | 'suspended'; created_at: number };
-type Session = { signedIn: boolean; admin: boolean };
+type User = {
+  id: string;
+  email: string;
+  display_name: string;
+  status: 'active' | 'suspended';
+  role: Role;
+  created_at: number;
+};
+type Session = { signedIn: boolean; admin: boolean; userId?: string };
+const roleHints: Record<Role, string> = {
+  member: '일반 회원 권한만 갖습니다',
+  academic: '학사문의를 모두 보고 답변합니다',
+  council: '학생회 건의를 모두 보고 답변합니다',
+  admin: '모든 기능과 직책 관리를 할 수 있습니다',
+};
 
 export default function MemberManager() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [me, setMe] = useState<string>();
   const [users, setUsers] = useState<User[]>([]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
@@ -39,6 +54,7 @@ export default function MemberManager() {
     api<Session>('/api/session')
       .then((session) => {
         setAllowed(session.admin);
+        setMe(session.userId);
         if (session.admin) return load(1);
       })
       .catch(() => setAllowed(false));
@@ -61,6 +77,23 @@ export default function MemberManager() {
     setError('');
     try {
       await api(`/api/admin/users/${encodeURIComponent(user.id)}`, { status: next }, 'PATCH');
+      await load(page);
+    } catch (cause) {
+      setError((cause as Error).message);
+      setBusy(false);
+    }
+  }
+  async function assign(user: User, role: Role) {
+    if (role === user.role) return;
+    if (
+      !window.confirm(`${user.display_name} 회원의 직책을 ‘${roleLabels[role]}’(으)로 바꿀까요?
+${roleHints[role]}.`)
+    )
+      return;
+    setBusy(true);
+    setError('');
+    try {
+      await api(`/api/admin/users/${encodeURIComponent(user.id)}`, { role }, 'PATCH');
       await load(page);
     } catch (cause) {
       setError((cause as Error).message);
@@ -105,6 +138,20 @@ export default function MemberManager() {
               <span>{user.email}</span>
               <small className={user.status}>{user.status === 'active' ? '이용 중' : '이용 정지'}</small>
             </div>
+            <select
+              className={`role-select ${user.role}`}
+              aria-label={`${user.display_name} 직책`}
+              value={user.role}
+              disabled={busy || user.id === me}
+              title={user.id === me ? '내 직책은 다른 관리자가 바꿀 수 있습니다' : roleHints[user.role]}
+              onChange={(event) => void assign(user, event.target.value as Role)}
+            >
+              {(Object.keys(roleLabels) as Role[]).map((role) => (
+                <option key={role} value={role}>
+                  {roleLabels[role]}
+                </option>
+              ))}
+            </select>
             <button
               className={user.status === 'active' ? 'suspend-button' : 'restore-button'}
               disabled={busy}

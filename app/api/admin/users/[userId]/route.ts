@@ -1,39 +1,46 @@
 import { z } from 'zod';
-import { db, handle, HttpError, input, json, requireAdmin } from '../../../../../lib/server';
+import { db, handle, HttpError, input, json, requireAdmin, roles } from '../../../../../lib/server';
 
 export const dynamic = 'force-dynamic';
 
+// Admins suspend or restore members and assign their role (일반·학사·학생회·관리자).
 export async function PATCH(request: Request, context: { params: Promise<{ userId: string }> }) {
   return handle(async () => {
     const current = await requireAdmin(request);
     const { userId } = await context.params;
-    const { status } = z.object({ status: z.enum(['active', 'suspended']) }).parse(await input(request));
-    if (status === 'suspended' && userId === current.userId)
-      throw new HttpError(400, '현재 사용 중인 관리자 계정은 정지할 수 없습니다.');
+    const change = z
+      .object({
+        status: z.enum(['active', 'suspended']).optional(),
+        role: z.enum(roles as [string, ...string[]]).optional(),
+      })
+      .refine((value) => value.status || value.role, '바꿀 내용을 선택해주세요.')
+      .parse(await input(request));
+    if (userId === current.userId && (change.status === 'suspended' || (change.role && change.role !== 'admin')))
+      throw new HttpError(400, '내 계정의 관리자 직책은 직접 바꾸거나 정지할 수 없습니다.');
     const target = await db()
-      .prepare('SELECT id,status FROM users WHERE id=?')
+      .prepare('SELECT id,status,role FROM users WHERE id=?')
       .bind(userId)
-      .first<{ id: string; status: string }>();
+      .first<{ id: string; status: string; role: string }>();
     if (!target) throw new HttpError(404, '회원을 찾을 수 없습니다.');
-    if (status === 'suspended') {
-      const targetAdmin = await db()
-        .prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL')
-        .bind(userId)
-        .first();
-      if (targetAdmin) {
-        const count = await db()
-          .prepare('SELECT COUNT(*) AS count FROM admin_users WHERE revoked_at IS NULL')
-          .first<{ count: number }>();
-        if ((count?.count || 0) <= 1) throw new HttpError(409, '마지막 활성 관리자는 정지할 수 없습니다.');
-      }
+    const losesAdmin =
+      target.role === 'admin' && (change.status === 'suspended' || (change.role && change.role !== 'admin'));
+    if (losesAdmin) {
+      const count = await db()
+        .prepare("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND status='active'")
+        .first<{ count: number }>();
+      if ((count?.count || 0) <= 1) throw new HttpError(409, '마지막 관리자의 직책은 바꾸거나 정지할 수 없습니다.');
     }
+    const status = change.status || target.status;
+    const role = change.role || target.role;
     const now = Date.now();
     await db().batch([
       db()
-        .prepare('UPDATE users SET status=?,suspended_at=?,updated_at=? WHERE id=?')
-        .bind(status, status === 'suspended' ? now : null, now, userId),
-      ...(status === 'suspended' ? [db().prepare('DELETE FROM sessions WHERE user_id=?').bind(userId)] : []),
+        .prepare(
+          "UPDATE users SET status=?,role=?,suspended_at=CASE WHEN ?=status THEN suspended_at WHEN ?='suspended' THEN ? ELSE NULL END,updated_at=? WHERE id=?",
+        )
+        .bind(status, role, status, status, now, now, userId),
+      ...(change.status === 'suspended' ? [db().prepare('DELETE FROM sessions WHERE user_id=?').bind(userId)] : []),
     ]);
-    return json({ ok: true, status });
+    return json({ ok: true, status, role });
   });
 }

@@ -21,7 +21,7 @@ export async function GET(request: Request, context: Context) {
   return handle(async () => {
     const member = await requireMember(request);
     const { id } = await context.params;
-    const post = await visiblePost(id, member, await isAdmin(member.userId));
+    const post = await visiblePost(id, member);
     return json({
       post: { ...publicPost(post), mine: post.author_id === member.userId, images: await postImages(id) },
     });
@@ -30,11 +30,11 @@ export async function GET(request: Request, context: Context) {
 export async function PATCH(request: Request, context: Context) {
   return handle(async () => {
     const member = await requireMember(request);
-    const admin = await isAdmin(member.userId);
+    const admin = isAdmin(member);
     const data = editSchema.parse(await input(request));
     const { id } = await context.params;
-    const post = await visiblePost(id, member, admin);
-    await checkPostPassword(request, post, data.password, member, admin);
+    const post = await visiblePost(id, member);
+    await checkPostPassword(request, post, data.password, member);
     const news = post.category === 'news';
     if (news && post.status === 'rejected' && !admin)
       throw new HttpError(409, '반려된 기사는 수정할 수 없습니다. 새 기사로 작성해주세요.');
@@ -68,11 +68,10 @@ export async function PATCH(request: Request, context: Context) {
 export async function DELETE(request: Request, context: Context) {
   return handle(async () => {
     const member = await requireMember(request);
-    const admin = await isAdmin(member.userId);
     const { password } = z.object({ password: passwordField.optional() }).parse(await input(request));
     const { id } = await context.params;
-    const post = await visiblePost(id, member, admin);
-    await checkPostPassword(request, post, password, member, admin);
+    const post = await visiblePost(id, member);
+    await checkPostPassword(request, post, password, member);
     await deletePostImages([id]);
     await db().batch([
       db().prepare('DELETE FROM comments WHERE post_id=?').bind(id),

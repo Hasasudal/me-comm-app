@@ -86,9 +86,9 @@ R2는 Time Travel 같은 자동 복구가 없습니다. 삭제된 사진은 되�
 
 ## 4. 설정값(시크릿)
 
-`ADMIN_JOIN_CODE_HASH`, `ADMIN_JOIN_CODE_SALT`, `FIREBASE_*` 값은 DB가 아니라 Cloudflare Worker 설정에 저장되어 있어 DB 복구와 상관없이 유지됩니다.
+`FIREBASE_*` 값은 DB가 아니라 Cloudflare Worker 설정에 저장되어 있어 DB 복구와 상관없이 유지됩니다.
 
-- 관리자 코드를 잊었거나 바꾸려면 `node scripts/make-prod-vars.mjs`로 새 값을 만들고 Worker 설정(Settings → Variables and Secrets)에 다시 넣습니다.
+- 회원 직책(`users.role`)은 DB에 있으므로 DB 백업·복구에 함께 포함됩니다. 복구한 시점 이후에 바꾼 직책은 다시 정해 주세요.
 - Firebase 값은 Firebase 콘솔의 프로젝트 설정에서 언제든 다시 확인할 수 있습니다.
 
 ## 문제가 생겼을 때 순서

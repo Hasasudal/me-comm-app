@@ -3,8 +3,16 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { MessageSquare, Trash2 } from 'lucide-react';
 import { api } from '../../api-client';
+import { roleLabels, type Role } from '../../app-shell';
 
-type Comment = { id: string; author_name: string; content: string; created_at: number; deletable: boolean };
+type Comment = {
+  id: string;
+  author_name: string;
+  content: string;
+  created_at: number;
+  deletable: boolean;
+  role: Exclude<Role, 'member'> | null;
+};
 const formatTime = (n: number) =>
   new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(n);
 
@@ -68,7 +76,10 @@ export default function Comments({ postId }: { postId: string }) {
           {comments.map((comment) => (
             <li key={comment.id}>
               <div className="comment-head">
-                <strong>{comment.author_name}</strong>
+                <strong>
+                  {comment.author_name}
+                  {comment.role && <span className={`role-badge ${comment.role}`}>{roleLabels[comment.role]}</span>}
+                </strong>
                 <small>{formatTime(comment.created_at)}</small>
                 {comment.deletable && (
                   <button aria-label="댓글 삭제" onClick={() => void remove(comment)}>

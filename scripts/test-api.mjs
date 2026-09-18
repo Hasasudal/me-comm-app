@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
-import { createMemberFixture, execute } from './test-member-fixture.mjs';
+import { createMemberFixture, execute, setRole } from './test-member-fixture.mjs';
 const base = 'http://localhost:5173';
 const password = 'Test-only-1234';
-const adminCode = 'Local-admin-code-1234';
 const fixture = await createMemberFixture();
 const admin = fixture.activeCookie,
   author = fixture.secondCookie;
@@ -269,12 +268,47 @@ try {
       .status,
     403,
   );
-  if (!(await request('/api/session', { cookie: admin })).data.admin)
-    assert.equal(
-      (await request('/api/admin/join', { method: 'POST', cookie: admin, body: { code: adminCode } })).status,
-      201,
-      'local test account registers with the admin code',
-    );
+  // A 학사 member handles inquiries only: no suggestions, no news review.
+  setRole('test-member-active', 'academic');
+  assert.equal((await request(`/api/posts/${ids.inquiry}`, { cookie: admin })).status, 200, '학사 opens inquiries');
+  assert.equal(
+    (await request(`/api/posts/${ids.complaint}`, { cookie: admin })).status,
+    404,
+    '학사 cannot open suggestions',
+  );
+  assert.equal((await request('/api/admin/posts', { cookie: admin })).status, 403, '학사 cannot review news');
+  assert.deepEqual((await request('/api/session', { cookie: admin })).data.role, 'academic');
+  const staffReply = await request(`/api/posts/${ids.inquiry}/comments`, {
+    method: 'POST',
+    cookie: admin,
+    body: { author_name: '학과사무실', content: '확인 중입니다.' },
+  });
+  assert.equal(staffReply.data.comment.role, 'academic', 'staff comments carry a badge');
+  assert.ok((await request(`/api/posts/${ids.inquiry}`)).data.post.resolved_at, 'a 학사 reply answers the inquiry');
+  assert.equal(
+    (await request(`/api/posts/${ids.inquiry}/comments`)).data.comments.find((c) => c.id === staffReply.data.comment.id)
+      .role,
+    'academic',
+    'the asker sees the badge',
+  );
+  await request(`/api/posts/${ids.inquiry}/comments`, {
+    method: 'POST',
+    body: { author_name: '작성자', content: '감사합니다. 하나 더 여쭤볼게요.' },
+  });
+  // A 학생회 member handles suggestions only.
+  setRole('test-member-active', 'council');
+  assert.equal(
+    (await request(`/api/posts/${ids.complaint}`, { cookie: admin })).status,
+    200,
+    '학생회 opens suggestions',
+  );
+  assert.equal(
+    (await request(`/api/posts/${ids.inquiry}`, { cookie: admin })).status,
+    404,
+    '학생회 cannot open inquiries',
+  );
+  assert.deepEqual(Object.keys((await request('/api/session', { cookie: admin })).data.waiting), ['complaint']);
+  setRole('test-member-active', 'admin');
   assert.equal((await request(`/api/posts/${ids.news}`, { cookie: admin })).status, 200, 'admin can open any news');
 
   // 31 rejected articles with one shared timestamp: pages must split on the id tie-breaker without gaps.

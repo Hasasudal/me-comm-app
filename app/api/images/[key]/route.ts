@@ -1,4 +1,4 @@
-import { db, handle, HttpError, isAdmin, requireMember, visiblePost } from '../../../../lib/server';
+import { db, handle, HttpError, requireMember, visiblePost } from '../../../../lib/server';
 import { bucket } from '../../../../lib/images';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export async function GET(request: Request, context: { params: Promise<{ key: st
       .bind(key)
       .first<{ owner_id: string; post_id: string | null }>();
     if (!row) throw new HttpError(404, '사진을 찾을 수 없습니다.');
-    if (row.post_id) await visiblePost(row.post_id, member, await isAdmin(member.userId));
+    if (row.post_id) await visiblePost(row.post_id, member);
     else if (row.owner_id !== member.userId) throw new HttpError(404, '사진을 찾을 수 없습니다.');
     const object = await bucket().get(key);
     if (!object) throw new HttpError(404, '사진을 찾을 수 없습니다.');

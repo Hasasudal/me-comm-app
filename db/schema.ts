@@ -39,18 +39,6 @@ export const attempts = sqliteTable(
   (table) => [index('idx_attempts_expiry').on(table.expires_at)],
 );
 
-export const adminUsers = sqliteTable(
-  'admin_users',
-  {
-    user_id: text('user_id').primaryKey(),
-    email: text('email').notNull(),
-    display_name: text('display_name').notNull(),
-    joined_at: integer('joined_at').notNull(),
-    revoked_at: integer('revoked_at'),
-  },
-  (table) => [index('idx_admin_users_active').on(table.revoked_at)],
-);
-
 export const users = sqliteTable(
   'users',
   {
@@ -58,6 +46,8 @@ export const users = sqliteTable(
     email: text('email').notNull(),
     display_name: text('display_name').notNull(),
     status: text('status').notNull().default('active'),
+    // member | academic (학사) | council (학생회) | admin; admins assign roles.
+    role: text('role').notNull().default('member'),
     suspended_at: integer('suspended_at'),
     created_at: integer('created_at').notNull(),
     updated_at: integer('updated_at').notNull(),

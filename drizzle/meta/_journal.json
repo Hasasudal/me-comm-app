@@ -64,6 +64,13 @@
       "when": 1789719935809,
       "tag": "0008_drop_qna_posts",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1789727675815,
+      "tag": "0009_user_roles",
+      "breakpoints": true
     }
   ]
 }

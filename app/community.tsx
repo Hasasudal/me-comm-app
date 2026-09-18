@@ -60,7 +60,7 @@ type Post = {
   resolved_at?: number | null;
   pinned_at?: number | null;
 };
-type Identity = ShellIdentity & { admin: boolean; configured: boolean };
+type Identity = ShellIdentity & { admin: boolean };
 const prefixHints: Record<WritableBoard, string> = {
   board: '예: 질문, 정보',
   inquiry: '예: 장학, 휴학',
@@ -75,7 +75,6 @@ export default function Community({ category = 'all', admin = false }: { categor
   const [identity, setIdentity] = useState<Identity>({
     admin: false,
     signedIn: false,
-    configured: false,
     loaded: false,
   });
   const [posts, setPosts] = useState<Post[]>([]);
@@ -282,21 +281,19 @@ export default function Community({ category = 'all', admin = false }: { categor
         </div>
       ) : admin ? (
         identity.admin ? (
-          <ReviewWorkspace userId={identity.userId} onNotice={setNotice} />
+          <ReviewWorkspace onNotice={setNotice} />
         ) : (
           <div className="admin-gate">
             <ShieldCheck size={32} />
             <h3>관리자 전용 공간입니다</h3>
             <p>
-              {!identity.configured
-                ? '관리자 코드 설정 후 이용할 수 있습니다.'
-                : !identity.signedIn
-                  ? '로그인한 뒤 관리자 코드를 등록해주세요.'
-                  : '학과에서 전달받은 관리자 코드를 등록해주세요.'}
+              {identity.signedIn
+                ? '관리자 직책이 필요합니다. 관리자에게 직책을 요청해주세요.'
+                : '로그인한 뒤 이용할 수 있습니다.'}
             </p>
-            {identity.configured && (
-              <a className="primary" href={identity.signedIn ? '/admin/join' : '/login?returnTo=/admin/join'}>
-                {identity.signedIn ? '관리자 코드 등록' : '관리자 로그인'} <ArrowRight size={16} />
+            {!identity.signedIn && (
+              <a className="primary" href="/login?returnTo=/admin">
+                로그인 <ArrowRight size={16} />
               </a>
             )}
           </div>
@@ -499,7 +496,7 @@ export default function Community({ category = 'all', admin = false }: { categor
               {category === 'news'
                 ? '학과 뉴스는 작성자와 관리자만 볼 수 있습니다.'
                 : deskStatus[category]
-                  ? `${current.label}은 작성한 사람과 관리자만 볼 수 있습니다.`
+                  ? `${current.label}는 작성한 사람과 ${category === 'inquiry' ? '학사 담당자' : '학생회'}만 볼 수 있습니다.`
                   : '학교 인증을 마친 회원만 게시글을 볼 수 있습니다.'}
             </div>
           </section>
@@ -601,7 +598,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                     >
                       <option value="board">자유게시판</option>
                       <option value="inquiry">학사문의 · 1:1 비공개</option>
-                      <option value="complaint">학생회 민원 · 비공개</option>
+                      <option value="complaint">학생회 건의 · 비공개</option>
                       <option value="news">학과 뉴스 · 관리자 검토</option>
                       <option value="clubs">동아리</option>
                       <option value="contests">공모전 모집</option>
