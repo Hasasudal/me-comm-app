@@ -11,6 +11,7 @@ import {
   Menu,
   MessageSquare,
   Newspaper,
+  DoorOpen,
   Package,
   Settings,
   ShieldCheck,
@@ -58,7 +59,15 @@ export const boards = [
 // Equipment rental and student-council requests run through the 미컴봇 KakaoTalk channel.
 // "/chat" opens the chat room straight away (in the KakaoTalk app on phones, as web chat on computers).
 const MICOMBOT_URL = 'https://pf.kakao.com/_jaUxiG/chat';
-const botLinks = [{ label: '기자재 대여', icon: Package }];
+// Rentals live outside the site: equipment on the Notion page, rooms through the 미컴봇 chat.
+const rentalLinks = [
+  {
+    label: '기자재 대여',
+    icon: Package,
+    href: 'https://mecommbot.notion.site/3113a2e7a7a78123b592d3b83b9666fc?pvs=143',
+  },
+  { label: '호실 대여', icon: DoorOpen, href: MICOMBOT_URL },
+];
 // Private boards answered by admins: the badge reads [waiting, answered].
 export const deskStatus: Partial<Record<BoardId, [string, string]>> = {
   inquiry: ['답변 대기', '답변 완료'],
@@ -230,18 +239,19 @@ export function AppShell({
             </a>
           ))}
         </nav>
-        <p className="nav-caption">미컴봇 · 카카오톡</p>
-        <nav aria-label="미컴봇 바로가기">
-          {botLinks.map((link) => (
+        <p className="nav-caption">대여 신청</p>
+        <nav aria-label="대여 신청 바로가기">
+          {rentalLinks.map((link) => (
             <a
               key={link.label}
               className="nav-item"
-              href={MICOMBOT_URL}
+              href={link.href}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => {
                 // Computers cannot open the KakaoTalk app from a link, so offer a QR code for the phone instead.
-                if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+                if (link.href !== MICOMBOT_URL || !window.matchMedia('(hover: hover) and (pointer: fine)').matches)
+                  return;
                 e.preventDefault();
                 botDialog.current?.showModal();
               }}
