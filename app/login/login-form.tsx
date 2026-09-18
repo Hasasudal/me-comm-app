@@ -4,7 +4,7 @@ import { sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPasswo
 import { useSearchParams } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { firebaseAuth, safeReturnTo } from '../firebase-client';
-import { firebaseMessage, isSchoolEmail, normalizeSchoolEmail } from '../auth/firebase-errors';
+import { firebaseMessage, isSchoolEmail, MAIL_SENDER, normalizeSchoolEmail } from '../auth/firebase-errors';
 
 export default function LoginForm() {
   const params = useSearchParams();
@@ -30,7 +30,9 @@ export default function LoginForm() {
       await credential.user.reload();
       if (!credential.user.emailVerified) {
         setUnverified(true);
-        return setError('학교 이메일 인증이 필요합니다. 메일함을 확인해주세요.');
+        return setError(
+          '학교 이메일 인증이 아직 안 됐어요. 메일함과 스팸 격리함을 확인하거나, 아래 버튼으로 인증 메일을 다시 받아주세요.',
+        );
       }
       const idToken = await credential.user.getIdToken(true);
       const response = await fetch('/api/auth/session', {
@@ -58,7 +60,8 @@ export default function LoginForm() {
         url: `${window.location.origin}/login?verified=1`,
         handleCodeInApp: false,
       });
-      setNotice('인증 메일을 다시 보냈습니다. 스팸함도 확인해주세요.');
+      setError('');
+      setNotice(`인증 메일을 다시 보냈습니다. 보낸사람 ${MAIL_SENDER} 메일을 스팸함·스팸 격리함에서도 찾아보세요.`);
     } catch (cause) {
       setError(firebaseMessage(cause));
     } finally {

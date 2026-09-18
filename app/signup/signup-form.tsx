@@ -3,7 +3,7 @@
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
 import { FormEvent, useState } from 'react';
 import { firebaseAuth } from '../firebase-client';
-import { firebaseMessage, isSchoolEmail, normalizeSchoolEmail } from '../auth/firebase-errors';
+import { firebaseMessage, isSchoolEmail, normalizeSchoolEmail, rememberVerifyEmail } from '../auth/firebase-errors';
 
 export default function SignupForm() {
   const [busy, setBusy] = useState(false);
@@ -31,6 +31,7 @@ export default function SignupForm() {
         url: `${window.location.origin}/login?verified=1`,
         handleCodeInApp: false,
       });
+      rememberVerifyEmail(email);
       window.location.assign('/verify-email');
     } catch (cause) {
       setError(firebaseMessage(cause));

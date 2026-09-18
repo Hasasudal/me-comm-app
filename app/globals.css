@@ -1644,6 +1644,37 @@ label small {
   line-height: 1.8;
   margin: 7px 0 18px;
 }
+.verify-panel .verify-sent {
+  margin: 0 0 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e7ebf2;
+  color: #4b5568;
+}
+.verify-panel .verify-sent strong {
+  font-size: 13px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.verify-steps {
+  list-style: decimal;
+  margin: 8px 0 18px;
+  padding-left: 1.2em;
+  font-size: 13px;
+  color: #5f6d83;
+  line-height: 1.75;
+  display: grid;
+  gap: 4px;
+}
+.verify-steps b {
+  color: var(--ink);
+}
+.verify-steps code {
+  font-size: 12px;
+  background: #eef1f6;
+  padding: 1px 5px;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 520px) {
   .auth-page {
     padding: 20px 14px;

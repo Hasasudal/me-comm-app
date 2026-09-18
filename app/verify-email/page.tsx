@@ -1,4 +1,5 @@
 import AuthFrame from '../auth/auth-frame';
+import VerifyTips from './verify-tips';
 
 export default function VerifyEmailPage() {
   return (
@@ -13,13 +14,7 @@ export default function VerifyEmailPage() {
         </>
       }
     >
-      <div className="verify-panel">
-        <strong>인증 메일이 보이지 않나요?</strong>
-        <p>스팸 메일함을 확인하고, 몇 분 뒤에도 오지 않으면 로그인 화면에서 인증 메일을 다시 보낼 수 있습니다.</p>
-        <a className="primary full" href="/login">
-          로그인 화면으로 이동
-        </a>
-      </div>
+      <VerifyTips />
     </AuthFrame>
   );
 }
