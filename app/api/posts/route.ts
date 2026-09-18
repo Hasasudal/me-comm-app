@@ -12,6 +12,7 @@ import {
   requireMember,
 } from '../../../lib/server';
 import { hashPassword } from '../../../lib/password';
+import { searchSnippet } from '../../../lib/search';
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 30;
 export async function GET(request: Request) {
@@ -33,8 +34,10 @@ export async function GET(request: Request) {
     } else where.push("status='published' AND category<>'news'");
     const q = (url.searchParams.get('q') || '').trim().slice(0, 100);
     if (q) {
-      where.push("(title LIKE ? ESCAPE '\\' OR prefix LIKE ? ESCAPE '\\')");
-      binds.push(`%${escapeLike(q)}%`, `%${escapeLike(q)}%`);
+      where.push(
+        "(title LIKE ? ESCAPE '\\' OR prefix LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' OR author_name LIKE ? ESCAPE '\\')",
+      );
+      binds.push(...Array(4).fill(`%${escapeLike(q)}%`));
     }
     // Keyset cursor "createdAt:id" keeps pages stable while new posts arrive.
     const cursor = /^(\d+):([\w-]+)$/.exec(url.searchParams.get('cursor') || '');
@@ -44,11 +47,14 @@ export async function GET(request: Request) {
     }
     const result = await db()
       .prepare(
-        `SELECT ${listColumns} FROM posts WHERE ${where.join(' AND ')} ORDER BY created_at DESC, id DESC LIMIT ?`,
+        `SELECT ${listColumns}${q ? ',content' : ''} FROM posts WHERE ${where.join(' AND ')} ORDER BY created_at DESC, id DESC LIMIT ?`,
       )
       .bind(...binds, PAGE_SIZE + 1)
-      .all<{ id: string; created_at: number }>();
-    const posts = result.results.slice(0, PAGE_SIZE);
+      .all<{ id: string; created_at: number; content?: string }>();
+    // Bodies never leave the list endpoint; a search only returns the matching excerpt.
+    const posts = result.results
+      .slice(0, PAGE_SIZE)
+      .map(({ content, ...post }) => (q && content ? { ...post, snippet: searchSnippet(content, q) } : post));
     const last = posts[posts.length - 1];
     return json({ posts, nextCursor: result.results.length > PAGE_SIZE ? `${last.created_at}:${last.id}` : null });
   });

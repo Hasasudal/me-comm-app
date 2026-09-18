@@ -75,3 +75,18 @@ export const sessions = sqliteTable(
   },
   (table) => [index('idx_sessions_user').on(table.user_id), index('idx_sessions_expiry').on(table.expires_at)],
 );
+
+export const comments = sqliteTable(
+  'comments',
+  {
+    id: text('id').primaryKey(),
+    post_id: text('post_id')
+      .notNull()
+      .references(() => posts.id, { onDelete: 'cascade' }),
+    author_id: text('author_id').notNull(),
+    author_name: text('author_name').notNull(),
+    content: text('content').notNull(),
+    created_at: integer('created_at').notNull(),
+  },
+  (table) => [index('idx_comments_post').on(table.post_id, table.created_at)],
+);

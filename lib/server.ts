@@ -208,7 +208,12 @@ export type PostRow = {
   updated_at: number;
 };
 export const listColumns =
-  'id,title,category,prefix,author_name,status,recruitment_status,deadline,headcount,roles,created_at,updated_at';
+  'id,title,category,prefix,author_name,status,recruitment_status,deadline,headcount,roles,created_at,updated_at,' +
+  '(SELECT COUNT(*) FROM comments WHERE comments.post_id=posts.id) AS comment_count';
+export const commentSchema = z.object({
+  author_name: authorFields.author_name,
+  content: z.string().trim().min(1, '댓글을 입력해주세요.').max(1000, '댓글은 1,000자 이내로 입력해주세요.'),
+});
 // News is private to its author and administrators; every other board is readable by any member.
 export async function visiblePost(id: string, member: Member, admin: boolean) {
   const post = await db().prepare('SELECT * FROM posts WHERE id=?').bind(id).first<PostRow>();

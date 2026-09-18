@@ -17,6 +17,7 @@ import { AnnotatedArticle, statusLabels } from '../../annotated-article';
 import type { Review } from '../../../lib/annotations';
 import { api } from '../../api-client';
 import { AppShell, boardLabels, boardPaths, type ShellIdentity } from '../../app-shell';
+import Comments from './comments';
 
 type Category = 'board' | 'news' | 'clubs' | 'contests';
 type Post = {
@@ -414,6 +415,7 @@ export default function PostDetail({ id }: { id: string }) {
                 </div>
               </form>
             )}
+            {!news && mode === 'view' && <Comments postId={post.id} />}
           </section>
         )
       )}

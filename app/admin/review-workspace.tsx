@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  FileDown,
   FileText,
   MoreHorizontal,
   Pencil,
@@ -18,6 +19,7 @@ import {
 import { AnnotatedArticle, statusLabels } from '../annotated-article';
 import type { Mark, Review } from '../../lib/annotations';
 import { api } from '../api-client';
+import { exportFileName, newsDocx } from '../../lib/news-docx';
 
 type ReviewStatus = 'pending' | 'feedback' | 'rejected' | 'published';
 type Article = {
@@ -71,6 +73,7 @@ export default function ReviewWorkspace({
   const [reason, setReason] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [members, setMembers] = useState<AdminMember[]>([]);
   const [revoked, setRevoked] = useState<AdminMember[]>([]);
@@ -182,6 +185,22 @@ export default function ReviewWorkspace({
       setBusy(false);
     }
   }
+  async function exportWord(list: Article[]) {
+    setMenuOpen(false);
+    setExporting(true);
+    try {
+      const blob = await newsDocx(list);
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = exportFileName(list);
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    } catch {
+      onNotice('Word 파일을 만들지 못했습니다. 다시 시도해주세요.');
+    } finally {
+      setExporting(false);
+    }
+  }
   async function revokeMember(member: AdminMember) {
     if (!window.confirm(`${member.display_name}님의 관리자 권한을 회수할까요?`)) return;
     setMembersError('');
@@ -237,6 +256,14 @@ export default function ReviewWorkspace({
           <p className="review-list-empty">{statusLabels[tab]} 기사가 없습니다.</p>
         ) : (
           <ul>
+            {tab === 'published' && (
+              <li>
+                <button className="export-all" disabled={exporting} onClick={() => void exportWord(articles)}>
+                  <FileDown size={16} />
+                  {exporting ? 'Word 파일 만드는 중…' : `승인 기사 모두 Word로 (${articles.length})`}
+                </button>
+              </li>
+            )}
             {articles.map((article) => (
               <li key={article.id}>
                 <button
@@ -325,6 +352,10 @@ export default function ReviewWorkspace({
                 </button>
                 {menuOpen && (
                   <div className="more-list" role="menu">
+                    <button role="menuitem" disabled={exporting} onClick={() => void exportWord([selected])}>
+                      <FileDown size={15} />
+                      Word로 내보내기
+                    </button>
                     {selected.status === 'pending' && (
                       <button
                         role="menuitem"
