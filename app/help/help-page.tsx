@@ -559,23 +559,59 @@ export default function HelpPage() {
           <section id="admin-members">
             <h2>회원·직책 관리</h2>
             <p>
-              관리자는 뉴스 승인 화면의 <strong>회원·직책 관리</strong>에서 이름이나 이메일로 회원을 찾습니다. 직책이
-              있는 회원이 목록 위쪽에 나옵니다.
+              관리자는 <strong>뉴스 승인</strong> 화면 오른쪽 위의 <strong>회원·직책 관리</strong> 버튼으로 들어갑니다.
+            </p>
+            <h3>회원 찾기</h3>
+            <ul className="plain">
+              <li>
+                검색창에 이름이나 학교 이메일 일부를 입력하고 <strong>검색</strong>을 누릅니다.
+              </li>
+              <li>
+                <strong>직책</strong> 필터로 학사·학생회·관리자만 골라 볼 수 있고, <strong>상태</strong> 필터로 정지된
+                회원만 볼 수 있습니다.
+              </li>
+              <li>직책이 있는 회원이 목록 위쪽에 나오고, 한 번에 20명씩 보입니다.</li>
+            </ul>
+            <h3>목록 보는 법</h3>
+            <p>
+              회원마다 한 줄에 <strong>회원 정보 · 직책 선택 · 정지 버튼</strong>이 나옵니다. 휴대폰에서는 직책 선택과
+              정지 버튼이 회원 정보 아래에 나옵니다.
             </p>
             <ul className="plain">
               <li>
-                <strong>직책 바꾸기</strong>: 회원 옆 선택 상자에서 일반·학사·학생회·관리자를 고릅니다. 임기가 끝난
-                학생회는 일반으로 돌려놓으세요. 관리자도 여기서 다른 회원에게 줄 수 있습니다.
+                이름 옆 배지로 직책을 알 수 있습니다: <span className="role-badge academic">학사</span>{' '}
+                <span className="role-badge council">학생회</span> <span className="role-badge admin">관리자</span>.
+                일반 회원은 배지가 없습니다.
               </li>
               <li>
-                <strong>정지</strong>: 정지된 회원은 모든 기기에서 즉시 로그아웃되고 다시 로그인할 수 없습니다.{' '}
-                <strong>복구</strong>로 풀어 줍니다.
+                정지된 회원은 흐리게 보이고 이름 옆에 <strong>이용 정지</strong> 표시가 붙습니다.
+              </li>
+              <li>내 계정 줄의 직책 선택과 정지 버튼은 눌리지 않습니다.</li>
+            </ul>
+            <h3>직책 바꾸기</h3>
+            <ol className="steps">
+              <li>회원 줄의 직책 선택 상자에서 일반·학사·학생회·관리자 중 하나를 고릅니다.</li>
+              <li>
+                확인 창에 새 직책이 할 수 있는 일이 나옵니다. <strong>확인</strong>을 누르면 바로 적용됩니다.
+              </li>
+            </ol>
+            <p>
+              임기가 끝난 학생회나 학사 담당자는 <strong>일반</strong>으로 돌려놓으세요. 관리자도 여기서 다른 회원에게
+              줄 수 있습니다.
+            </p>
+            <h3>정지와 복구</h3>
+            <ul className="plain">
+              <li>
+                <strong>정지</strong>: 그 회원은 모든 기기에서 즉시 로그아웃되고 다시 로그인할 수 없습니다.
               </li>
               <li>
-                내 직책은 직접 바꿀 수 없고(다른 관리자가 바꿉니다), 마지막 남은 관리자는 직책을 바꾸거나 정지·탈퇴할 수
-                없습니다. 인수인계 때는 새 관리자에게 먼저 직책을 주세요.
+                <strong>복구</strong>: 정지된 회원 줄의 버튼으로 다시 이용할 수 있게 합니다.
               </li>
             </ul>
+            <div className="note">
+              내 직책은 다른 관리자만 바꿀 수 있고, 마지막 남은 관리자는 직책 변경·정지·탈퇴가 모두 막힙니다. 인수인계
+              때는 <strong>새 관리자에게 먼저 관리자 직책을 준 뒤</strong> 본인 직책을 넘기세요.
+            </div>
           </section>
 
           <div className="part">

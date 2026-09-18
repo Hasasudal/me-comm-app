@@ -22,6 +22,7 @@ import {
   Search,
   ShieldCheck,
   Trophy,
+  UserCog,
   UserRound,
   Users,
   X,
@@ -236,6 +237,12 @@ export default function Community({ category = 'all', admin = false }: { categor
           </h1>
           <p>{admin ? '제출된 기사를 검토하고 승인, 피드백 또는 반려해주세요.' : current.sub}</p>
         </div>
+        {admin && identity.admin && (
+          <a className="heading-link" href="/admin/members">
+            <UserCog size={18} />
+            회원·직책 관리
+          </a>
+        )}
         {!admin && identity.signedIn && (
           <button className="primary" onClick={openCreate}>
             <Plus size={19} />
