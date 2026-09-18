@@ -58,12 +58,12 @@ export async function DELETE(request: Request) {
         throw new HttpError(409, '마지막 활성 관리자는 먼저 다른 관리자를 등록해야 탈퇴할 수 있습니다.');
     }
     if (dryRun) return json({ ok: true });
-    // Posts and comments stay for the community, credited to a withdrawn member; unfinished news is dropped
-    // and approved news stays for the admin archive.
+    // Posts and comments stay for the community, credited to a withdrawn member; unfinished news and private
+    // inquiries are dropped and approved news stays for the admin archive.
+    const dropped = "author_id=? AND (category='inquiry' OR (category='news' AND status<>'published'))";
     await db().batch([
-      db()
-        .prepare("DELETE FROM posts WHERE author_id=? AND category='news' AND status<>'published'")
-        .bind(member.userId),
+      db().prepare(`DELETE FROM comments WHERE post_id IN (SELECT id FROM posts WHERE ${dropped})`).bind(member.userId),
+      db().prepare(`DELETE FROM posts WHERE ${dropped}`).bind(member.userId),
       db()
         .prepare('UPDATE posts SET author_id=?,author_name=? WHERE author_id=?')
         .bind(WITHDRAWN_ID, WITHDRAWN_NAME, member.userId),

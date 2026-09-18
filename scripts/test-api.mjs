@@ -247,6 +247,28 @@ try {
     201,
     'answers are comments',
   );
+  // 1:1 inquiries: only the asker (and admins) can see them; the combined board never lists them.
+  const inquiry = await request('/api/posts', {
+    method: 'POST',
+    body: { title: `문의 ${suffix}`, content: '장학금 문의', category: 'inquiry', author_name: '문의자', password },
+  });
+  assert.equal(inquiry.status, 201);
+  ids.inquiry = inquiry.data.id;
+  assert.equal((await request(`/api/posts/${ids.inquiry}`, { cookie: admin })).status, 404, 'others cannot open');
+  assert.equal(
+    (await request('/api/posts?category=inquiry', { cookie: admin })).data.posts.length,
+    0,
+    "others' inquiries are not listed",
+  );
+  assert.ok(
+    (await request('/api/posts?category=inquiry')).data.posts.some((x) => x.id === ids.inquiry),
+    'the asker lists their inquiry',
+  );
+  assert.equal(
+    (await request('/api/posts')).data.posts.some((x) => x.id === ids.inquiry),
+    false,
+    'the combined board skips inquiries',
+  );
   const flag = (id, body, cookie = author) => request(`/api/posts/${id}/flags`, { method: 'POST', cookie, body });
   assert.equal((await flag(question.data.id, { resolved: true }, admin)).status, 403, 'others cannot resolve');
   assert.equal((await flag(question.data.id, { resolved: true })).status, 200, 'the asker marks it resolved');
@@ -328,6 +350,33 @@ try {
   await request(`/api/posts/${pinnedId}/flags`, { method: 'POST', cookie: admin, body: { pinned: false } });
   assert.notEqual((await request('/api/posts?category=board')).data.posts[0].id, pinnedId, 'unpinning restores order');
   await request(`/api/posts/${newer.data.id}`, { method: 'DELETE', body: {} });
+
+  // Admins list every inquiry; an admin reply answers it and the asker's follow-up reopens it.
+  assert.ok(
+    (await request('/api/posts?category=inquiry', { cookie: admin })).data.posts.some((x) => x.id === ids.inquiry),
+    'admins list all inquiries',
+  );
+  const waiting = async () => (await request('/api/session', { cookie: admin })).data.waitingInquiries;
+  const waitingBefore = await waiting();
+  assert.ok(waitingBefore >= 1, 'admins see the waiting count');
+  const reply = (cookie, content) =>
+    request(`/api/posts/${ids.inquiry}/comments`, {
+      method: 'POST',
+      cookie,
+      body: { author_name: '학과사무실', content },
+    });
+  await reply(admin, '다음 주에 공지됩니다.');
+  assert.ok((await request(`/api/posts/${ids.inquiry}`)).data.post.resolved_at, 'an admin reply answers it');
+  assert.equal(await waiting(), waitingBefore - 1);
+  await reply(author, '추가로 궁금한 점이 있어요.');
+  assert.equal((await request(`/api/posts/${ids.inquiry}`)).data.post.resolved_at, null, 'a follow-up reopens it');
+  assert.equal(
+    (await request(`/api/posts/${ids.inquiry}/flags`, { method: 'POST', cookie: admin, body: { pinned: true } }))
+      .status,
+    400,
+    'inquiries cannot be pinned',
+  );
+  await request(`/api/posts/${ids.inquiry}`, { method: 'DELETE', body: {} });
 
   const pending = async () =>
     (await request('/api/admin/posts?status=pending', { cookie: admin })).data.posts.find((x) => x.id === ids.news);
@@ -524,6 +573,17 @@ try {
     'comments are oldest first and only the writer (or an admin) may delete',
   );
   assert.equal('author_id' in seenByAuthor[0], false, 'author ids are not exposed');
+  const replies = (await request('/api/notifications')).data.replies.filter((r) => r.post_id === ids.board);
+  assert.deepEqual(
+    replies.map((r) => [r.excerpt, r.author_name]),
+    [['관리자 댓글', '운영진']],
+    "the author's bell lists others' comments, not their own",
+  );
+  assert.equal(
+    (await request('/api/session')).data.repliedAt,
+    adminComment.data.comment.created_at,
+    'the session carries the latest reply time for the bell dot',
+  );
   assert.equal(
     (await request(`/api/comments/${adminComment.data.comment.id}`, { method: 'DELETE', body: {} })).status,
     403,

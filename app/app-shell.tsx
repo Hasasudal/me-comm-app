@@ -3,12 +3,16 @@
 import { useState, type ReactNode } from 'react';
 import {
   ArrowUpRight,
+  Bell,
+  Inbox,
   CircleHelp,
   Layers3,
   LogOut,
+  Megaphone,
   Menu,
   MessageSquare,
   Newspaper,
+  Package,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -17,7 +21,7 @@ import {
 } from 'lucide-react';
 import { api } from './api-client';
 
-export type BoardId = 'all' | 'board' | 'qna' | 'news' | 'clubs' | 'contests';
+export type BoardId = 'all' | 'board' | 'qna' | 'inquiry' | 'news' | 'clubs' | 'contests';
 export const boards = [
   { id: 'all', label: '통합 게시판', href: '/', icon: Layers3, sub: '학과의 모든 이야기를 한곳에서 만나보세요.' },
   {
@@ -34,6 +38,13 @@ export const boards = [
     icon: CircleHelp,
     sub: '수강신청, 졸업요건, 휴학처럼 학사 궁금증을 묻고 답해보세요.',
   },
+  {
+    id: 'inquiry',
+    label: '학사문의',
+    href: '/inquiry',
+    icon: Inbox,
+    sub: '학과 사무실에 1:1로 문의하세요. 나와 관리자만 볼 수 있어요.',
+  },
   { id: 'news', label: '학과 뉴스', href: '/news', icon: Newspaper, sub: '기사를 제출하고 검토 결과를 확인하세요.' },
   { id: 'clubs', label: '동아리', href: '/clubs', icon: Users, sub: '같은 관심사로 시작하는 새로운 연결.' },
   {
@@ -44,6 +55,12 @@ export const boards = [
     sub: '아이디어를 함께 완성할 팀원을 만나보세요.',
   },
 ] as const;
+// Equipment rental and student-council requests run through the 미컴봇 KakaoTalk channel.
+const MICOMBOT_URL = 'https://pf.kakao.com/_jaUxiG';
+const botLinks = [
+  { label: '기자재 대여', icon: Package },
+  { label: '학생회 민원', icon: Megaphone },
+];
 export const boardLabels = Object.fromEntries(boards.map((b) => [b.id, b.label])) as Record<BoardId, string>;
 export const boardPaths = Object.fromEntries(boards.map((b) => [b.id, b.href])) as Record<BoardId, string>;
 
@@ -54,21 +71,88 @@ export type ShellIdentity = {
   email?: string;
   displayName?: string;
   newsReviewedAt?: number | null;
+  repliedAt?: number | null;
+  waitingInquiries?: number;
+  admin?: boolean;
 };
+type Reply = { id: string; post_id: string; title: string; author_name: string; excerpt: string; created_at: number };
 
-// "Seen" is a per-browser convenience: the news tab records when the author last looked at review results.
-const seenKey = (userId: string) => `micom:news-seen:${userId}`;
-export function newsSeenAt(userId: string) {
+// "Seen" is a per-browser convenience: when the member last looked at review results ("news") or replies.
+type SeenKind = 'news' | 'replies';
+const seenKey = (kind: SeenKind, userId: string) => `micom:${kind}-seen:${userId}`;
+export function seenAt(kind: SeenKind, userId: string) {
   try {
-    return Number(localStorage.getItem(seenKey(userId))) || 0;
+    return Number(localStorage.getItem(seenKey(kind, userId))) || 0;
   } catch {
     return 0;
   }
 }
-export function markNewsSeen(userId: string) {
+export function markSeen(kind: SeenKind, userId: string) {
   try {
-    localStorage.setItem(seenKey(userId), String(Date.now()));
+    localStorage.setItem(seenKey(kind, userId), String(Date.now()));
   } catch {}
+}
+const formatWhen = (n: number) =>
+  new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(n);
+
+// Topbar bell: recent comments others left on my posts; opening it marks them seen.
+function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number | null }) {
+  const [seenBefore, setSeenBefore] = useState(() => seenAt('replies', userId));
+  const [open, setOpen] = useState(false);
+  const [replies, setReplies] = useState<Reply[] | null>(null);
+  const [error, setError] = useState('');
+  const fresh = (repliedAt || 0) > seenBefore;
+
+  async function toggle() {
+    if (open) {
+      setOpen(false);
+      setSeenBefore(seenAt('replies', userId));
+      return;
+    }
+    setOpen(true);
+    setError('');
+    markSeen('replies', userId);
+    try {
+      setReplies((await api<{ replies: Reply[] }>('/api/notifications')).replies);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  return (
+    <div className="reply-bell">
+      <button aria-label={fresh ? '새 댓글 알림' : '댓글 알림'} aria-expanded={open} onClick={() => void toggle()}>
+        <Bell size={18} />
+        {fresh && <span className="nav-alert" />}
+      </button>
+      {open && (
+        <div className="reply-panel" role="dialog" aria-label="내 글에 달린 댓글">
+          <strong>내 글에 달린 댓글</strong>
+          {error ? (
+            <p className="reply-empty">{error}</p>
+          ) : replies === null ? (
+            <p className="reply-empty">불러오는 중…</p>
+          ) : replies.length === 0 ? (
+            <p className="reply-empty">아직 달린 댓글이 없어요.</p>
+          ) : (
+            <ul>
+              {replies.map((reply) => (
+                <li key={reply.id} className={reply.created_at > seenBefore ? 'unread' : undefined}>
+                  <a href={`/posts/${reply.post_id}`}>
+                    <small>
+                      {reply.author_name} · {formatWhen(reply.created_at)}
+                    </small>
+                    <span>{reply.excerpt}</span>
+                    <em>{reply.title}</em>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function AppShell({
@@ -87,7 +171,7 @@ export function AppShell({
   const [mobileNav, setMobileNav] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const newsUpdated =
-    active !== 'news' && !!identity.userId && (identity.newsReviewedAt || 0) > newsSeenAt(identity.userId);
+    active !== 'news' && !!identity.userId && (identity.newsReviewedAt || 0) > seenAt('news', identity.userId);
 
   async function logout() {
     setLeaving(true);
@@ -131,9 +215,24 @@ export function AppShell({
               <board.icon size={20} />
               {board.label}
               {active === board.id && <span className="nav-dot" />}
+              {board.id === 'inquiry' && identity.admin && !!identity.waitingInquiries && (
+                <span className="nav-count" aria-label={`답변 대기 ${identity.waitingInquiries}건`}>
+                  {identity.waitingInquiries}
+                </span>
+              )}
               {board.id === 'news' && newsUpdated && (
                 <span className="nav-alert" role="status" aria-label="새 검토 결과" />
               )}
+            </a>
+          ))}
+        </nav>
+        <p className="nav-caption">미컴봇 · 카카오톡</p>
+        <nav aria-label="미컴봇 바로가기">
+          {botLinks.map((link) => (
+            <a key={link.label} className="nav-item" href={MICOMBOT_URL} target="_blank" rel="noopener noreferrer">
+              <link.icon size={20} />
+              {link.label}
+              <ArrowUpRight size={16} className="nav-external" />
             </a>
           ))}
         </nav>
@@ -175,6 +274,7 @@ export function AppShell({
             ) : identity.signedIn ? (
               <>
                 <span className="account-name">{identity.displayName || identity.email}</span>
+                {identity.userId && <ReplyBell userId={identity.userId} repliedAt={identity.repliedAt} />}
                 <a href="/account" aria-label="계정 설정">
                   <Settings size={18} />
                 </a>

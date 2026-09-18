@@ -20,7 +20,7 @@ import { api } from '../../api-client';
 import { AppShell, boardLabels, boardPaths, type ShellIdentity } from '../../app-shell';
 import Comments from './comments';
 
-type Category = 'board' | 'qna' | 'news' | 'clubs' | 'contests';
+type Category = 'board' | 'qna' | 'inquiry' | 'news' | 'clubs' | 'contests';
 type Post = {
   id: string;
   title: string;
@@ -233,6 +233,11 @@ export default function PostDetail({ id }: { id: string }) {
                 <span className={`category-tag ${post.category}`}>{boardLabels[post.category]}</span>
                 {news && <span className={`status-badge ${post.status}`}>{statusLabels[post.status]}</span>}
                 {post.pinned_at && <span className="status-badge feedback">고정</span>}
+                {post.category === 'inquiry' && (
+                  <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
+                    {post.resolved_at ? '답변 완료' : '답변 대기'}
+                  </span>
+                )}
                 {post.category === 'qna' && (
                   <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
                     {post.resolved_at ? '해결됨' : '미해결'}
@@ -246,7 +251,7 @@ export default function PostDetail({ id }: { id: string }) {
                   {post.author_name || '이름 없음'} · {formatDate(post.created_at)}
                 </p>
               </div>
-              {!news && (
+              {!news && category !== 'inquiry' && (
                 <button className="secondary copy-button" onClick={() => void copyLink()}>
                   <Link2 size={17} />
                   링크 복사
@@ -335,7 +340,7 @@ export default function PostDetail({ id }: { id: string }) {
                       {post.resolved_at ? '해결 취소' : '해결됨으로 표시'}
                     </button>
                   )}
-                  {admin && !news && (
+                  {admin && !news && category !== 'inquiry' && (
                     <button
                       className="secondary"
                       disabled={busy}

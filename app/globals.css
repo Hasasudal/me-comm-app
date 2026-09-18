@@ -72,6 +72,7 @@ a svg {
   display: flex;
   flex-direction: column;
   z-index: 20;
+  overflow-y: auto;
 }
 .brand {
   display: flex;
@@ -2639,4 +2640,111 @@ label small {
   font-weight: 600;
   color: var(--blue);
   background: #f5f8ff;
+}
+.reply-bell {
+  position: relative;
+  display: inline-flex;
+}
+.reply-bell > button {
+  position: relative;
+}
+.reply-bell > button .nav-alert {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  margin: 0;
+}
+.reply-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: min(340px, calc(100vw - 32px));
+  max-height: 420px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px #1a254019;
+  padding: 14px 0 6px;
+  text-align: left;
+}
+.reply-panel > strong {
+  display: block;
+  padding: 0 16px 10px;
+  font-size: 14px;
+  color: #26334d;
+}
+.reply-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.account-actions .reply-panel li a {
+  display: grid;
+  gap: 3px;
+  justify-content: stretch;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  color: #26334d;
+}
+.reply-panel li.unread a {
+  background: #f3f6ff;
+}
+.reply-panel small {
+  color: #7a879b;
+  font-size: 12px;
+}
+.reply-panel span,
+.reply-panel em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reply-panel span {
+  font-size: 13px;
+}
+.reply-panel em {
+  font-style: normal;
+  font-size: 12px;
+  color: #5f6d83;
+}
+.reply-empty {
+  padding: 4px 16px 10px;
+  margin: 0;
+  font-size: 13px;
+  color: #7a879b;
+}
+.nav-count {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+.nav-item.active .nav-count {
+  margin-left: 8px;
+}
+.category-symbol.inquiry {
+  background: #e8f5f8;
+  color: #3b8ba0;
+}
+.category-tag.inquiry {
+  color: #2f7488;
+}
+.nav-external {
+  margin-left: auto;
+  color: #9aa6b8;
+}
+/* Short screens drop the decorative note so the menu fits without scrolling. */
+@media (max-height: 900px) {
+  .sidebar-note {
+    display: none;
+  }
 }
