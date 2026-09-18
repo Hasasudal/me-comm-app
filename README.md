@@ -46,7 +46,7 @@ FIREBASE_PROJECT_ID=
 FIREBASE_APP_ID=
 ```
 
-운영 배포 순서와 검증 항목은 `docs/implementation.md`, `docs/verification.md`에 있습니다.
+운영 배포 순서와 검증 항목은 `docs/implementation.md`, `docs/verification.md`에, DB 백업·복구 방법은 `docs/backup.md`에 있습니다.
 
 ## 자동 검증
 
