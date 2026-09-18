@@ -68,7 +68,10 @@ export async function DELETE(request: Request, context: Context) {
     const { id } = await context.params;
     const post = await visiblePost(id, member, admin);
     await checkPostPassword(request, post, password, member, admin);
-    await db().prepare('DELETE FROM posts WHERE id=?').bind(id).run();
+    await db().batch([
+      db().prepare('DELETE FROM comments WHERE post_id=?').bind(id),
+      db().prepare('DELETE FROM posts WHERE id=?').bind(id),
+    ]);
     return json({ ok: true });
   });
 }

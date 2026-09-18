@@ -11,6 +11,7 @@ import {
   CircleHelp,
   FileText,
   LockKeyhole,
+  MessageSquare,
   Newspaper,
   Plus,
   Search,
@@ -47,6 +48,8 @@ type Post = {
   recruitment_status?: 'open' | 'closed' | null;
   deadline?: string | null;
   headcount?: number | null;
+  comment_count?: number;
+  snippet?: string | null;
 };
 type Identity = ShellIdentity & { admin: boolean; configured: boolean };
 const prefixHints: Record<WritableBoard, string> = {
@@ -316,7 +319,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                 aria-label="제목 검색"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="제목이나 머릿글로 검색"
+                placeholder="제목·본문·작성자로 검색"
               />
             </div>
             {category === 'all' && (
@@ -411,10 +414,17 @@ export default function Community({ category = 'all', admin = false }: { categor
                           )}
                         </div>
                       )}
+                      {post.snippet && <p className="post-snippet">{post.snippet}</p>}
                       <div className="post-meta">
                         {post.author_name || '이름 없음'}
                         <span>·</span>
                         {formatDate(post.created_at)}
+                        {!!post.comment_count && (
+                          <span className="comment-count">
+                            <MessageSquare size={12} />
+                            {post.comment_count}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <ChevronRight className="row-arrow" size={19} />

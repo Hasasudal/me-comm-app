@@ -327,7 +327,78 @@ try {
     [ids.clubs],
     'search matches prefixes on the server',
   );
-  assert.equal((await request('/api/posts?q=%25', { cookie: admin })).data.posts.length, 0, 'LIKE wildcards are escaped');
+  assert.equal(
+    (await request('/api/posts?q=%25', { cookie: admin })).data.posts.length,
+    0,
+    'LIKE wildcards are escaped',
+  );
+  const byBody = await request(`/api/posts?q=${encodeURIComponent('본문 테스트')}`, { cookie: admin });
+  assert.deepEqual(
+    byBody.data.posts.map((x) => x.id),
+    [ids.clubs],
+    'search matches bodies but never private news',
+  );
+  assert.match(byBody.data.posts[0].snippet, /본문 테스트/, 'body matches return an excerpt');
+  assert.equal('content' in byBody.data.posts[0], false, 'search results still omit full bodies');
+  assert.deepEqual(
+    (await request(`/api/posts?q=${encodeURIComponent('새이름')}`, { cookie: admin })).data.posts.map((x) => x.id),
+    [ids.board],
+    'search matches author names',
+  );
+
+  const comments = (cookie = admin) => request(`/api/posts/${ids.board}/comments`, { cookie });
+  assert.deepEqual((await comments()).data.comments, [], 'new posts have no comments');
+  const myComment = await request(`/api/posts/${ids.board}/comments`, {
+    method: 'POST',
+    body: { author_name: '댓글러', content: '첫 댓글' },
+  });
+  assert.equal(myComment.status, 201);
+  assert.equal(myComment.data.comment.deletable, true);
+  assert.equal(
+    (await request(`/api/posts/${ids.board}/comments`, { method: 'POST', body: { content: '이름 없음' } })).status,
+    400,
+    'comment author name is required',
+  );
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.news}/comments`, {
+        method: 'POST',
+        body: { author_name: 'x', content: 'x' },
+      })
+    ).status,
+    400,
+    'news cannot be commented on',
+  );
+  const adminComment = await request(`/api/posts/${ids.board}/comments`, {
+    method: 'POST',
+    cookie: admin,
+    body: { author_name: '운영진', content: '관리자 댓글' },
+  });
+  const seenByAuthor = (await comments(author)).data.comments;
+  assert.deepEqual(
+    seenByAuthor.map((c) => [c.content, c.deletable]),
+    [
+      ['첫 댓글', true],
+      ['관리자 댓글', false],
+    ],
+    'comments are oldest first and only the writer (or an admin) may delete',
+  );
+  assert.equal('author_id' in seenByAuthor[0], false, 'author ids are not exposed');
+  assert.equal(
+    (await request(`/api/comments/${adminComment.data.comment.id}`, { method: 'DELETE', body: {} })).status,
+    403,
+    "members cannot delete others' comments",
+  );
+  const counted = (await request('/api/posts?category=board', { cookie: admin })).data.posts.find(
+    (x) => x.id === ids.board,
+  );
+  assert.equal(counted.comment_count, 2, 'lists show comment counts');
+  assert.equal(
+    (await request(`/api/comments/${myComment.data.comment.id}`, { method: 'DELETE', cookie: admin, body: {} })).status,
+    200,
+    'admins delete any comment',
+  );
+  assert.equal((await comments()).data.comments.length, 1);
   // Insert page fixtures directly: the API allows 10 posts per member per minute. Same created_at on
   // several rows exercises the id tie-breaker in the cursor.
   const bulk = Array.from({ length: 31 }, (_, i) => `page-${suffix}-${String(i).padStart(2, '0')}`);
@@ -340,7 +411,9 @@ try {
       .join('; '),
   );
   Object.assign(ids, Object.fromEntries(bulk.map((id) => [id, id])));
-  const page1 = await request(`/api/posts?category=board&q=${encodeURIComponent(`페이지 ${suffix}`)}`, { cookie: admin });
+  const page1 = await request(`/api/posts?category=board&q=${encodeURIComponent(`페이지 ${suffix}`)}`, {
+    cookie: admin,
+  });
   assert.equal(page1.data.posts.length, 30, 'first page holds 30 posts');
   assert.ok(page1.data.nextCursor, 'a cursor points to the next page');
   const page2 = await request(
