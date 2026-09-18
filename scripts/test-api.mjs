@@ -228,58 +228,40 @@ try {
     execute(`DELETE FROM posts WHERE id LIKE 'open-test-%'`);
   }
 
-  const question = await request('/api/posts', {
-    method: 'POST',
-    body: { title: `질문 ${suffix}`, content: '졸업요건?', category: 'qna', author_name: '질문자', password },
-  });
-  assert.equal(question.status, 201, 'members ask in the academic Q&A board');
-  assert.equal(question.data.status, 'published');
-  const qna = (await request('/api/posts?category=qna')).data.posts.map((x) => x.id);
-  assert.ok(qna.includes(question.data.id), 'Q&A tab lists the question');
+  // Desks (1:1 inquiries, complaints): only the writer (and admins) can see them; the combined board skips them.
+  for (const desk of ['inquiry', 'complaint']) {
+    const created = await request('/api/posts', {
+      method: 'POST',
+      body: { title: `${desk} ${suffix}`, content: '비공개 내용', category: desk, author_name: '작성자', password },
+    });
+    assert.equal(created.status, 201, `${desk} is created`);
+    ids[desk] = created.data.id;
+    assert.equal(
+      (await request(`/api/posts/${ids[desk]}`, { cookie: admin })).status,
+      404,
+      `others cannot open ${desk}`,
+    );
+    assert.equal(
+      (await request(`/api/posts?category=${desk}`, { cookie: admin })).data.posts.length,
+      0,
+      `others' ${desk} posts are not listed`,
+    );
+    assert.ok(
+      (await request(`/api/posts?category=${desk}`)).data.posts.some((x) => x.id === ids[desk]),
+      `the writer lists their ${desk}`,
+    );
+    assert.equal(
+      (await request('/api/posts')).data.posts.some((x) => x.id === ids[desk]),
+      false,
+      `the combined board skips ${desk}`,
+    );
+  }
   assert.equal(
-    (
-      await request(`/api/posts/${question.data.id}/comments`, {
-        method: 'POST',
-        cookie: admin,
-        body: { author_name: '조교', content: '학과 사무실에 문의하세요.' },
-      })
-    ).status,
-    201,
-    'answers are comments',
+    (await request(`/api/posts/${ids.board}/flags`, { method: 'POST', body: { pinned: true } })).status,
+    403,
+    'members cannot pin',
   );
-  // 1:1 inquiries: only the asker (and admins) can see them; the combined board never lists them.
-  const inquiry = await request('/api/posts', {
-    method: 'POST',
-    body: { title: `문의 ${suffix}`, content: '장학금 문의', category: 'inquiry', author_name: '문의자', password },
-  });
-  assert.equal(inquiry.status, 201);
-  ids.inquiry = inquiry.data.id;
-  assert.equal((await request(`/api/posts/${ids.inquiry}`, { cookie: admin })).status, 404, 'others cannot open');
-  assert.equal(
-    (await request('/api/posts?category=inquiry', { cookie: admin })).data.posts.length,
-    0,
-    "others' inquiries are not listed",
-  );
-  assert.ok(
-    (await request('/api/posts?category=inquiry')).data.posts.some((x) => x.id === ids.inquiry),
-    'the asker lists their inquiry',
-  );
-  assert.equal(
-    (await request('/api/posts')).data.posts.some((x) => x.id === ids.inquiry),
-    false,
-    'the combined board skips inquiries',
-  );
-  const flag = (id, body, cookie = author) => request(`/api/posts/${id}/flags`, { method: 'POST', cookie, body });
-  assert.equal((await flag(question.data.id, { resolved: true }, admin)).status, 403, 'others cannot resolve');
-  assert.equal((await flag(question.data.id, { resolved: true })).status, 200, 'the asker marks it resolved');
-  assert.ok((await request(`/api/posts/${question.data.id}`)).data.post.resolved_at, 'resolved is stored');
-  assert.equal((await flag(ids.board, { resolved: true })).status, 400, 'only Q&A questions resolve');
-  assert.equal((await flag(question.data.id, { pinned: true })).status, 403, 'members cannot pin');
-  assert.equal(
-    (await request(`/api/posts/${question.data.id}`, { method: 'DELETE', body: {} })).status,
-    200,
-    'the asker deletes their question without a password',
-  );
+  assert.equal((await request('/api/posts?category=qna')).status, 400, 'the Q&A board is gone');
 
   assert.equal((await request('/api/admin/posts')).status, 403, 'non-admin cannot open the review queue');
   assert.equal(
@@ -351,32 +333,83 @@ try {
   assert.notEqual((await request('/api/posts?category=board')).data.posts[0].id, pinnedId, 'unpinning restores order');
   await request(`/api/posts/${newer.data.id}`, { method: 'DELETE', body: {} });
 
-  // Admins list every inquiry; an admin reply answers it and the asker's follow-up reopens it.
-  assert.ok(
-    (await request('/api/posts?category=inquiry', { cookie: admin })).data.posts.some((x) => x.id === ids.inquiry),
-    'admins list all inquiries',
-  );
-  const waiting = async () => (await request('/api/session', { cookie: admin })).data.waitingInquiries;
-  const waitingBefore = await waiting();
-  assert.ok(waitingBefore >= 1, 'admins see the waiting count');
-  const reply = (cookie, content) =>
-    request(`/api/posts/${ids.inquiry}/comments`, {
+  // Admins list every desk post; an admin reply answers it and the writer's follow-up reopens it.
+  for (const desk of ['inquiry', 'complaint']) {
+    assert.ok(
+      (await request(`/api/posts?category=${desk}`, { cookie: admin })).data.posts.some((x) => x.id === ids[desk]),
+      `admins list all ${desk} posts`,
+    );
+    const waiting = async () => (await request('/api/session', { cookie: admin })).data.waiting[desk] || 0;
+    const waitingBefore = await waiting();
+    assert.ok(waitingBefore >= 1, `admins see the ${desk} waiting count`);
+    const reply = (cookie, content) =>
+      request(`/api/posts/${ids[desk]}/comments`, { method: 'POST', cookie, body: { author_name: '담당자', content } });
+    await reply(admin, '확인했습니다.');
+    assert.ok((await request(`/api/posts/${ids[desk]}`)).data.post.resolved_at, `an admin reply answers the ${desk}`);
+    assert.equal(await waiting(), waitingBefore - 1);
+    await reply(author, '추가 문의입니다.');
+    assert.equal((await request(`/api/posts/${ids[desk]}`)).data.post.resolved_at, null, 'a follow-up reopens it');
+    assert.equal(
+      (await request(`/api/posts/${ids[desk]}/flags`, { method: 'POST', cookie: admin, body: { pinned: true } }))
+        .status,
+      400,
+      `${desk} posts cannot be pinned`,
+    );
+  }
+
+  // Photos: uploads stay private to the uploader until a post claims them; then they follow the post's visibility.
+  const upload = (type = 'image/webp', cookie = author) =>
+    fetch(`${base}/api/images`, {
       method: 'POST',
-      cookie,
-      body: { author_name: '학과사무실', content },
-    });
-  await reply(admin, '다음 주에 공지됩니다.');
-  assert.ok((await request(`/api/posts/${ids.inquiry}`)).data.post.resolved_at, 'an admin reply answers it');
-  assert.equal(await waiting(), waitingBefore - 1);
-  await reply(author, '추가로 궁금한 점이 있어요.');
-  assert.equal((await request(`/api/posts/${ids.inquiry}`)).data.post.resolved_at, null, 'a follow-up reopens it');
+      headers: { 'Content-Type': type, Origin: base, Cookie: cookie },
+      body: new Uint8Array([82, 73, 70, 70, 1, 2, 3, 4]),
+    }).then(async (r) => ({ status: r.status, data: await r.json() }));
+  const image = (key, cookie = author) =>
+    fetch(`${base}/api/images/${key}`, { headers: { Cookie: cookie } }).then((r) => r.status);
+  assert.equal((await upload('text/html')).status, 415, 'only photos upload');
+  const [a, b, c] = [(await upload()).data.key, (await upload()).data.key, (await upload()).data.key];
+  assert.equal(await image(a), 200, 'the uploader sees an unattached photo');
+  assert.equal(await image(a, admin), 404, 'others cannot see an unattached photo');
+  const withPhotos = await request('/api/posts', {
+    method: 'POST',
+    body: { title: `사진 ${suffix}`, content: 'x', category: 'board', author_name: 'x', password, images: [a, b] },
+  });
+  assert.equal(withPhotos.status, 201);
+  assert.deepEqual((await request(`/api/posts/${withPhotos.data.id}`)).data.post.images, [a, b], 'photos keep order');
+  assert.equal(await image(a, admin), 200, 'members see photos of a public post');
   assert.equal(
-    (await request(`/api/posts/${ids.inquiry}/flags`, { method: 'POST', cookie: admin, body: { pinned: true } }))
-      .status,
-    400,
-    'inquiries cannot be pinned',
+    (await request('/api/posts?category=board')).data.posts.find((x) => x.id === withPhotos.data.id).image_count,
+    2,
+    'lists show photo counts',
   );
-  await request(`/api/posts/${ids.inquiry}`, { method: 'DELETE', body: {} });
+  const adminPhoto = (await upload('image/webp', admin)).data.key;
+  assert.equal(
+    (
+      await request(`/api/posts/${withPhotos.data.id}`, {
+        method: 'PATCH',
+        body: { title: 'x', content: 'x', author_name: 'x', images: [a, adminPhoto] },
+      })
+    ).status,
+    400,
+    "another member's upload cannot be claimed",
+  );
+  await request(`/api/posts/${withPhotos.data.id}`, {
+    method: 'PATCH',
+    body: { title: 'x', content: 'x', author_name: 'x', images: [b] },
+  });
+  assert.deepEqual((await request(`/api/posts/${withPhotos.data.id}`)).data.post.images, [b]);
+  assert.equal(await image(a), 404, 'a photo dropped in an edit is deleted');
+  const privatePhoto = await request('/api/posts', {
+    method: 'POST',
+    body: { title: 'x', content: 'x', category: 'inquiry', author_name: 'x', password, images: [c] },
+  });
+  assert.equal(await image(c, fixture.expiredCookie), 401);
+  assert.equal(await image(c), 200, 'the asker sees their inquiry photo');
+  await request(`/api/posts/${privatePhoto.data.id}`, { method: 'DELETE', body: {} });
+  assert.equal(await image(c), 404, 'deleting a post deletes its photos');
+  await request(`/api/posts/${withPhotos.data.id}`, { method: 'DELETE', body: {} });
+  assert.equal(await image(b), 404);
+  execute(`DELETE FROM images WHERE key='${adminPhoto}'`);
 
   const pending = async () =>
     (await request('/api/admin/posts?status=pending', { cookie: admin })).data.posts.find((x) => x.id === ids.news);

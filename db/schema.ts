@@ -92,3 +92,16 @@ export const comments = sqliteTable(
   },
   (table) => [index('idx_comments_post').on(table.post_id, table.created_at)],
 );
+
+// Photos live in R2; this row records who uploaded each one and which post (if any) it belongs to.
+export const images = sqliteTable(
+  'images',
+  {
+    key: text('key').primaryKey(),
+    owner_id: text('owner_id').notNull(),
+    post_id: text('post_id'),
+    position: integer('position').notNull().default(0),
+    created_at: integer('created_at').notNull(),
+  },
+  (table) => [index('idx_images_post').on(table.post_id, table.position)],
+);

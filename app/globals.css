@@ -529,9 +529,9 @@ h1 {
   background: #eaf7f1;
   color: #4b9a7a;
 }
-.category-symbol.qna {
-  background: #f3effd;
-  color: #7b61c4;
+.category-symbol.complaint {
+  background: #fdf0ec;
+  color: #c46a4f;
 }
 .category-symbol.contests {
   background: #fff4e5;
@@ -548,8 +548,8 @@ h1 {
 .category-tag.clubs {
   color: #328161;
 }
-.category-tag.qna {
-  color: #6a4fb8;
+.category-tag.complaint {
+  color: #a8553c;
 }
 .category-tag.contests {
   color: #9d6f32;
@@ -2747,4 +2747,98 @@ label small {
   .sidebar-note {
     display: none;
   }
+}
+.image-picker {
+  display: grid;
+  gap: 8px;
+}
+.image-picker-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #26334d;
+}
+.image-picker-label small {
+  font-weight: 400;
+  color: #7a879b;
+}
+.image-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.image-thumb,
+.image-add {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f3f5f9;
+}
+.image-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.image-thumb.loading {
+  animation: image-pulse 1.2s ease-in-out infinite;
+}
+@keyframes image-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+.image-thumb button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #0f1a2ecc;
+  color: #fff;
+}
+.image-add {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2px;
+  border: 1px dashed #c9d2e0;
+  color: #6f7d91;
+  font-size: 12px;
+  cursor: pointer;
+}
+.image-add:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.image-add input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.image-add:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 18px 0 4px;
+}
+.image-gallery a {
+  display: block;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f3f5f9;
+}
+.image-gallery img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }

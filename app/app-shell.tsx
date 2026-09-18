@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   Bell,
   Inbox,
-  CircleHelp,
   Layers3,
   LogOut,
   Megaphone,
@@ -21,7 +20,7 @@ import {
 } from 'lucide-react';
 import { api } from './api-client';
 
-export type BoardId = 'all' | 'board' | 'qna' | 'inquiry' | 'news' | 'clubs' | 'contests';
+export type BoardId = 'all' | 'board' | 'inquiry' | 'complaint' | 'news' | 'clubs' | 'contests';
 export const boards = [
   { id: 'all', label: '통합 게시판', href: '/', icon: Layers3, sub: '학과의 모든 이야기를 한곳에서 만나보세요.' },
   {
@@ -32,18 +31,18 @@ export const boards = [
     sub: '하고 싶은 이야기를 편하게 나눠보세요.',
   },
   {
-    id: 'qna',
-    label: '학사 Q&A',
-    href: '/qna',
-    icon: CircleHelp,
-    sub: '수강신청, 졸업요건, 휴학처럼 학사 궁금증을 묻고 답해보세요.',
-  },
-  {
     id: 'inquiry',
     label: '학사문의',
     href: '/inquiry',
     icon: Inbox,
     sub: '학과 사무실에 1:1로 문의하세요. 나와 관리자만 볼 수 있어요.',
+  },
+  {
+    id: 'complaint',
+    label: '학생회 민원',
+    href: '/complaint',
+    icon: Megaphone,
+    sub: '학생회에 건의하거나 불편을 알려주세요. 나와 관리자만 볼 수 있어요.',
   },
   { id: 'news', label: '학과 뉴스', href: '/news', icon: Newspaper, sub: '기사를 제출하고 검토 결과를 확인하세요.' },
   { id: 'clubs', label: '동아리', href: '/clubs', icon: Users, sub: '같은 관심사로 시작하는 새로운 연결.' },
@@ -57,10 +56,12 @@ export const boards = [
 ] as const;
 // Equipment rental and student-council requests run through the 미컴봇 KakaoTalk channel.
 const MICOMBOT_URL = 'https://pf.kakao.com/_jaUxiG';
-const botLinks = [
-  { label: '기자재 대여', icon: Package },
-  { label: '학생회 민원', icon: Megaphone },
-];
+const botLinks = [{ label: '기자재 대여', icon: Package }];
+// Private boards answered by admins: the badge reads [waiting, answered].
+export const deskStatus: Partial<Record<BoardId, [string, string]>> = {
+  inquiry: ['답변 대기', '답변 완료'],
+  complaint: ['처리 대기', '처리 완료'],
+};
 export const boardLabels = Object.fromEntries(boards.map((b) => [b.id, b.label])) as Record<BoardId, string>;
 export const boardPaths = Object.fromEntries(boards.map((b) => [b.id, b.href])) as Record<BoardId, string>;
 
@@ -72,7 +73,7 @@ export type ShellIdentity = {
   displayName?: string;
   newsReviewedAt?: number | null;
   repliedAt?: number | null;
-  waitingInquiries?: number;
+  waiting?: Partial<Record<BoardId, number>>;
   admin?: boolean;
 };
 type Reply = { id: string; post_id: string; title: string; author_name: string; excerpt: string; created_at: number };
@@ -215,9 +216,9 @@ export function AppShell({
               <board.icon size={20} />
               {board.label}
               {active === board.id && <span className="nav-dot" />}
-              {board.id === 'inquiry' && identity.admin && !!identity.waitingInquiries && (
-                <span className="nav-count" aria-label={`답변 대기 ${identity.waitingInquiries}건`}>
-                  {identity.waitingInquiries}
+              {identity.admin && !!identity.waiting?.[board.id] && (
+                <span className="nav-count" aria-label={`${deskStatus[board.id]?.[0]} ${identity.waiting[board.id]}건`}>
+                  {identity.waiting[board.id]}
                 </span>
               )}
               {board.id === 'news' && newsUpdated && (

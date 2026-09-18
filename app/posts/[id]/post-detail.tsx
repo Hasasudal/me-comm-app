@@ -17,10 +17,11 @@ import {
 import { AnnotatedArticle, statusLabels } from '../../annotated-article';
 import type { Review } from '../../../lib/annotations';
 import { api } from '../../api-client';
-import { AppShell, boardLabels, boardPaths, type ShellIdentity } from '../../app-shell';
+import { AppShell, boardLabels, boardPaths, deskStatus, type ShellIdentity } from '../../app-shell';
 import Comments from './comments';
+import { ImageGallery, ImagePicker } from '../../image-picker';
 
-type Category = 'board' | 'qna' | 'inquiry' | 'news' | 'clubs' | 'contests';
+type Category = 'board' | 'inquiry' | 'complaint' | 'news' | 'clubs' | 'contests';
 type Post = {
   id: string;
   title: string;
@@ -37,6 +38,7 @@ type Post = {
   headcount?: number | null;
   roles?: string | null;
   mine?: boolean;
+  images?: string[];
   resolved_at?: number | null;
   pinned_at?: number | null;
 };
@@ -52,6 +54,8 @@ export default function PostDetail({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<'view' | 'edit' | 'delete'>('view');
   const [notice, setNotice] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const reload = useCallback(async () => {
     const data = await api<{ post: Post }>(`/api/posts/${id}`);
     setPost(data.post);
@@ -103,6 +107,7 @@ export default function PostDetail({ id }: { id: string }) {
           content: form.get('content'),
           author_name: form.get('author_name'),
           prefix: form.get('prefix'),
+          images,
           password: form.get('password') || undefined,
           ...recruitment,
         },
@@ -131,22 +136,14 @@ export default function PostDetail({ id }: { id: string }) {
       setBusy(false);
     }
   }
-  async function setFlag(flag: 'resolved' | 'pinned', value: boolean) {
+  async function setPinned(value: boolean) {
     if (!post) return;
     setBusy(true);
     setError('');
     try {
-      await api(`/api/posts/${id}/flags`, { [flag]: value });
-      setPost({ ...post, [flag === 'resolved' ? 'resolved_at' : 'pinned_at']: value ? Date.now() : null });
-      setNotice(
-        flag === 'resolved'
-          ? value
-            ? '해결된 질문으로 표시했습니다.'
-            : '해결 표시를 취소했습니다.'
-          : value
-            ? '게시판 상단에 고정했습니다.'
-            : '고정을 해제했습니다.',
-      );
+      await api(`/api/posts/${id}/flags`, { pinned: value });
+      setPost({ ...post, pinned_at: value ? Date.now() : null });
+      setNotice(value ? '게시판 상단에 고정했습니다.' : '고정을 해제했습니다.');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -233,14 +230,9 @@ export default function PostDetail({ id }: { id: string }) {
                 <span className={`category-tag ${post.category}`}>{boardLabels[post.category]}</span>
                 {news && <span className={`status-badge ${post.status}`}>{statusLabels[post.status]}</span>}
                 {post.pinned_at && <span className="status-badge feedback">고정</span>}
-                {post.category === 'inquiry' && (
+                {deskStatus[post.category] && (
                   <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
-                    {post.resolved_at ? '답변 완료' : '답변 대기'}
-                  </span>
-                )}
-                {post.category === 'qna' && (
-                  <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
-                    {post.resolved_at ? '해결됨' : '미해결'}
+                    {deskStatus[post.category]?.[post.resolved_at ? 1 : 0]}
                   </span>
                 )}
                 <h1>
@@ -251,7 +243,7 @@ export default function PostDetail({ id }: { id: string }) {
                   {post.author_name || '이름 없음'} · {formatDate(post.created_at)}
                 </p>
               </div>
-              {!news && category !== 'inquiry' && (
+              {!news && !deskStatus[post.category] && (
                 <button className="secondary copy-button" onClick={() => void copyLink()}>
                   <Link2 size={17} />
                   링크 복사
@@ -325,27 +317,15 @@ export default function PostDetail({ id }: { id: string }) {
                   marks={post.status === 'feedback' ? post.feedback?.marks || [] : []}
                   className="detail-article"
                 />
+                <ImageGallery keys={post.images || []} />
                 {error && (
                   <p className="form-error" role="alert">
                     {error}
                   </p>
                 )}
                 <div className="article-actions">
-                  {post.category === 'qna' && (admin || post.mine) && (
-                    <button
-                      className="secondary"
-                      disabled={busy}
-                      onClick={() => void setFlag('resolved', !post.resolved_at)}
-                    >
-                      {post.resolved_at ? '해결 취소' : '해결됨으로 표시'}
-                    </button>
-                  )}
-                  {admin && !news && category !== 'inquiry' && (
-                    <button
-                      className="secondary"
-                      disabled={busy}
-                      onClick={() => void setFlag('pinned', !post.pinned_at)}
-                    >
+                  {admin && !news && !deskStatus[post.category] && (
+                    <button className="secondary" disabled={busy} onClick={() => void setPinned(!post.pinned_at)}>
                       {post.pinned_at ? '고정 해제' : '상단 고정'}
                     </button>
                   )}
@@ -354,6 +334,7 @@ export default function PostDetail({ id }: { id: string }) {
                       className="secondary"
                       onClick={() => {
                         setError('');
+                        setImages(post.images || []);
                         setMode('edit');
                       }}
                     >
@@ -402,6 +383,7 @@ export default function PostDetail({ id }: { id: string }) {
                   본문
                   <textarea name="content" required maxLength={20000} rows={10} defaultValue={post.content} />
                 </label>
+                <ImagePicker value={images} onChange={setImages} onBusy={setUploading} />
                 {(post.category === 'clubs' || post.category === 'contests') && (
                   <fieldset className="recruitment-fields">
                     <legend>모집 정보 (선택)</legend>
@@ -440,7 +422,7 @@ export default function PostDetail({ id }: { id: string }) {
                   <button type="button" className="secondary" onClick={() => setMode('view')}>
                     취소
                   </button>
-                  <button className="primary" disabled={busy}>
+                  <button className="primary" disabled={busy || uploading}>
                     {busy ? '저장 중…' : news ? '다시 제출' : '수정 저장'}
                   </button>
                 </div>

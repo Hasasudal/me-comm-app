@@ -1,6 +1,7 @@
 import {
   commentSchema,
   db,
+  deskCategories,
   handle,
   HttpError,
   input,
@@ -58,8 +59,8 @@ export async function POST(request: Request, context: Context) {
       .prepare('INSERT INTO comments (id,post_id,author_id,author_name,content,created_at) VALUES (?,?,?,?,?,?)')
       .bind(comment.id, post.id, member.userId, comment.author_name, comment.content, comment.created_at)
       .run();
-    // An inquiry is answered once an admin replies, and waits again when the asker follows up.
-    if (post.category === 'inquiry') {
+    // A desk post is answered once an admin replies, and waits again when the asker follows up.
+    if (deskCategories.includes(post.category)) {
       const asker = post.author_id === member.userId;
       if (asker || admin)
         await db()
