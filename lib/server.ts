@@ -104,7 +104,7 @@ export const createSchema = z.object({
   ...contentFields,
   ...recruitmentFields,
   ...authorFields,
-  category: z.enum(['board', 'news', 'clubs', 'contests']),
+  category: z.enum(['board', 'qna', 'news', 'clubs', 'contests']),
   password: passwordField,
 });
 export const editSchema = z.object({
@@ -203,11 +203,13 @@ export type PostRow = {
   author_name: string | null;
   prefix: string | null;
   feedback: string | null;
+  resolved_at: number | null;
+  pinned_at: number | null;
   created_at: number;
   updated_at: number;
 };
 export const listColumns =
-  'id,title,category,prefix,author_name,status,recruitment_status,deadline,headcount,roles,created_at,updated_at,' +
+  'id,title,category,prefix,author_name,status,recruitment_status,deadline,headcount,roles,resolved_at,pinned_at,created_at,updated_at,' +
   '(SELECT COUNT(*) FROM comments WHERE comments.post_id=posts.id) AS comment_count';
 export const commentSchema = z.object({
   author_name: authorFields.author_name,
@@ -256,6 +258,8 @@ export function publicPost(post: PostRow) {
     deadline: post.deadline,
     headcount: post.headcount,
     roles: post.roles,
+    resolved_at: post.resolved_at,
+    pinned_at: post.pinned_at,
     created_at: post.created_at,
     updated_at: post.updated_at,
   };
