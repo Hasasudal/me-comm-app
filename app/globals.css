@@ -63,7 +63,7 @@ a svg {
   min-height: 100vh;
 }
 .sidebar {
-  width: 252px;
+  width: var(--sidebar-width);
   background: white;
   border-right: 1px solid var(--line);
   padding: 35px 22px 20px;
@@ -227,9 +227,26 @@ a svg {
   color: #8792a4;
   padding: 24px 12px 0;
 }
+:root {
+  --sidebar-width: 276px;
+}
 .main-wrap {
-  margin-left: 252px;
-  width: calc(100% - 252px);
+  margin-left: var(--sidebar-width);
+  width: calc(100% - var(--sidebar-width));
+}
+/* Desktop: the sidebar folds away and the page takes the full width. */
+.app-shell.sidebar-closed .sidebar {
+  display: none;
+}
+.app-shell.sidebar-closed .main-wrap {
+  margin-left: 0;
+  width: 100%;
+}
+.sidebar-toggle {
+  color: #6f7d91;
+}
+.sidebar-toggle:hover {
+  color: var(--blue);
 }
 .topbar {
   height: 78px;
@@ -1266,14 +1283,12 @@ label small {
   }
 }
 @media (max-width: 1150px) {
+  :root {
+    --sidebar-width: 236px;
+  }
   .sidebar {
-    width: 218px;
     padding-left: 16px;
     padding-right: 16px;
-  }
-  .main-wrap {
-    margin-left: 218px;
-    width: calc(100% - 218px);
   }
   main {
     padding: 30px 26px 0;
@@ -1326,6 +1341,13 @@ label small {
     box-shadow: 20px 0 50px #18244620;
   }
   .sidebar.mobile-open {
+    display: flex;
+  }
+  /* Phones use the menu button instead; the desktop fold does not apply. */
+  .sidebar-toggle {
+    display: none !important;
+  }
+  .app-shell.sidebar-closed .sidebar.mobile-open {
     display: flex;
   }
   .sidebar .brand,

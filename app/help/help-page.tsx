@@ -128,7 +128,10 @@ export default function HelpPage() {
 
           <section id="boards">
             <h2>게시판 한눈에</h2>
-            <p>왼쪽 사이드바에서 게시판을 고릅니다. 게시판마다 누가 볼 수 있는지가 다릅니다.</p>
+            <p>
+              왼쪽 사이드바에서 게시판을 고릅니다. 게시판마다 누가 볼 수 있는지가 다릅니다. 컴퓨터에서는 화면 왼쪽 위
+              버튼으로 메뉴를 접고 펼 수 있고, 이 설정은 브라우저에 기억됩니다.
+            </p>
             <div className="table-scroll">
               <table>
                 <thead>

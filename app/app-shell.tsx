@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight,
   Bell,
@@ -10,6 +10,8 @@ import {
   LogOut,
   Megaphone,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   MessageSquare,
   Newspaper,
   DoorOpen,
@@ -198,6 +200,24 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [mobileNav, setMobileNav] = useState(false);
+  // Desktop users can fold the sidebar away; the choice is remembered in this browser.
+  const [sidebarClosed, setSidebarClosed] = useState(false);
+  useEffect(() => {
+    // Read after hydration so the server-rendered page and the first client render agree.
+    const timer = setTimeout(() => {
+      try {
+        setSidebarClosed(localStorage.getItem('micom:sidebar-closed') === '1');
+      } catch {}
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+  function toggleSidebar() {
+    const next = !sidebarClosed;
+    setSidebarClosed(next);
+    try {
+      localStorage.setItem('micom:sidebar-closed', next ? '1' : '0');
+    } catch {}
+  }
   const [leaving, setLeaving] = useState(false);
   const botDialog = useRef<HTMLDialogElement>(null);
   const newsUpdated =
@@ -213,7 +233,7 @@ export function AppShell({
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarClosed ? 'sidebar-closed' : ''}`}>
       <aside className={`sidebar ${mobileNav ? 'mobile-open' : ''}`}>
         <a className="brand" href="/" aria-label="미컴 라운지 홈">
           <span className="brand-mark">
@@ -337,6 +357,15 @@ export function AppShell({
       <div className="main-wrap">
         <header className="topbar">
           <div>
+            <button
+              className="icon-button sidebar-toggle"
+              aria-label={sidebarClosed ? '메뉴 펼치기' : '메뉴 접기'}
+              aria-expanded={!sidebarClosed}
+              title={sidebarClosed ? '메뉴 펼치기' : '메뉴 접기'}
+              onClick={toggleSidebar}
+            >
+              {sidebarClosed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+            </button>
             <button className="icon-button mobile-menu" aria-label="메뉴 열기" onClick={() => setMobileNav(!mobileNav)}>
               <Menu size={22} />
             </button>
