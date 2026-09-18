@@ -95,10 +95,11 @@ export type ShellIdentity = {
   newsReviewedAt?: number | null;
   repliedAt?: number | null;
   waiting?: Partial<Record<BoardId, number>>;
+  pendingMembers?: number;
   admin?: boolean;
 };
 type Reply = {
-  kind: 'reply' | 'desk' | 'followup';
+  kind: 'reply' | 'desk' | 'followup' | 'signup';
   id: string;
   post_id: string;
   title: string;
@@ -106,7 +107,12 @@ type Reply = {
   excerpt: string;
   created_at: number;
 };
-const replyKinds: Record<Reply['kind'], string> = { reply: '댓글', desk: '새 글', followup: '추가 문의' };
+const replyKinds: Record<Reply['kind'], string> = {
+  reply: '댓글',
+  desk: '새 글',
+  followup: '추가 문의',
+  signup: '가입 승인',
+};
 
 // "Seen" is a per-browser convenience: when the member last looked at review results ("news") or replies.
 type SeenKind = 'news' | 'replies';
@@ -169,7 +175,7 @@ function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number |
             <ul>
               {replies.map((reply) => (
                 <li key={reply.id} className={reply.created_at > seenBefore ? 'unread' : undefined}>
-                  <a href={`/posts/${reply.post_id}`}>
+                  <a href={reply.kind === 'signup' ? '/admin/members?status=pending' : `/posts/${reply.post_id}`}>
                     <small>
                       {replyKinds[reply.kind]} · {reply.author_name} · {formatWhen(reply.created_at)}
                     </small>

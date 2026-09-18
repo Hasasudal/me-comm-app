@@ -150,7 +150,7 @@ export async function identity(request?: Request) {
       const desks = deskCategories.filter((category) => managesDesk(member, category));
       // Newest item for the bell: replies on my posts, and for staff new desk posts and follow-ups.
       const replied = await db()
-        .prepare(`SELECT MAX(created_at) AS at FROM (${alertsSql(desks)})`)
+        .prepare(`SELECT MAX(created_at) AS at FROM (${alertsSql(desks, isAdmin(member))})`)
         .bind(member.userId)
         .first<{ at: number | null }>();
       const waiting = desks.length
@@ -165,6 +165,13 @@ export async function identity(request?: Request) {
         newsReviewedAt: reviewed?.at ?? null,
         repliedAt: replied?.at ?? null,
         waiting: Object.fromEntries((waiting?.results || []).map((row) => [row.category, row.count])),
+        pendingMembers: isAdmin(member)
+          ? ((
+              await db()
+                .prepare("SELECT COUNT(*) AS count FROM users WHERE status='pending'")
+                .first<{ count: number }>()
+            )?.count ?? 0)
+          : 0,
         admin: isAdmin(member),
         role: member.role,
         signedIn: true,
@@ -238,7 +245,7 @@ export const deskRoles: Record<string, Role> = { inquiry: 'academic', complaint:
 export const deskCategories = Object.keys(deskRoles);
 export const privateCategories = ['news', ...deskCategories];
 // Bell items, newest first when ordered by created_at. `?1` is the member id. Desk names are server constants.
-export function alertsSql(desks: string[]) {
+export function alertsSql(desks: string[], admin = false) {
   const parts = [
     "SELECT 'reply' AS kind,comments.id,comments.post_id,posts.title,comments.author_name,substr(comments.content,1,80) AS excerpt,comments.created_at FROM comments JOIN posts ON posts.id=comments.post_id WHERE posts.author_id=?1 AND comments.author_id<>?1",
   ];
@@ -249,6 +256,10 @@ export function alertsSql(desks: string[]) {
       `SELECT 'followup',comments.id,comments.post_id,posts.title,comments.author_name,substr(comments.content,1,80),comments.created_at FROM comments JOIN posts ON posts.id=comments.post_id WHERE posts.category IN ${inDesks} AND comments.author_id=posts.author_id AND posts.author_id<>?1`,
     );
   }
+  if (admin)
+    parts.push(
+      "SELECT 'signup',users.id,'',users.display_name||' 가입 승인 요청',users.display_name,users.email,users.created_at FROM users WHERE users.status='pending'",
+    );
   return parts.join(' UNION ALL ');
 }
 export function managesDesk(member: Member, category: string) {

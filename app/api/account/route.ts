@@ -18,6 +18,7 @@ export async function PATCH(request: Request) {
     if (!projectId) throw new HttpError(503, '학교 계정 로그인이 아직 설정되지 않았습니다.');
     const verified = await verifyFirebaseIdToken(idToken, { projectId });
     if (verified.userId !== member.userId) throw new HttpError(403, '현재 로그인한 계정과 일치하지 않습니다.');
+    if (!verified.emailVerified) throw new HttpError(403, '새 학교 이메일의 인증을 먼저 마쳐주세요.');
     const conflict = await db()
       .prepare('SELECT id FROM users WHERE email=? AND id<>?')
       .bind(verified.email, member.userId)

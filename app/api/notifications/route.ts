@@ -1,4 +1,4 @@
-import { alertsSql, db, deskCategories, handle, json, managesDesk, requireMember } from '../../../lib/server';
+import { alertsSql, db, deskCategories, handle, isAdmin, json, managesDesk, requireMember } from '../../../lib/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const member = await requireMember(request);
     const desks = deskCategories.filter((category) => managesDesk(member, category));
     const rows = await db()
-      .prepare(`SELECT * FROM (${alertsSql(desks)}) ORDER BY created_at DESC LIMIT 20`)
+      .prepare(`SELECT * FROM (${alertsSql(desks, isAdmin(member))}) ORDER BY created_at DESC LIMIT 20`)
       .bind(member.userId)
       .all();
     return json({ replies: rows.results });

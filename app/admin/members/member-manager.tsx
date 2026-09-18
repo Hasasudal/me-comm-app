@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ChevronRight, RotateCcw, Search, ShieldCheck, UserX } from 'lucide-react';
+import { ChevronRight, RotateCcw, Search, ShieldCheck, UserCheck, UserX } from 'lucide-react';
 import { api } from '../../api-client';
 import { AppShell, roleLabels, type Role, type ShellIdentity } from '../../app-shell';
 
@@ -9,7 +9,7 @@ type User = {
   id: string;
   email: string;
   display_name: string;
-  status: 'active' | 'suspended';
+  status: 'active' | 'suspended' | 'pending';
   role: Role;
   created_at: number;
 };
@@ -24,7 +24,7 @@ type AuditEntry = {
   after: string;
   created_at: number;
 };
-const statusLabels: Record<string, string> = { active: '이용 중', suspended: '정지' };
+const statusLabels: Record<string, string> = { active: '이용 중', suspended: '정지', pending: '승인 대기' };
 const auditValue = (entry: AuditEntry, value: string) =>
   entry.action === 'role' ? roleLabels[value as Role] || value : statusLabels[value] || value;
 const formatWhen = (n: number) =>
@@ -47,7 +47,12 @@ export default function MemberManager() {
   const [identity, setIdentity] = useState<Session>({ loaded: false, signedIn: false });
   const [users, setUsers] = useState<User[]>([]);
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('all');
+  // The bell links approval requests here with ?status=pending.
+  const [status, setStatus] = useState(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('status') === 'pending'
+      ? 'pending'
+      : 'all',
+  );
   const [role, setRole] = useState('all');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -116,6 +121,16 @@ export default function MemberManager() {
           `${user.display_name} 회원의 이용을 정지할까요?\n모든 기기에서 로그아웃됩니다.`,
         )
       : update(user, { status: 'active' }, `${user.display_name} 회원의 이용을 복구할까요?`);
+  // Members whose verification mail never arrived: an admin confirms who they are before letting them in.
+  const approve = (user: User) =>
+    update(
+      user,
+      { status: 'active' },
+      `${user.display_name}(${user.email}) 회원의 가입을 승인할까요?
+학번이나 연락처로 본인인지 먼저 확인해주세요.`,
+    );
+  const decline = (user: User) =>
+    update(user, { status: 'suspended' }, `${user.display_name}(${user.email}) 회원의 가입을 거절할까요?`);
   const assign = (user: User, next: Role) =>
     next !== user.role &&
     update(
@@ -178,6 +193,7 @@ export default function MemberManager() {
               <option value="all">전체 상태</option>
               <option value="active">이용 중</option>
               <option value="suspended">정지</option>
+              <option value="pending">승인 대기</option>
             </select>
             <button className="primary" disabled={busy}>
               검색
@@ -189,7 +205,7 @@ export default function MemberManager() {
             </p>
           )}
           <p className="member-count">
-            총 {total}명 · 직책이 있는 회원이 위에 표시됩니다. 내 직책은 다른 관리자가 바꿀 수 있어요.
+            총 {total}명 · 승인 대기와 직책이 있는 회원이 위에 표시됩니다. 내 직책은 다른 관리자가 바꿀 수 있어요.
           </p>
           <ul className="managed-list">
             {users.map((user) => (
@@ -201,6 +217,7 @@ export default function MemberManager() {
                       <span className={`role-badge ${user.role}`}>{roleLabels[user.role]}</span>
                     )}
                     {user.status === 'suspended' && <span className="status-chip">이용 정지</span>}
+                    {user.status === 'pending' && <span className="status-chip pending">승인 대기</span>}
                   </strong>
                   <span>{user.email}</span>
                 </div>
@@ -220,14 +237,27 @@ export default function MemberManager() {
                     </option>
                   ))}
                 </select>
-                <button
-                  className={user.status === 'active' ? 'suspend-button' : 'restore-button'}
-                  disabled={busy || user.id === identity.userId}
-                  onClick={() => void toggleStatus(user)}
-                >
-                  {user.status === 'active' ? <UserX size={16} /> : <RotateCcw size={16} />}
-                  {user.status === 'active' ? '정지' : '복구'}
-                </button>
+                {user.status === 'pending' ? (
+                  <span className="approve-actions">
+                    <button className="restore-button" disabled={busy} onClick={() => void approve(user)}>
+                      <UserCheck size={16} />
+                      승인
+                    </button>
+                    <button className="suspend-button" disabled={busy} onClick={() => void decline(user)}>
+                      <UserX size={16} />
+                      거절
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    className={user.status === 'active' ? 'suspend-button' : 'restore-button'}
+                    disabled={busy || user.id === identity.userId}
+                    onClick={() => void toggleStatus(user)}
+                  >
+                    {user.status === 'active' ? <UserX size={16} /> : <RotateCcw size={16} />}
+                    {user.status === 'active' ? '정지' : '복구'}
+                  </button>
+                )}
               </li>
             ))}
             {!busy && !users.length && <li className="empty-members">조건에 맞는 회원이 없습니다.</li>}

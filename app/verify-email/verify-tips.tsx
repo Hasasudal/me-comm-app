@@ -27,6 +27,10 @@ export default function VerifyTips() {
         <li>
           그래도 없으면 <b>다시 가입하지 말고</b> 로그인 화면에서 로그인한 뒤 <b>인증 메일 다시 보내기</b>를 눌러주세요.
         </li>
+        <li>
+          메일이 끝내 오지 않아도 괜찮아요. 로그인하면 <b>관리자 승인 요청</b>이 자동으로 접수되고, 관리자가 본인 확인
+          후 승인하면 이용할 수 있어요.
+        </li>
       </ol>
       <a className="primary full" href="/login">
         로그인 화면으로 이동
