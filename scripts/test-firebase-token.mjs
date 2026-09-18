@@ -65,6 +65,10 @@ assert.equal(
 );
 await assert.rejects(() => verify({ ...validClaims, email: 'student@example.com' }), /학교 이메일/);
 await assert.rejects(() => verify({ ...validClaims, email: 'student@sub.ks.ac.kr' }), /학교 이메일/);
-await assert.rejects(() => verify({ ...validClaims, name: ' ' }), /이름/);
+assert.equal(
+  (await verify({ ...validClaims, name: ' ' })).displayName,
+  'student',
+  'a missing name falls back to the mail ID',
+);
 
 console.log('PASS: Firebase token signature, claims, school email and name validation.');

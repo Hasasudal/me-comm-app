@@ -110,7 +110,9 @@ export async function verifyFirebaseIdToken(token: string, options: VerifyOption
 
   const email = claims.email.trim().toLowerCase();
   if (!/^[^@\s]+@ks\.ac\.kr$/.test(email)) throw new FirebaseTokenError('인증된 경성대학교 학교 이메일이 필요합니다.');
-  const displayName = typeof claims.name === 'string' ? claims.name.trim() : '';
-  if (displayName.length < 2 || displayName.length > 40) throw new FirebaseTokenError('회원 이름을 확인해주세요.');
+  // Sign-up saves the name in a second step that can fail (a dropped mobile connection); fall back to the mail ID
+  // rather than locking the account out. Members can change it on the account page.
+  const named = typeof claims.name === 'string' ? claims.name.trim() : '';
+  const displayName = (named.length >= 2 ? named : email.split('@')[0]).slice(0, 40);
   return { userId: claims.sub, email, displayName, emailVerified: claims.email_verified === true };
 }
