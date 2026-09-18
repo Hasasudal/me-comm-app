@@ -16,6 +16,10 @@ export async function GET(request: Request) {
       .enum(['all', 'active', 'suspended'])
       .catch('all')
       .parse(url.searchParams.get('status') || 'all');
+    const role = z
+      .enum(['all', 'member', 'academic', 'council', 'admin'])
+      .catch('all')
+      .parse(url.searchParams.get('role') || 'all');
     const page = z.coerce
       .number()
       .int()
@@ -31,17 +35,17 @@ export async function GET(request: Request) {
       .parse(url.searchParams.get('limit') || '20');
     const pattern = `%${escapeLike(query)}%`,
       offset = (page - 1) * limit;
-    const where = `(?='all' OR status=?) AND (?='' OR lower(email) LIKE lower(?) ESCAPE '\\' OR lower(display_name) LIKE lower(?) ESCAPE '\\')`;
+    const where = `(?='all' OR status=?) AND (?='all' OR role=?) AND (?='' OR lower(email) LIKE lower(?) ESCAPE '\\' OR lower(display_name) LIKE lower(?) ESCAPE '\\')`;
     const [rows, total] = await Promise.all([
       db()
         .prepare(
           `SELECT id,email,display_name,status,role,suspended_at,created_at,updated_at FROM users WHERE ${where} ORDER BY (role<>'member') DESC, created_at DESC LIMIT ? OFFSET ?`,
         )
-        .bind(status, status, query, pattern, pattern, limit, offset)
+        .bind(status, status, role, role, query, pattern, pattern, limit, offset)
         .all(),
       db()
         .prepare(`SELECT COUNT(*) AS count FROM users WHERE ${where}`)
-        .bind(status, status, query, pattern, pattern)
+        .bind(status, status, role, role, query, pattern, pattern)
         .first<{ count: number }>(),
     ]);
     return json({ users: rows.results, page, limit, total: total?.count || 0 });

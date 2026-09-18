@@ -30,6 +30,11 @@ try {
     assert.equal((await assign('test-member-second', role)).status, 200, `admins assign ${role}`);
     assert.equal((await request('/api/session', { cookie: other })).data.role, role, 'the role applies at once');
   }
+  await assign('test-member-second', 'academic');
+  const staff = (await request('/api/admin/users?role=academic&limit=50')).data.users;
+  assert.ok(staff.length && staff.every((u) => u.role === 'academic'), 'the role filter lists only that role');
+  assert.ok(staff.some((u) => u.id === 'test-member-second'));
+  await assign('test-member-second', 'member');
   assert.equal((await assign('test-member-second', 'owner')).status, 400, 'unknown roles are rejected');
   assert.equal((await assign('test-member-active', 'member')).status, 400, 'admins cannot demote themselves');
 
