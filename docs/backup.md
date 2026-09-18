@@ -53,7 +53,15 @@ npx wrangler d1 export micom-lounge --remote --output=backups/micom-$(date +%Y%m
 - **파일에 회원 이메일이 들어 있습니다.** 공유 드라이브나 메신저에 올리지 말고, 개인 보관함이나 암호가 걸린 저장소에 두세요.
 - `backups/` 폴더는 `.gitignore`에 들어 있어 GitHub에 올라가지 않습니다.
 
-권장 주기:
+### 자동 백업 (매주)
+
+GitHub Actions의 **DB backup** 작업이 매주 월요일 새벽 3시(한국 시간)에 운영 DB를 SQL 파일로 내보내 비공개 R2 버킷 `micom-backups`에 올립니다. 파일 이름은 `micom-YYYYMMDD-HHMM.sql`이고, 버킷 설정으로 **180일이 지나면 자동 삭제**됩니다.
+
+- 바로 백업하려면 GitHub 저장소의 Actions → DB backup → Run workflow를 누릅니다.
+- 내려받기: Cloudflare 대시보드 R2 → `micom-backups`에서 파일을 받거나 `npx wrangler r2 object get micom-backups/<파일 이름> --file=backups/<파일 이름> --remote`
+- 같은 Cloudflare 계정 안에 있으므로, 계정 자체를 잃는 경우까지 대비하려면 가끔 한 부를 개인 보관함에도 받아 두세요.
+
+권장 주기 (수동 백업):
 
 - 매달 1회
 - DB 구조를 바꾸는 배포(`drizzle/` 폴더에 새 파일이 생기는 PR)를 합치기 직전
@@ -90,6 +98,21 @@ R2는 Time Travel 같은 자동 복구가 없습니다. 삭제된 사진은 되�
 
 - 회원 직책(`users.role`)은 DB에 있으므로 DB 백업·복구에 함께 포함됩니다. 복구한 시점 이후에 바꾼 직책은 다시 정해 주세요.
 - Firebase 값은 Firebase 콘솔의 프로젝트 설정에서 언제든 다시 확인할 수 있습니다.
+
+## 5. 관리자 복구
+
+사이트 안에서는 마지막 관리자의 직책 변경·정지·탈퇴가 막혀 있어 관리자가 0명이 되지 않습니다. 다만 관리자가 로그인할 수 없게 된 경우(졸업으로 학교 메일을 쓸 수 없어 비밀번호를 재설정하지 못할 때 등)에는 Cloudflare 계정으로 직책을 직접 줄 수 있습니다.
+
+1. 새 관리자가 될 사람이 먼저 사이트에 가입합니다.
+2. Cloudflare에 로그인한 컴퓨터의 `web` 폴더에서 실행합니다.
+
+```bash
+npx wrangler d1 execute micom-lounge --remote --command "UPDATE users SET role='admin' WHERE email='새관리자@ks.ac.kr'"
+```
+
+3. 새 관리자가 로그인해 **회원·직책 관리**에서 다른 직책을 정리합니다.
+
+이 명령은 Cloudflare 계정 권한이 있는 사람만 쓸 수 있습니다. 평소에는 **관리자를 2명 이상** 두면 이런 상황을 피할 수 있습니다.
 
 ## 문제가 생겼을 때 순서
 

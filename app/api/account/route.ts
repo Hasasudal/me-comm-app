@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { verifyFirebaseIdToken } from '../../../lib/firebase-token';
 import { expiredSessionCookie, requireMember, revokeMemberSessions } from '../../../lib/member-auth';
 import { db, handle, HttpError, input, json } from '../../../lib/server';
-import { deletePostImages } from '../../../lib/images';
+import { deletePostImages, sweepUnattached } from '../../../lib/images';
 
 export const dynamic = 'force-dynamic';
 // Firebase uids never take this form, so no account can claim the withdrawn member's content.
@@ -64,6 +64,7 @@ export async function DELETE(request: Request) {
       .bind(member.userId)
       .all<{ id: string }>();
     await deletePostImages(doomed.results.map((row) => row.id));
+    await sweepUnattached(member.userId);
     await db().batch([
       db().prepare(`DELETE FROM comments WHERE post_id IN (SELECT id FROM posts WHERE ${dropped})`).bind(member.userId),
       db().prepare(`DELETE FROM posts WHERE ${dropped}`).bind(member.userId),

@@ -32,6 +32,7 @@ export function firebaseAuth() {
   return authPromise;
 }
 
+// Only same-site paths: "//host" and "/\host" would leave the site (browsers treat "\" like "/").
 export function safeReturnTo(value: string | null) {
-  return value?.startsWith('/') && !value.startsWith('//') ? value : '/';
+  return value && /^\/(?![/\\])/.test(value) ? value : '/';
 }

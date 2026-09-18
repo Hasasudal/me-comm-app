@@ -1,0 +1,30 @@
+name: DB backup
+
+# Weekly SQL export of the production D1 database into the private R2 bucket micom-backups
+# (objects expire after 180 days by a bucket lifecycle rule). The file holds member emails, so it is never
+# kept as a workflow artifact or log.
+on:
+  schedule:
+    - cron: '0 18 * * 0' # Monday 03:00 KST
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Export and upload
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          name="micom-$(TZ=Asia/Seoul date +%Y%m%d-%H%M).sql"
+          npx wrangler d1 export micom-lounge --remote --output="$RUNNER_TEMP/$name"
+          test -s "$RUNNER_TEMP/$name"
+          npx wrangler r2 object put "micom-backups/$name" --file="$RUNNER_TEMP/$name" --content-type=application/sql --remote
+          rm "$RUNNER_TEMP/$name"
+          echo "Uploaded $name"

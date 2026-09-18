@@ -30,3 +30,10 @@ test('the generated file is a docx zip', async () => {
   assert.deepEqual([...bytes.slice(0, 2)], [0x50, 0x4b], 'starts with the ZIP signature');
   assert.ok(bytes.length > 3000);
 });
+
+test('photos are embedded in the document', async () => {
+  const photo = { data: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), width: 1600, height: 900 };
+  const blob = await newsDocx([{ ...article, photos: [photo] }]);
+  const text = new TextDecoder('latin1').decode(new Uint8Array(await blob.arrayBuffer()));
+  assert.match(text, /word\/media\/[^"]+\.jpg/, 'the zip carries a media file');
+});

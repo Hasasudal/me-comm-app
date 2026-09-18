@@ -18,6 +18,7 @@ async function request(path, { method = 'GET', body, cookie = author } = {}) {
   return { status: res.status, data };
 }
 const suffix = Date.now();
+execute('DELETE FROM attempts'); // runs back to back would otherwise share rate-limit windows
 const ids = {};
 try {
   assert.equal((await request('/api/posts', { cookie: '' })).status, 401, 'anonymous list is denied');
@@ -295,6 +296,20 @@ try {
     method: 'POST',
     body: { author_name: '작성자', content: '감사합니다. 하나 더 여쭤볼게요.' },
   });
+  const staffBell = (await request('/api/notifications', { cookie: admin })).data.replies;
+  assert.ok(
+    staffBell.some((r) => r.kind === 'desk' && r.post_id === ids.inquiry),
+    '학사 is alerted to new inquiries',
+  );
+  assert.ok(
+    staffBell.some((r) => r.kind === 'followup' && r.post_id === ids.inquiry),
+    "학사 is alerted to the asker's follow-up",
+  );
+  assert.equal(
+    staffBell.some((r) => r.post_id === ids.complaint),
+    false,
+    '학사 gets no suggestion alerts',
+  );
   // A 학생회 member handles suggestions only.
   setRole('test-member-active', 'council');
   assert.equal(
@@ -392,18 +407,42 @@ try {
   }
 
   // Photos: uploads stay private to the uploader until a post claims them; then they follow the post's visibility.
-  const upload = (type = 'image/webp', cookie = author) =>
+  execute('DELETE FROM attempts');
+  // A minimal WebP header: "RIFF", size, "WEBP". The server checks the header matches the declared type.
+  const webp = new Uint8Array([82, 73, 70, 70, 4, 0, 0, 0, 87, 69, 66, 80]);
+  const upload = (type = 'image/webp', cookie = author, bytes = webp) =>
     fetch(`${base}/api/images`, {
       method: 'POST',
       headers: { 'Content-Type': type, Origin: base, Cookie: cookie },
-      body: new Uint8Array([82, 73, 70, 70, 1, 2, 3, 4]),
+      body: bytes,
     }).then(async (r) => ({ status: r.status, data: await r.json() }));
   const image = (key, cookie = author) =>
     fetch(`${base}/api/images/${key}`, { headers: { Cookie: cookie } }).then((r) => r.status);
   assert.equal((await upload('text/html')).status, 415, 'only photos upload');
+  assert.equal(
+    (await upload('image/webp', author, new TextEncoder().encode('<html>not a photo</html>'))).status,
+    415,
+    'a file merely labelled as a photo is rejected',
+  );
   const [a, b, c] = [(await upload()).data.key, (await upload()).data.key, (await upload()).data.key];
   assert.equal(await image(a), 200, 'the uploader sees an unattached photo');
   assert.equal(await image(a, admin), 404, 'others cannot see an unattached photo');
+  const titled = `사진실패 ${suffix}`;
+  assert.equal(
+    (
+      await request('/api/posts', {
+        method: 'POST',
+        body: { title: titled, content: 'x', category: 'board', author_name: 'x', password, images: [a, a] },
+      })
+    ).status,
+    400,
+    'a duplicated photo list is rejected',
+  );
+  assert.equal(
+    (await request(`/api/posts?category=board&q=${encodeURIComponent(titled)}`)).data.posts.length,
+    0,
+    'a rejected photo list saves no post',
+  );
   const withPhotos = await request('/api/posts', {
     method: 'POST',
     body: { title: `사진 ${suffix}`, content: 'x', category: 'board', author_name: 'x', password, images: [a, b] },
@@ -444,6 +483,13 @@ try {
   await request(`/api/posts/${withPhotos.data.id}`, { method: 'DELETE', body: {} });
   assert.equal(await image(b), 404);
   execute(`DELETE FROM images WHERE key='${adminPhoto}'`);
+  // Uploads left unattached for over a day are swept on the next upload.
+  execute(
+    `INSERT INTO images (key,owner_id,post_id,position,created_at) VALUES ('00000000-0000-0000-0000-00000000dead.webp','test-member-second',NULL,0,1)`,
+  );
+  const sweeper = (await upload()).data.key;
+  assert.equal(await image('00000000-0000-0000-0000-00000000dead.webp'), 404, 'stale uploads are swept');
+  execute(`DELETE FROM images WHERE key='${sweeper}'`);
 
   const pending = async () =>
     (await request('/api/admin/posts?status=pending', { cookie: admin })).data.posts.find((x) => x.id === ids.news);
@@ -695,6 +741,8 @@ try {
     'pages do not overlap or skip',
   );
 
+  // This test writes more than the per-minute post limit allows; start a fresh window.
+  execute('DELETE FROM attempts');
   const second = await request('/api/posts', {
     method: 'POST',
     body: { title: `승인 검증 ${suffix}`, content: '승인될 기사', category: 'news', author_name: '작성자', password },

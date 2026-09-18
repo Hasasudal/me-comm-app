@@ -146,15 +146,13 @@ export async function identity(request?: Request) {
         .prepare("SELECT MAX(updated_at) AS at FROM posts WHERE category='news' AND author_id=? AND status<>'pending'")
         .bind(member.userId)
         .first<{ at: number | null }>();
-      // Latest comment someone else left on the member's posts, for the reply bell.
-      const replied = await db()
-        .prepare(
-          'SELECT MAX(comments.created_at) AS at FROM comments JOIN posts ON posts.id=comments.post_id WHERE posts.author_id=? AND comments.author_id<>?',
-        )
-        .bind(member.userId, member.userId)
-        .first<{ at: number | null }>();
       // Staff see how many posts on the desks they answer still wait for a reply.
       const desks = deskCategories.filter((category) => managesDesk(member, category));
+      // Newest item for the bell: replies on my posts, and for staff new desk posts and follow-ups.
+      const replied = await db()
+        .prepare(`SELECT MAX(created_at) AS at FROM (${alertsSql(desks)})`)
+        .bind(member.userId)
+        .first<{ at: number | null }>();
       const waiting = desks.length
         ? await db()
             .prepare(
@@ -239,6 +237,20 @@ export const commentSchema = z.object({
 export const deskRoles: Record<string, Role> = { inquiry: 'academic', complaint: 'council' };
 export const deskCategories = Object.keys(deskRoles);
 export const privateCategories = ['news', ...deskCategories];
+// Bell items, newest first when ordered by created_at. `?1` is the member id. Desk names are server constants.
+export function alertsSql(desks: string[]) {
+  const parts = [
+    "SELECT 'reply' AS kind,comments.id,comments.post_id,posts.title,comments.author_name,substr(comments.content,1,80) AS excerpt,comments.created_at FROM comments JOIN posts ON posts.id=comments.post_id WHERE posts.author_id=?1 AND comments.author_id<>?1",
+  ];
+  if (desks.length) {
+    const inDesks = `(${desks.map((desk) => `'${desk}'`).join(',')})`;
+    parts.push(
+      `SELECT 'desk',posts.id,posts.id,posts.title,posts.author_name,substr(posts.content,1,80),posts.created_at FROM posts WHERE posts.category IN ${inDesks} AND posts.author_id<>?1`,
+      `SELECT 'followup',comments.id,comments.post_id,posts.title,comments.author_name,substr(comments.content,1,80),comments.created_at FROM comments JOIN posts ON posts.id=comments.post_id WHERE posts.category IN ${inDesks} AND comments.author_id=posts.author_id AND posts.author_id<>?1`,
+    );
+  }
+  return parts.join(' UNION ALL ');
+}
 export function managesDesk(member: Member, category: string) {
   return isAdmin(member) || deskRoles[category] === member.role;
 }
@@ -254,7 +266,7 @@ export async function checkPostPassword(request: Request, post: PostRow, passwor
   // Admins and the signed-in author skip it; the password lets others (e.g. co-organisers) manage a post.
   if (isAdmin(member) || (post.author_id && post.author_id === member.userId)) return;
   if (!password) throw new HttpError(400, '게시글 비밀번호를 입력해주세요.');
-  await limit(request, 'password', 30, member.userId);
+  await limit(request, 'password', 10, member.userId);
   if (!(await verifyPassword(password, post.salt, post.password_hash)))
     throw new HttpError(403, '비밀번호가 일치하지 않습니다.');
 }

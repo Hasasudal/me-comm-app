@@ -1,21 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Check,
-  FileDown,
-  FileText,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  StickyNote,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Check, FileDown, FileText, MoreHorizontal, Pencil, Plus, StickyNote, Trash2, X } from 'lucide-react';
 import { AnnotatedArticle, statusLabels } from '../annotated-article';
 import type { Mark, Review } from '../../lib/annotations';
 import { api } from '../api-client';
 import { exportFileName, newsDocx } from '../../lib/news-docx';
+import { ImageGallery, photoForWord } from '../image-picker';
 
 type ReviewStatus = 'pending' | 'feedback' | 'rejected' | 'published';
 type Article = {
@@ -28,6 +19,7 @@ type Article = {
   feedback: Review | null;
   created_at: number;
   updated_at: number;
+  images?: string[];
 };
 type ReviewPage = { posts: Article[]; total: number; nextCursor: string | null };
 const reviewTabs: ReviewStatus[] = ['pending', 'feedback', 'rejected', 'published'];
@@ -183,7 +175,13 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
     setMenuOpen(false);
     setExporting(true);
     try {
-      const blob = await newsDocx(list);
+      const withPhotos = await Promise.all(
+        list.map(async (article) => ({
+          ...article,
+          photos: await Promise.all((article.images || []).map(photoForWord)),
+        })),
+      );
+      const blob = await newsDocx(withPhotos);
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = exportFileName(list);
@@ -400,6 +398,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                   marks={marks}
                   onChange={selected.status === 'pending' && panel === 'review' ? setMarks : undefined}
                 />
+                <ImageGallery keys={selected.images || []} />
 
                 {selected.status === 'pending' &&
                   panel === 'review' &&
