@@ -4,6 +4,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight,
   Bell,
+  CircleHelp,
   Inbox,
   Layers3,
   LogOut,
@@ -174,7 +175,7 @@ export function AppShell({
   mainClassName,
   children,
 }: {
-  active: BoardId | 'admin' | null;
+  active: BoardId | 'admin' | 'help' | null;
   breadcrumb: ReactNode;
   identity: ShellIdentity;
   mainClassName?: string;
@@ -294,6 +295,14 @@ export function AppShell({
               함께 나눠보세요.
             </p>
           </div>
+          <a
+            href="/help"
+            aria-current={active === 'help' ? 'page' : undefined}
+            className={`nav-item ${active === 'help' ? 'active' : ''}`}
+          >
+            <CircleHelp size={20} />
+            도움말
+          </a>
           <a
             href="/admin"
             aria-current={active === 'admin' ? 'page' : undefined}

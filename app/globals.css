@@ -2868,3 +2868,273 @@ label small {
   color: #7a879b;
   font-size: 12px;
 }
+/* Help page: the user guide rendered inside the app shell. */
+.help-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 36px;
+  align-items: start;
+}
+.help-toc {
+  position: sticky;
+  top: 24px;
+  font-size: 13.5px;
+}
+.help-toc-label {
+  margin: 16px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+.help-toc-label:first-child {
+  margin-top: 0;
+}
+.help-toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.help-toc a {
+  display: block;
+  padding: 5px 10px;
+  border-radius: 7px;
+  color: #56627a;
+}
+.help-toc a:hover {
+  background: #edf2ff;
+  color: var(--blue);
+}
+.help-page {
+  min-width: 0;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 8px 36px 40px;
+  line-height: 1.8;
+  word-break: keep-all;
+}
+.help-page .part {
+  margin-top: 44px;
+}
+.help-page .part:first-child {
+  margin-top: 24px;
+}
+.help-page .part-label {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  border-top: 2px solid var(--ink);
+  padding-top: 8px;
+}
+.help-page section {
+  padding-top: 30px;
+  scroll-margin-top: 16px;
+}
+.help-page h2 {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+}
+.help-page h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 22px 0 6px;
+}
+.help-page p,
+.help-page ul.plain,
+.help-page ol.steps,
+.help-page .note,
+.help-page dl.status {
+  max-width: 68ch;
+}
+.help-page p {
+  margin: 0 0 10px;
+}
+.help-page ul.plain,
+.help-page ol.steps {
+  margin: 0 0 12px;
+  padding-left: 1.3em;
+}
+.help-page ul.plain {
+  list-style: disc;
+}
+.help-page ol.steps {
+  list-style: decimal;
+}
+.help-page li {
+  margin: 4px 0;
+}
+.help-page ol.steps li::marker {
+  color: var(--blue);
+  font-weight: 700;
+}
+.help-page strong {
+  font-weight: 700;
+}
+.help-page code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.88em;
+  background: #eef1f6;
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+.help-page .note {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
+  border-radius: 8px;
+  padding: 11px 15px;
+  margin: 12px 0;
+  color: #4b5568;
+  font-size: 14px;
+}
+.help-page .table-scroll {
+  overflow-x: auto;
+  margin: 12px 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.help-page table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 560px;
+  font-size: 14px;
+}
+.help-page th,
+.help-page td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.help-page th {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface);
+}
+.help-page tr:last-child td {
+  border-bottom: 0;
+}
+.help-page td:first-child {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.help-page .pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 21px;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+.help-page .wait {
+  background: #fff4e0;
+  color: #8f6118;
+}
+.help-page .done {
+  background: #e5f5ed;
+  color: #1f6b4f;
+}
+.help-page .fb {
+  background: #edf2ff;
+  color: #3151b8;
+}
+.help-page .no {
+  background: #fdecec;
+  color: #a93a40;
+}
+.help-page .lock {
+  background: #f1effa;
+  color: #5a4a9c;
+}
+.help-page .open {
+  background: #edf2ff;
+  color: #1b43bf;
+}
+.help-page .flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 14px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.help-page dl.status {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 14px;
+  margin: 10px 0 14px;
+}
+.help-page dl.status dd {
+  margin: 0;
+  color: #4b5568;
+}
+.help-page details.faq {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 8px 0;
+  max-width: 72ch;
+}
+.help-page details.faq summary {
+  cursor: pointer;
+  padding: 12px 16px;
+  font-weight: 700;
+  list-style: none;
+}
+.help-page details.faq summary::-webkit-details-marker {
+  display: none;
+}
+.help-page details.faq summary::before {
+  content: '+';
+  display: inline-block;
+  width: 1.1em;
+  color: var(--blue);
+  font-weight: 800;
+}
+.help-page details.faq[open] summary::before {
+  content: '–';
+}
+.help-page details.faq div {
+  padding: 0 16px 12px 34px;
+  color: #4b5568;
+}
+@media (max-width: 1100px) {
+  .help-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .help-toc {
+    position: static;
+  }
+  .help-toc ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .help-toc a {
+    border: 1px solid var(--line);
+    background: white;
+    padding: 3px 10px;
+  }
+}
+@media (max-width: 600px) {
+  .help-page {
+    padding: 4px 18px 28px;
+  }
+  .help-page dl.status {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px 0;
+  }
+  .help-page dl.status dd {
+    margin-bottom: 8px;
+  }
+}
