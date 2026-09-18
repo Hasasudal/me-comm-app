@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
         ],
       },
+      {
+        // Pages always revalidate, so a phone that kept an old tab open picks up a new release on reload.
+        // Hashed chunks under /_next keep their long immutable cache; API routes set their own no-store.
+        source: '/((?!_next/|api/).*)',
+        headers: [{ key: 'Cache-Control', value: 'no-cache' }],
+      },
     ];
   },
 };
