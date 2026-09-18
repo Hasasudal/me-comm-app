@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import SiteNotice from '../site-notice';
 
 export default function AuthFrame({
   eyebrow,
@@ -16,6 +17,7 @@ export default function AuthFrame({
   return (
     <main className="auth-page">
       <section className="auth-card">
+        <SiteNotice className="in-card" />
         <a className="brand auth-brand" href="/" aria-label="미컴 라운지 홈">
           <span className="brand-mark">
             M<span>.</span>

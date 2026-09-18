@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from './api-client';
+import SiteNotice from './site-notice';
 
 export type BoardId = 'all' | 'board' | 'inquiry' | 'complaint' | 'news' | 'clubs' | 'contests';
 export const boards = [
@@ -402,6 +403,7 @@ export function AppShell({
           </div>
         </header>
         <main className={mainClassName}>
+          <SiteNotice />
           {children}
           <footer className="page-footer">
             <strong>미컴 라운지</strong>
