@@ -4,16 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Check,
-  ChevronDown,
   FileDown,
   FileText,
   MoreHorizontal,
   Pencil,
   Plus,
-  RotateCcw,
   StickyNote,
   Trash2,
-  UserMinus,
   X,
 } from 'lucide-react';
 import { AnnotatedArticle, statusLabels } from '../annotated-article';
@@ -34,7 +31,6 @@ type Article = {
   updated_at: number;
 };
 type ReviewPage = { posts: Article[]; total: number; nextCursor: string | null };
-type AdminMember = { user_id: string; email: string; display_name: string; joined_at: number };
 const reviewTabs: ReviewStatus[] = ['pending', 'feedback', 'rejected', 'published'];
 const formatDate = (n: number) => new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit' }).format(n);
 
@@ -55,13 +51,7 @@ function writeDraft(article: Article, draft: Draft | null) {
   } catch {}
 }
 
-export default function ReviewWorkspace({
-  userId,
-  onNotice,
-}: {
-  userId?: string;
-  onNotice: (message: string) => void;
-}) {
+export default function ReviewWorkspace({ onNotice }: { onNotice: (message: string) => void }) {
   const [tab, setTab] = useState<ReviewStatus>('pending');
   const [articles, setArticles] = useState<Article[]>([]);
   const [total, setTotal] = useState(0);
@@ -79,9 +69,6 @@ export default function ReviewWorkspace({
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [actionError, setActionError] = useState('');
-  const [members, setMembers] = useState<AdminMember[]>([]);
-  const [revoked, setRevoked] = useState<AdminMember[]>([]);
-  const [membersError, setMembersError] = useState('');
   const loadId = useRef(0);
   const selected = articles.find((article) => article.id === selectedId) || null;
   const dirty = tab === 'pending' && (marks.length > 0 || !!note.trim());
@@ -122,20 +109,6 @@ export default function ReviewWorkspace({
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
-  const loadMembers = useCallback(async () => {
-    setMembersError('');
-    try {
-      const roster = await api<{ members: AdminMember[]; revoked: AdminMember[] }>('/api/admin/members');
-      setMembers(roster.members);
-      setRevoked(roster.revoked);
-    } catch (e) {
-      setMembersError((e as Error).message);
-    }
-  }, []);
-  useEffect(() => {
-    const timer = setTimeout(() => void loadMembers(), 0);
-    return () => clearTimeout(timer);
-  }, [loadMembers]);
 
   useEffect(() => {
     if (selected?.status === 'pending') writeDraft(selected, dirty ? { marks, note } : null);
@@ -242,29 +215,6 @@ export default function ReviewWorkspace({
       setExporting(false);
     }
   }
-  async function revokeMember(member: AdminMember) {
-    if (!window.confirm(`${member.display_name}님의 관리자 권한을 회수할까요?`)) return;
-    setMembersError('');
-    try {
-      await api(`/api/admin/members/${encodeURIComponent(member.user_id)}`, {}, 'DELETE');
-      onNotice(`${member.display_name}님의 관리자 권한을 회수했습니다.`);
-      await loadMembers();
-    } catch (e) {
-      setMembersError((e as Error).message);
-    }
-  }
-
-  async function restoreMember(member: AdminMember) {
-    if (!window.confirm(`${member.display_name}님의 관리자 권한을 복구할까요?`)) return;
-    setMembersError('');
-    try {
-      await api(`/api/admin/members/${encodeURIComponent(member.user_id)}`, {});
-      onNotice(`${member.display_name}님의 관리자 권한을 복구했습니다.`);
-      await loadMembers();
-    } catch (e) {
-      setMembersError((e as Error).message);
-    }
-  }
 
   const feedbackCount = marks.length + (note.trim() ? 1 : 0);
   return (
@@ -331,43 +281,9 @@ export default function ReviewWorkspace({
             )}
           </ul>
         )}
-        <details className="review-admins">
-          <summary>
-            관리자 계정 <span>{members.length}</span>
-            <ChevronDown size={15} />
-          </summary>
-          {members.map((member) => (
-            <div className="member-row" key={member.user_id}>
-              <div>
-                <strong>{member.display_name}</strong>
-                <small>{member.email}</small>
-              </div>
-              {member.user_id === userId ? (
-                <span>현재 계정</span>
-              ) : (
-                <button aria-label={`${member.display_name} 권한 회수`} onClick={() => void revokeMember(member)}>
-                  <UserMinus size={16} />
-                </button>
-              )}
-            </div>
-          ))}
-          {revoked.length > 0 && <p className="revoked-caption">회수된 관리자</p>}
-          {revoked.map((member) => (
-            <div className="member-row revoked" key={member.user_id}>
-              <div>
-                <strong>{member.display_name}</strong>
-                <small>{member.email}</small>
-              </div>
-              <button aria-label={`${member.display_name} 권한 복구`} onClick={() => void restoreMember(member)}>
-                <RotateCcw size={16} />
-              </button>
-            </div>
-          ))}
-          {membersError && <p className="form-error">{membersError}</p>}
-          <a className="text-button" href="/admin/members">
-            전체 회원 관리 <ArrowRight size={15} />
-          </a>
-        </details>
+        <a className="text-button review-members-link" href="/admin/members">
+          회원·직책 관리 <ArrowRight size={15} />
+        </a>
       </section>
 
       <section className="review-panel" aria-label="기사 검토">

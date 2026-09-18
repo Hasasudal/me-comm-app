@@ -19,10 +19,10 @@ const flagsSchema = z.object({ pinned: z.boolean() });
 export async function POST(request: Request, context: Context) {
   return handle(async () => {
     const member = await requireMember(request);
-    const admin = await isAdmin(member.userId);
+    const admin = isAdmin(member);
     const flags = flagsSchema.parse(await input(request));
     const { id } = await context.params;
-    const post = await visiblePost(id, member, admin);
+    const post = await visiblePost(id, member);
     if (!admin) throw new HttpError(403, '관리자만 글을 고정할 수 있습니다.');
     if (privateCategories.includes(post.category)) throw new HttpError(400, '비공개 글은 고정할 수 없습니다.');
     await db()

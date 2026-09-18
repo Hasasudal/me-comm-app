@@ -26,7 +26,7 @@ npm run db:migrate:local
 npm run dev
 ```
 
-`npm run db:migrate:local`은 새 로컬 데이터베이스에 `drizzle/` 변경을 순서대로 적용합니다. `.dev.vars.example`을 복사해 `.dev.vars`를 만들고 관리자 코드 해시·salt와 Firebase 공개 설정 네 값을 입력합니다.
+`npm run db:migrate:local`은 새 로컬 데이터베이스에 `drizzle/` 변경을 순서대로 적용합니다. `.dev.vars.example`을 복사해 `.dev.vars`를 만들고 Firebase 공개 설정 네 값을 입력합니다. 로컬에서 관리자가 필요하면 `npx wrangler d1 execute DB --local --command "UPDATE users SET role='admin' WHERE email='<내 이메일>'"`로 직책을 줍니다.
 
 ## Firebase 웹 앱 설정
 

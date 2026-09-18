@@ -47,16 +47,12 @@ export async function DELETE(request: Request) {
       })
       .parse(await input(request));
     void confirm;
-    const admin = await db()
-      .prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL')
-      .bind(member.userId)
-      .first();
-    if (admin) {
+    if (member.role === 'admin') {
       const count = await db()
-        .prepare('SELECT COUNT(*) AS count FROM admin_users WHERE revoked_at IS NULL')
+        .prepare("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND status='active'")
         .first<{ count: number }>();
       if ((count?.count || 0) <= 1)
-        throw new HttpError(409, '마지막 활성 관리자는 먼저 다른 관리자를 등록해야 탈퇴할 수 있습니다.');
+        throw new HttpError(409, '마지막 관리자는 다른 회원에게 관리자 직책을 준 뒤 탈퇴할 수 있습니다.');
     }
     if (dryRun) return json({ ok: true });
     // Posts and comments stay for the community, credited to a withdrawn member; unfinished news, inquiries and
@@ -78,7 +74,6 @@ export async function DELETE(request: Request) {
         .prepare('UPDATE comments SET author_id=?,author_name=? WHERE author_id=?')
         .bind(WITHDRAWN_ID, WITHDRAWN_NAME, member.userId),
       db().prepare('DELETE FROM sessions WHERE user_id=?').bind(member.userId),
-      db().prepare('DELETE FROM admin_users WHERE user_id=?').bind(member.userId),
       db().prepare('DELETE FROM users WHERE id=?').bind(member.userId),
     ]);
     return json({ ok: true }, 200, { 'Set-Cookie': expiredSessionCookie() });

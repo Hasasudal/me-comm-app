@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createMemberFixture, query } from './test-member-fixture.mjs';
+import { createMemberFixture, query, setRole } from './test-member-fixture.mjs';
 
 const base = 'http://localhost:5173';
 async function request(path, { method = 'GET', body, cookie } = {}) {
@@ -72,12 +72,7 @@ query(`DELETE FROM posts WHERE id='${boardId}'`);
 fixture.cleanup();
 
 const adminFixture = await createMemberFixture();
-const adminCode = 'Local-admin-code-1234';
-assert.equal(
-  (await request('/api/admin/join', { method: 'POST', cookie: adminFixture.activeCookie, body: { code: adminCode } }))
-    .status,
-  201,
-);
+setRole('test-member-active', 'admin');
 assert.equal(
   (await request('/api/admin/users', { cookie: adminFixture.secondCookie })).status,
   403,

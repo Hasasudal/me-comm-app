@@ -6,7 +6,7 @@ import {
   handle,
   HttpError,
   input,
-  isAdmin,
+  managesDesk,
   json,
   limit,
   listColumns,
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const binds: (string | number)[] = [];
     // News lists only the member's own submissions; desks list the member's own, or all of them for admins.
     // The combined board never includes private boards.
-    if (category && (category === 'news' || (deskCategories.includes(category) && !(await isAdmin(member.userId))))) {
+    if (category && (category === 'news' || (deskCategories.includes(category) && !managesDesk(member, category)))) {
       where.push('category=? AND author_id=?');
       binds.push(category, member.userId);
     } else if (category) {

@@ -38,14 +38,14 @@ export const boards = [
     label: '학사문의',
     href: '/inquiry',
     icon: Inbox,
-    sub: '학과 사무실에 1:1로 문의하세요. 나와 관리자만 볼 수 있어요.',
+    sub: '학과 사무실에 1:1로 문의하세요. 나와 학사 담당자만 볼 수 있어요.',
   },
   {
     id: 'complaint',
-    label: '학생회 민원',
+    label: '학생회 건의',
     href: '/complaint',
     icon: Megaphone,
-    sub: '학생회에 건의하거나 불편을 알려주세요. 나와 관리자만 볼 수 있어요.',
+    sub: '학생회에 건의하거나 불편을 알려주세요. 나와 학생회만 볼 수 있어요.',
   },
   { id: 'news', label: '학과 뉴스', href: '/news', icon: Newspaper, sub: '기사를 제출하고 검토 결과를 확인하세요.' },
   { id: 'clubs', label: '동아리', href: '/clubs', icon: Users, sub: '같은 관심사로 시작하는 새로운 연결.' },
@@ -69,7 +69,14 @@ const rentalLinks = [
   },
   { label: '호실 대여', icon: DoorOpen, href: MICOMBOT_URL },
 ];
-// Private boards answered by admins: the badge reads [waiting, answered].
+export type Role = 'member' | 'academic' | 'council' | 'admin';
+export const roleLabels: Record<Role, string> = {
+  member: '일반',
+  academic: '학사',
+  council: '학생회',
+  admin: '관리자',
+};
+// Private boards answered by their staff (or admins): the badge reads [waiting, answered].
 export const deskStatus: Partial<Record<BoardId, [string, string]>> = {
   inquiry: ['답변 대기', '답변 완료'],
   complaint: ['처리 대기', '처리 완료'],

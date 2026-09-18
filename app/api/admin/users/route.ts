@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     const [rows, total] = await Promise.all([
       db()
         .prepare(
-          `SELECT id,email,display_name,status,suspended_at,created_at,updated_at FROM users WHERE ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+          `SELECT id,email,display_name,status,role,suspended_at,created_at,updated_at FROM users WHERE ${where} ORDER BY (role<>'member') DESC, created_at DESC LIMIT ? OFFSET ?`,
         )
         .bind(status, status, query, pattern, pattern, limit, offset)
         .all(),

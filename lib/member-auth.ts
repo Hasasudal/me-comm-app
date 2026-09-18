@@ -5,13 +5,21 @@ const COOKIE_NAME = 'micom_session';
 const MAX_SESSIONS = 5;
 const SESSION_SECONDS = 60 * 60 * 24 * 14;
 
-export type Member = { userId: string; email: string; displayName: string; status: 'active' | 'suspended' };
+export type Role = 'member' | 'academic' | 'council' | 'admin';
+export type Member = {
+  userId: string;
+  email: string;
+  displayName: string;
+  status: 'active' | 'suspended';
+  role: Role;
+};
 
 type MemberRow = {
   user_id: string;
   email: string;
   display_name: string;
   status: 'active' | 'suspended';
+  role: Role;
   expires_at: number;
 };
 
@@ -51,7 +59,7 @@ export async function optionalMember(request: Request): Promise<Member | null> {
   const now = Date.now();
   const row = await db()
     .prepare(
-      'SELECT sessions.user_id,users.email,users.display_name,users.status,sessions.expires_at FROM sessions JOIN users ON users.id=sessions.user_id WHERE sessions.token_hash=?',
+      'SELECT sessions.user_id,users.email,users.display_name,users.status,users.role,sessions.expires_at FROM sessions JOIN users ON users.id=sessions.user_id WHERE sessions.token_hash=?',
     )
     .bind(tokenHash)
     .first<MemberRow>();
@@ -64,7 +72,13 @@ export async function optionalMember(request: Request): Promise<Member | null> {
     await db().prepare('DELETE FROM sessions WHERE user_id=?').bind(row.user_id).run();
     throw new HttpError(403, '이용이 정지된 계정입니다. 관리자에게 문의해주세요.');
   }
-  return { userId: row.user_id, email: row.email, displayName: row.display_name, status: row.status };
+  return {
+    userId: row.user_id,
+    email: row.email,
+    displayName: row.display_name,
+    status: row.status,
+    role: row.role,
+  };
 }
 
 export async function requireMember(request: Request) {

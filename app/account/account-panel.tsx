@@ -156,7 +156,7 @@ export default function AccountPanel() {
       <form className="account-section danger-zone" onSubmit={remove}>
         <h2>회원 탈퇴</h2>
         <p>
-          게시글과 댓글은 ‘탈퇴한 회원’ 이름으로 남고, 학사문의·학생회 민원과 검토 중인 뉴스 기사는 삭제됩니다. 계정과
+          게시글과 댓글은 ‘탈퇴한 회원’ 이름으로 남고, 학사문의·학생회 건의와 검토 중인 뉴스 기사는 삭제됩니다. 계정과
           관리자 권한, 로그인 세션도 삭제됩니다.
         </p>
         <label>

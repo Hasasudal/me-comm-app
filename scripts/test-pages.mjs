@@ -21,10 +21,7 @@ assert.doesNotMatch(
   'initial page does not flash the guest gate before session loading finishes',
 );
 
-const join = await fetch(base + '/admin/join');
-const joinHtml = await join.text();
-assert.equal(join.status, 200, 'admin code registration has a dedicated page');
-assert.match(joinHtml, /관리자 코드 등록/);
+assert.equal((await fetch(base + '/admin/join')).status, 404, 'admin code registration is gone');
 
 const signup = await fetch(base + '/signup');
 const signupHtml = await signup.text();
@@ -50,7 +47,7 @@ const help = await fetch(base + '/help');
 const helpHtml = await help.text();
 assert.equal(help.status, 200, 'the help page is open without signing in');
 assert.match(helpHtml, /가입과 로그인/);
-assert.match(helpHtml, /관리자 등록/);
+assert.match(helpHtml, /직책 안내/);
 
 for (const [query, label] of [
   ['mode=verifyEmail&oobCode=test-code', '이메일 인증'],

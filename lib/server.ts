@@ -1,9 +1,8 @@
-import { env } from 'cloudflare:workers';
 import { z } from 'zod';
 import { FirebaseTokenError } from './firebase-token';
 import { db } from './database';
 import { HttpError } from './http-error';
-import { optionalMember, requireMember, type Member } from './member-auth';
+import { optionalMember, requireMember, type Member, type Role } from './member-auth';
 import { verifyPassword } from './password';
 import type { Review } from './annotations';
 import { imagesField } from './images';
@@ -139,7 +138,6 @@ export function recruitmentValues(
   return [data.recruitment_status || null, data.deadline || null, data.headcount || null, data.roles || null] as const;
 }
 export async function identity(request?: Request) {
-  const configured = !!env.ADMIN_JOIN_CODE_HASH && !!env.ADMIN_JOIN_CODE_SALT;
   if (request) {
     const member = await optionalMember(request);
     if (member) {
@@ -155,43 +153,42 @@ export async function identity(request?: Request) {
         )
         .bind(member.userId, member.userId)
         .first<{ at: number | null }>();
-      const admin = await isAdmin(member.userId);
-      // Admins see how many inquiries and complaints still wait for an answer.
-      const waiting = admin
+      // Staff see how many posts on the desks they answer still wait for a reply.
+      const desks = deskCategories.filter((category) => managesDesk(member, category));
+      const waiting = desks.length
         ? await db()
             .prepare(
-              "SELECT category, COUNT(*) AS count FROM posts WHERE category IN ('inquiry','complaint') AND resolved_at IS NULL GROUP BY category",
+              `SELECT category, COUNT(*) AS count FROM posts WHERE category IN (${desks.map(() => '?').join(',')}) AND resolved_at IS NULL GROUP BY category`,
             )
+            .bind(...desks)
             .all<{ category: string; count: number }>()
         : null;
       return {
         newsReviewedAt: reviewed?.at ?? null,
         repliedAt: replied?.at ?? null,
         waiting: Object.fromEntries((waiting?.results || []).map((row) => [row.category, row.count])),
-        admin,
+        admin: isAdmin(member),
+        role: member.role,
         signedIn: true,
-        configured,
         userId: member.userId,
         email: member.email,
         displayName: member.displayName,
       };
     }
   }
-  return { admin: false, signedIn: false, configured };
+  return { admin: false, signedIn: false };
 }
 export function escapeLike(value: string) {
   return value.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
-export async function isAdmin(userId: string) {
-  return !!(await db()
-    .prepare('SELECT user_id FROM admin_users WHERE user_id=? AND revoked_at IS NULL')
-    .bind(userId)
-    .first());
+export const roles: Role[] = ['member', 'academic', 'council', 'admin'];
+export function isAdmin(member: Member) {
+  return member.role === 'admin';
 }
 export async function requireAdmin(request: Request) {
-  const user = await requireMember(request);
-  if (!(await isAdmin(user.userId))) throw new HttpError(403, '관리자 권한이 필요합니다.');
-  return user;
+  const member = await requireMember(request);
+  if (!isAdmin(member)) throw new HttpError(403, '관리자 권한이 필요합니다.');
+  return member;
 }
 // Counts per signed-in member when `subject` is given; IP is only a fallback because campus Wi-Fi shares one address.
 export async function limit(request: Request, scope: string, max = 30, subject?: string) {
@@ -237,25 +234,25 @@ export const commentSchema = z.object({
   author_name: authorFields.author_name,
   content: z.string().trim().min(1, '댓글을 입력해주세요.').max(1000, '댓글은 1,000자 이내로 입력해주세요.'),
 });
-// News and the desks (1:1 inquiries, student-council complaints) are private to their author and administrators;
-// other boards are open to members. Desks are answered by admins through comments.
-export const deskCategories = ['inquiry', 'complaint'];
+// News and the desks (1:1 inquiries, student-council suggestions) are private to their author and the staff who
+// handle them; other boards are open to members. Each desk is answered, through comments, by its role or an admin.
+export const deskRoles: Record<string, Role> = { inquiry: 'academic', complaint: 'council' };
+export const deskCategories = Object.keys(deskRoles);
 export const privateCategories = ['news', ...deskCategories];
-export async function visiblePost(id: string, member: Member, admin: boolean) {
+export function managesDesk(member: Member, category: string) {
+  return isAdmin(member) || deskRoles[category] === member.role;
+}
+export async function visiblePost(id: string, member: Member) {
   const post = await db().prepare('SELECT * FROM posts WHERE id=?').bind(id).first<PostRow>();
-  if (!post || (privateCategories.includes(post.category) && !admin && post.author_id !== member.userId))
+  const staff =
+    isAdmin(member) || (post && deskCategories.includes(post.category) && managesDesk(member, post.category));
+  if (!post || (privateCategories.includes(post.category) && !staff && post.author_id !== member.userId))
     throw new HttpError(404, '게시글을 찾을 수 없습니다.');
   return post;
 }
-export async function checkPostPassword(
-  request: Request,
-  post: PostRow,
-  password: string | undefined,
-  member: Member,
-  admin: boolean,
-) {
+export async function checkPostPassword(request: Request, post: PostRow, password: string | undefined, member: Member) {
   // Admins and the signed-in author skip it; the password lets others (e.g. co-organisers) manage a post.
-  if (admin || (post.author_id && post.author_id === member.userId)) return;
+  if (isAdmin(member) || (post.author_id && post.author_id === member.userId)) return;
   if (!password) throw new HttpError(400, '게시글 비밀번호를 입력해주세요.');
   await limit(request, 'password', 30, member.userId);
   if (!(await verifyPassword(password, post.salt, post.password_hash)))

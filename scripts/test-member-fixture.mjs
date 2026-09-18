@@ -29,6 +29,10 @@ export function execute(sql, json = false) {
     { cwd: process.cwd(), stdio: json ? ['ignore', 'pipe', 'ignore'] : 'ignore', encoding: 'utf8' },
   );
 }
+// Roles are assigned by admins in the app; tests set them directly.
+export function setRole(userId, role) {
+  execute(`UPDATE users SET role=${quote(role)} WHERE id=${quote(userId)}`);
+}
 export function query(sql) {
   return JSON.parse(execute(sql, true))[0].results;
 }
@@ -87,9 +91,7 @@ export async function createMemberFixture() {
     expiredCookie: `micom_session=${members[2].token}`,
     suspendedCookie: `micom_session=${members[3].token}`,
     cleanup() {
-      execute(
-        `DELETE FROM sessions WHERE user_id IN (${ids}); DELETE FROM admin_users WHERE user_id IN (${ids}); DELETE FROM users WHERE id IN (${ids});`,
-      );
+      execute(`DELETE FROM sessions WHERE user_id IN (${ids}); DELETE FROM users WHERE id IN (${ids});`);
     },
   };
 }
