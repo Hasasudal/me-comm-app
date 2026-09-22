@@ -7,6 +7,7 @@ import type { Mark, Review } from '../../lib/annotations';
 import { api } from '../api-client';
 import { exportFileName, newsDocx } from '../../lib/news-docx';
 import { ImageGallery, photoForWord } from '../image-picker';
+import { WriterTag, type Writer } from '../writer-tag';
 
 type ReviewStatus = 'pending' | 'feedback' | 'rejected' | 'published';
 type Article = {
@@ -15,6 +16,7 @@ type Article = {
   content: string;
   prefix: string | null;
   author_name: string | null;
+  writer?: Writer;
   status: ReviewStatus;
   feedback: Review | null;
   created_at: number;
@@ -297,6 +299,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                 </h2>
                 <p>
                   {selected.author_name || '이름 없음'} · 제출 {formatDate(selected.created_at)}
+                  <WriterTag writer={selected.writer} />
                 </p>
               </div>
               <div className="more-menu">

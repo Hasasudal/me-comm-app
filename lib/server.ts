@@ -265,6 +265,20 @@ export function alertsSql(desks: string[], admin = false) {
 export function managesDesk(member: Member, category: string) {
   return isAdmin(member) || deskRoles[category] === member.role;
 }
+// Names on posts and comments are nicknames. The account behind them is shown only to admins, and on a desk
+// (inquiry/suggestion) also to the staff who answer it.
+export function seesWriters(member: Member, category: string) {
+  return isAdmin(member) || (deskCategories.includes(category) && managesDesk(member, category));
+}
+export type Writer = { name: string; email: string } | null;
+export async function writerOf(userId: string | null) {
+  if (!userId) return null;
+  const row = await db()
+    .prepare('SELECT display_name AS name,email FROM users WHERE id=?')
+    .bind(userId)
+    .first<{ name: string; email: string }>();
+  return row ?? null;
+}
 export async function visiblePost(id: string, member: Member) {
   const post = await db().prepare('SELECT * FROM posts WHERE id=?').bind(id).first<PostRow>();
   const staff =

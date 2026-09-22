@@ -212,8 +212,9 @@ export default function HelpPage() {
             <h3>입력 항목</h3>
             <ul className="plain">
               <li>
-                <strong>작성자 이름</strong>: 글마다 직접 입력합니다. 실명이 아니어도 되지만, 서로 알아볼 수 있는 이름을
-                권장합니다.
+                <strong>별명</strong>: 글마다 직접 입력하는 이름으로, 실명이 아니어도 됩니다. 다른 학생에게는 별명만
+                보이고, 실제 계정(이름·학교 이메일)은 <strong>관리자만</strong> 볼 수 있습니다. 학사문의·학생회 건의는
+                답변 담당자도 볼 수 있습니다.
               </li>
               <li>
                 <strong>머릿글</strong> (선택): 제목 앞에 <code>[동아리 이름]</code>처럼 붙는 말머리입니다. 예: 동아리
@@ -265,7 +266,8 @@ export default function HelpPage() {
           <section id="comments">
             <h2>댓글과 알림</h2>
             <p>
-              학과 뉴스를 뺀 모든 글에 댓글을 달 수 있습니다. 댓글도 이름을 매번 입력하며, 1,000자까지 쓸 수 있습니다.
+              학과 뉴스를 뺀 모든 글에 댓글을 달 수 있습니다. 댓글도 별명을 매번 입력하며, 1,000자까지 쓸 수 있습니다.
+              댓글의 실제 계정도 관리자(문의·건의는 담당자)만 볼 수 있습니다.
             </p>
             <ul className="plain">
               <li>내가 쓴 댓글은 휴지통 아이콘으로 지울 수 있습니다. 다른 사람 댓글은 지울 수 없습니다.</li>
@@ -286,8 +288,8 @@ export default function HelpPage() {
             <h2>검색과 필터</h2>
             <ul className="plain">
               <li>
-                게시판 위 검색창에 입력하면 <strong>제목, 머릿글, 본문, 작성자 이름</strong>에서 찾습니다. 본문에서 찾은
-                경우 해당 부분이 미리보기로 보입니다.
+                게시판 위 검색창에 입력하면 <strong>제목, 머릿글, 본문, 별명</strong>에서 찾습니다. 본문에서 찾은 경우
+                해당 부분이 미리보기로 보입니다.
               </li>
               <li>
                 동아리·공모전 게시판의 <strong>모집 중만</strong> 버튼을 누르면 마감되지 않은 모집 글만 봅니다.
@@ -399,7 +401,7 @@ export default function HelpPage() {
             </p>
             <ul className="plain">
               <li>
-                <strong>이름 변경</strong>: 오른쪽 위에 보이는 내 이름을 바꿉니다. 글의 작성자 이름은 글마다 따로
+                <strong>이름 변경</strong>: 오른쪽 위에 보이는 내 이름을 바꿉니다. 글에 표시되는 별명은 글마다 따로
                 입력합니다.
               </li>
               <li>

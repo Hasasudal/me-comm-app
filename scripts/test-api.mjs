@@ -99,6 +99,7 @@ try {
     'members read bodies without a password',
   );
   assert.equal('password_hash' in read.data.post, false);
+  assert.equal('writer' in read.data.post, false, 'members see the nickname, never the account behind it');
 
   const mine = await request('/api/posts?category=news');
   assert.deepEqual(
@@ -270,8 +271,22 @@ try {
       .status,
     403,
   );
+  // Admins see the account behind a nickname on posts and comments.
+  setRole('test-member-active', 'admin');
+  const adminRead = (await request(`/api/posts/${ids.board}`, { cookie: admin })).data.post;
+  assert.equal(adminRead.writer?.email, 'second@ks.ac.kr', 'admins see who wrote a post');
   // A 학사 member handles inquiries only: no suggestions, no news review.
   setRole('test-member-active', 'academic');
+  assert.equal(
+    (await request(`/api/posts/${ids.inquiry}`, { cookie: admin })).data.post.writer?.email,
+    'second@ks.ac.kr',
+    '학사 sees who asked an inquiry',
+  );
+  assert.equal(
+    'writer' in (await request(`/api/posts/${ids.board}`, { cookie: admin })).data.post,
+    false,
+    'staff do not see writers outside their desk',
+  );
   assert.equal((await request(`/api/posts/${ids.inquiry}`, { cookie: admin })).status, 200, '학사 opens inquiries');
   assert.equal(
     (await request(`/api/posts/${ids.complaint}`, { cookie: admin })).status,
@@ -687,6 +702,12 @@ try {
     'comments are oldest first and only the writer (or an admin) may delete',
   );
   assert.equal('author_id' in seenByAuthor[0], false, 'author ids are not exposed');
+  assert.equal('writer' in seenByAuthor[0], false, 'members do not see who wrote comments');
+  assert.deepEqual(
+    (await comments(admin)).data.comments.map((c) => c.writer?.email),
+    ['second@ks.ac.kr', 'active@ks.ac.kr'],
+    'admins see who wrote each comment',
+  );
   const replies = (await request('/api/notifications')).data.replies.filter((r) => r.post_id === ids.board);
   assert.deepEqual(
     replies.map((r) => [r.excerpt, r.author_name]),

@@ -619,8 +619,9 @@ export default function Community({ category = 'all', admin = false }: { categor
                 )}
                 <div className="form-grid">
                   <label>
-                    작성자 이름
-                    <input name="author_name" required maxLength={20} placeholder="게시글에 표시될 이름" />
+                    별명
+                    <input name="author_name" required maxLength={20} placeholder="글에 표시될 별명" />
+                    <small className="field-hint">실명이 아니어도 돼요. 실제 계정은 관리자만 볼 수 있어요.</small>
                   </label>
                   <label>
                     머릿글 <small className="inline-optional">선택</small>
