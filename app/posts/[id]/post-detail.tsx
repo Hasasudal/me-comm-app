@@ -19,6 +19,7 @@ import type { Review } from '../../../lib/annotations';
 import { api } from '../../api-client';
 import { AppShell, boardLabels, boardPaths, deskStatus, type ShellIdentity } from '../../app-shell';
 import Comments from './comments';
+import { WriterTag, type Writer } from '../../writer-tag';
 import { ImageGallery, ImagePicker } from '../../image-picker';
 
 type Category = 'board' | 'inquiry' | 'complaint' | 'news' | 'clubs' | 'contests';
@@ -38,6 +39,7 @@ type Post = {
   headcount?: number | null;
   roles?: string | null;
   mine?: boolean;
+  writer?: Writer;
   images?: string[];
   resolved_at?: number | null;
   pinned_at?: number | null;
@@ -241,6 +243,7 @@ export default function PostDetail({ id }: { id: string }) {
                 </h1>
                 <p>
                   {post.author_name || '이름 없음'} · {formatDate(post.created_at)}
+                  <WriterTag writer={post.writer} />
                 </p>
               </div>
               {!news && !deskStatus[post.category] && (
@@ -367,7 +370,7 @@ export default function PostDetail({ id }: { id: string }) {
                 )}
                 <div className="form-grid">
                   <label>
-                    작성자 이름
+                    별명
                     <input name="author_name" required maxLength={20} defaultValue={post.author_name || ''} />
                   </label>
                   <label>

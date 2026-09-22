@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { MessageSquare, Trash2 } from 'lucide-react';
 import { api } from '../../api-client';
 import { roleLabels, type Role } from '../../app-shell';
+import { WriterTag, type Writer } from '../../writer-tag';
 
 type Comment = {
   id: string;
@@ -12,6 +13,7 @@ type Comment = {
   created_at: number;
   deletable: boolean;
   role: Exclude<Role, 'member'> | null;
+  writer?: Writer;
 };
 const formatTime = (n: number) =>
   new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(n);
@@ -80,6 +82,7 @@ export default function Comments({ postId }: { postId: string }) {
                   {comment.author_name}
                   {comment.role && <span className={`role-badge ${comment.role}`}>{roleLabels[comment.role]}</span>}
                 </strong>
+                <WriterTag writer={comment.writer} />
                 <small>{formatTime(comment.created_at)}</small>
                 {comment.deletable && (
                   <button aria-label="댓글 삭제" onClick={() => void remove(comment)}>
@@ -95,7 +98,7 @@ export default function Comments({ postId }: { postId: string }) {
         comments && <p className="comments-empty">첫 댓글을 남겨보세요.</p>
       )}
       <form className="comment-form" onSubmit={submit}>
-        <input name="author_name" required maxLength={20} placeholder="이름" aria-label="댓글 작성자 이름" />
+        <input name="author_name" required maxLength={20} placeholder="별명" aria-label="댓글 별명" />
         <textarea
           name="content"
           required

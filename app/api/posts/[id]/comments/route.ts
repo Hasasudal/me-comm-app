@@ -10,6 +10,7 @@ import {
   managesDesk,
   limit,
   requireMember,
+  seesWriters,
   visiblePost,
 } from '../../../../../lib/server';
 
@@ -21,6 +22,8 @@ type CommentRow = {
   content: string;
   created_at: number;
   role: string | null;
+  writer_name: string | null;
+  writer_email: string | null;
 };
 // Staff comments show the writer's role so official answers stand out.
 const badge = (role: string | null) => (role && role !== 'member' ? role : null);
@@ -41,15 +44,17 @@ export async function GET(request: Request, context: Context) {
     const { member, admin, post } = await commentablePost(request, context);
     const rows = await db()
       .prepare(
-        'SELECT comments.id,comments.author_id,comments.author_name,comments.content,comments.created_at,users.role FROM comments LEFT JOIN users ON users.id=comments.author_id WHERE comments.post_id=? ORDER BY comments.created_at ASC, comments.id ASC',
+        'SELECT comments.id,comments.author_id,comments.author_name,comments.content,comments.created_at,users.role,users.display_name AS writer_name,users.email AS writer_email FROM comments LEFT JOIN users ON users.id=comments.author_id WHERE comments.post_id=? ORDER BY comments.created_at ASC, comments.id ASC',
       )
       .bind(post.id)
       .all<CommentRow>();
+    const writers = seesWriters(member, post.category);
     return json({
-      comments: rows.results.map(({ author_id, role, ...comment }) => ({
+      comments: rows.results.map(({ author_id, role, writer_name, writer_email, ...comment }) => ({
         ...comment,
         role: badge(role),
         deletable: admin || author_id === member.userId,
+        ...(writers ? { writer: writer_email ? { name: writer_name, email: writer_email } : null } : {}),
       })),
     });
   });

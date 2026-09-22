@@ -12,7 +12,9 @@ import {
   publicPost,
   recruitmentValues,
   requireMember,
+  seesWriters,
   visiblePost,
+  writerOf,
 } from '../../../../lib/server';
 import { attachImages, checkImages, deletePostImages, postImages } from '../../../../lib/images';
 type Context = { params: Promise<{ id: string }> };
@@ -23,7 +25,12 @@ export async function GET(request: Request, context: Context) {
     const { id } = await context.params;
     const post = await visiblePost(id, member);
     return json({
-      post: { ...publicPost(post), mine: post.author_id === member.userId, images: await postImages(id) },
+      post: {
+        ...publicPost(post),
+        mine: post.author_id === member.userId,
+        images: await postImages(id),
+        ...(seesWriters(member, post.category) ? { writer: await writerOf(post.author_id) } : {}),
+      },
     });
   });
 }
