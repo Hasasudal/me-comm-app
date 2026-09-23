@@ -17,6 +17,7 @@ import {
   writerOf,
 } from '../../../../lib/server';
 import { attachImages, checkImages, deletePostImages, postImages } from '../../../../lib/images';
+import { clubFor } from '../../../../lib/clubs';
 type Context = { params: Promise<{ id: string }> };
 export const dynamic = 'force-dynamic';
 export async function GET(request: Request, context: Context) {
@@ -49,16 +50,22 @@ export async function PATCH(request: Request, context: Context) {
     const status = news ? 'pending' : 'published';
     const feedback = news ? null : post.feedback;
     const [recruitmentStatus, deadline, headcount, roles] = recruitmentValues(data, post.category);
+    // Older club posts made before clubs existed may stay unassigned until someone picks one.
+    const clubId =
+      post.category === 'clubs' && !data.club_id && !post.club_id
+        ? null
+        : await clubFor(post.category, data.club_id || post.club_id);
     await checkImages(data.images, member.userId, await postImages(id));
     await db()
       .prepare(
-        'UPDATE posts SET title=?,content=?,author_name=?,prefix=?,status=?,feedback=?,recruitment_status=?,deadline=?,headcount=?,roles=?,updated_at=? WHERE id=?',
+        'UPDATE posts SET title=?,content=?,author_name=?,prefix=?,club_id=?,status=?,feedback=?,recruitment_status=?,deadline=?,headcount=?,roles=?,updated_at=? WHERE id=?',
       )
       .bind(
         data.title,
         data.content,
         data.author_name,
         data.prefix,
+        clubId,
         status,
         feedback,
         recruitmentStatus,

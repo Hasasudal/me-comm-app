@@ -17,6 +17,7 @@ import { hashPassword } from '../../../lib/password';
 import { searchSnippet } from '../../../lib/search';
 import { attachImages, checkImages } from '../../../lib/images';
 import { seoulToday } from '../../../lib/recruitment';
+import { clubFor } from '../../../lib/clubs';
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 30;
 type ListRow = { id: string; created_at: number; content?: string };
@@ -42,6 +43,11 @@ export async function GET(request: Request) {
     if ((category === 'clubs' || category === 'contests') && url.searchParams.get('open') === '1') {
       where.push("recruitment_status='open' AND (deadline IS NULL OR deadline>=?)");
       binds.push(seoulToday());
+    }
+    const club = url.searchParams.get('club');
+    if (category === 'clubs' && club) {
+      where.push('club_id=?');
+      binds.push(club);
     }
     const q = (url.searchParams.get('q') || '').trim().slice(0, 100);
     if (q) {
@@ -91,12 +97,13 @@ export async function POST(request: Request) {
       salt = crypto.randomUUID(),
       now = Date.now();
     const [recruitmentStatus, deadline, headcount, roles] = recruitmentValues(data, data.category);
+    const clubId = await clubFor(data.category, data.club_id);
     await checkImages(data.images, member.userId);
     const hash = await hashPassword(data.password, salt);
     const status = data.category === 'news' ? 'pending' : 'published';
     await db()
       .prepare(
-        'INSERT INTO posts (id,category,title,content,password_hash,salt,status,recruitment_status,deadline,headcount,roles,author_id,author_name,prefix,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO posts (id,category,title,content,password_hash,salt,status,recruitment_status,deadline,headcount,roles,author_id,author_name,prefix,club_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       )
       .bind(
         id,
@@ -113,6 +120,7 @@ export async function POST(request: Request) {
         member.userId,
         data.author_name,
         data.prefix,
+        clubId,
         now,
         now,
       )
