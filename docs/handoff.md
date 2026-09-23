@@ -1,8 +1,11 @@
 # 미컴 라운지 인수인계 (2026-09-23 기준)
 
 새 세션에서 이 저장소를 이어받을 때 먼저 읽는 문서입니다. 기능 사양은 [docs/implementation.md](implementation.md),
-백업·복구는 [docs/backup.md](backup.md), 구조 그림은 [docs/architecture/micom-lounge.html](architecture/micom-lounge.html),
+백업·복구는 [docs/backup.md](backup.md), 검증 범위는 [docs/verification.md](verification.md),
+구조 그림은 [docs/architecture/micom-lounge.html](architecture/micom-lounge.html),
 사용자용 설명은 사이트 `/help`(`app/help/help-page.tsx`)에 있습니다.
+
+> git 저장소 루트는 `web/` 폴더입니다. 그 위 폴더(`미컴 앱/`)의 `.claude/launch.json`, 기획 문서, `*.tar.gz`는 저장소 밖입니다.
 
 ## 1. 서비스 한눈에
 
@@ -22,7 +25,8 @@
 ## 2. 게시판과 권한
 
 게시판: 통합(`/`), 자유게시판(`/board`), 학사문의(`/inquiry`), 학생회 건의(`/complaint`), 학과 뉴스(`/news`),
-동아리(`/clubs`), 공모전 모집(`/contests`). 그 밖에 `/help`, `/account`, `/admin`, `/admin/members`.
+동아리(`/clubs`), 공모전 모집(`/contests`). 그 밖에 `/help`, `/account`, `/admin`, `/admin/members`,
+`/login`, `/signup`, `/verify-email`, `/auth/action`(Firebase 이메일 링크 처리).
 
 직책은 `users.role` 한 가지: `member`(일반) · `academic`(학사) · `council`(학생회) · `admin`(관리자).
 
@@ -49,10 +53,13 @@ web/
     posts/[id]/        글 상세, 댓글
     admin/             뉴스 검토(review-workspace), 회원·직책 관리(members)
     help/              사이트 안 사용설명서 (기능 바꾸면 여기도 갱신)
+    login/ signup/ verify-email/ auth/action/   가입·로그인·이메일 인증 (firebase-client.ts)
     site-notice.tsx    전 페이지 상단 배너 (SITE_NOTICE = null 로 제거)
     image-picker.tsx   사진 업로드(브라우저에서 1600px 축소)·갤러리·Word용 JPEG 변환
-  lib/                 서버 로직: server.ts(권한·검증·목록 SQL), member-auth.ts(세션),
-                       firebase-token.ts(ID 토큰 검증), images.ts(R2), news-docx.ts, recruitment.ts
+    writer-tag.tsx     별명 옆 실제 계정 표시(관리자·담당자용)
+  lib/                 서버 로직: server.ts(권한·검증·목록 SQL·rate limit), member-auth.ts(세션),
+                       firebase-token.ts(ID 토큰 검증), images.ts(R2), database.ts(D1 연결),
+                       password.ts(PBKDF2), search.ts, annotations.ts, news-docx.ts, recruitment.ts
   db/schema.ts         drizzle 스키마 (테이블: posts, comments, images, users, sessions, attempts, member_audit)
   drizzle/             마이그레이션 SQL (0000~0010). 배포 시 자동 적용
   scripts/test-*.mjs   통합 테스트 (로컬 dev 서버 필요)
@@ -63,7 +70,7 @@ web/
 ## 4. 개발·배포 절차
 
 ```bash
-cd web
+cd web                       # 저장소 루트
 npm ci                       # 최초 1회
 npm run db:migrate:local     # 로컬 D1에 마이그레이션
 # 개발 서버: Claude Code에서는 preview_start({name:"web"}) 사용, 포트 5173
@@ -82,6 +89,8 @@ node scripts/test-api.mjs    # 통합 테스트 (dev 서버가 떠 있어야 함
 - **D1은 빈 batch를 거부**합니다. `db().batch([])`가 되지 않도록 항상 길이를 확인하세요(사진 없는 글 저장 오류의 원인이었습니다).
 - **vinext의 `headers()` source는 중첩 괄호를 지원하지 않습니다.** 부정 lookahead 패턴은 조용히 아무 경로와도 매칭되지 않습니다.
   현재 페이지 경로를 나열해 `Cache-Control: no-cache`를 주고 있으니, 페이지를 추가하면 `next.config.ts`도 갱신하세요.
+- **`npm test`는 테스트 파일을 `package.json`에 하나씩 나열**합니다. `tests/`에 새 파일을 만들면 거기에도 추가해야 실행됩니다.
+  통합 테스트(`scripts/test-*.mjs`)는 CI에서 돌지 않으니 PR 전에 직접 돌리세요.
 - **PBKDF2 반복 횟수는 Workers 상한이 10만 회**입니다. 더 올리면 런타임 오류가 납니다.
 - **rate limit**: 글 10/분, 댓글 20/분, 사진 30/분, 비밀번호 10/분, 로그인 IP 120/분 + 계정 10/분.
   통합 테스트를 연달아 돌리면 걸리므로 `execute('DELETE FROM attempts')`로 창을 비웁니다.
@@ -100,7 +109,6 @@ node scripts/test-api.mjs    # 통합 테스트 (dev 서버가 떠 있어야 함
 | 낮음 | 테스트 계정 만들기 | `아이디+test1@ks.ac.kr` 방식 우선 확인, 안 되면 허용 목록 방식 |
 | 낮음 | PC 카카오톡으로 채널 채팅 바로 열기 | 현재 PC 카톡이 지원하지 않아 보류. QR + 웹 채팅으로 대체 중 |
 | 낮음 | 사이트 상단 배너 제거 | 인증 메일 문제 해결되면 `app/site-notice.tsx`의 `SITE_NOTICE = null` |
-| 낮음 | `docs/architecture` 커밋 여부 결정 | 스크린샷 PNG 포함이라 사용자 확인 필요 |
 
 ## 7. 사용자와 일하는 방식
 
