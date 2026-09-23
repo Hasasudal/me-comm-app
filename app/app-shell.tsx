@@ -247,7 +247,6 @@ export function AppShell({
           <img className="brand-logo" src="/logo.png" alt="" width={480} height={201} />
           <span>
             미컴<span className="brand-light">라운지</span>
-            <small>OUR CAMPUS, CONNECTED</small>
           </span>
         </a>
         <div className="workspace">
