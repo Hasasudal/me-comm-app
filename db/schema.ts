@@ -17,6 +17,7 @@ export const posts = sqliteTable(
     author_id: text('author_id'),
     author_name: text('author_name'),
     prefix: text('prefix'),
+    club_id: text('club_id'),
     feedback: text('feedback'),
     resolved_at: integer('resolved_at'),
     pinned_at: integer('pinned_at'),
@@ -26,6 +27,7 @@ export const posts = sqliteTable(
   (table) => [
     index('idx_posts_status_created').on(table.status, table.created_at),
     index('idx_posts_author').on(table.author_id, table.created_at),
+    index('idx_posts_club').on(table.club_id, table.created_at),
   ],
 );
 
@@ -112,4 +114,17 @@ export const memberAudit = sqliteTable(
     created_at: integer('created_at').notNull(),
   },
   (table) => [index('idx_member_audit_created').on(table.created_at)],
+);
+
+// Clubs are requested by members and approved by admins; club posts belong to one through posts.club_id.
+export const clubs = sqliteTable(
+  'clubs',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    status: text('status').notNull(), // 'pending' | 'active'
+    requested_by: text('requested_by'),
+    created_at: integer('created_at').notNull(),
+  },
+  (table) => [uniqueIndex('idx_clubs_name').on(table.name)],
 );
