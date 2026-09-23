@@ -95,6 +95,10 @@ export default function PostDetail({ id }: { id: string }) {
       active = false;
     };
   }, [id]);
+  // The tab shows the post title only after a signed-in load, so link previews never reveal members-only titles.
+  useEffect(() => {
+    if (post) document.title = `${post.title} | 미컴 라운지`;
+  }, [post]);
   async function edit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!post) return;
@@ -173,6 +177,7 @@ export default function PostDetail({ id }: { id: string }) {
   const category = post?.category;
   const news = category === 'news';
   const admin = !!identity.admin;
+  const reviewing = news && admin && !!post && !post.mine;
   const canEdit = !!post && (admin || !(news && post.status === 'rejected'));
   const passwordField = !admin && !post?.mine && (
     <label>
@@ -199,9 +204,10 @@ export default function PostDetail({ id }: { id: string }) {
         </>
       }
     >
-      <a className="back-link" href={category ? boardPaths[category] : '/'}>
+      {/* Admins reach others' articles from the review screen, so that is where they go back to. */}
+      <a className="back-link" href={reviewing ? '/admin' : category ? boardPaths[category] : '/'}>
         <ArrowLeft size={17} />
-        {news ? '내 기사 목록' : category ? `${boardLabels[category]} 목록` : '게시판 목록'}
+        {reviewing ? '뉴스 승인 목록' : news ? '내 기사 목록' : category ? `${boardLabels[category]} 목록` : '게시판 목록'}
       </a>
       {loading ? (
         <section className="detail-card loading" role="status">
@@ -316,12 +322,20 @@ export default function PostDetail({ id }: { id: string }) {
             )}
             {news && post.feedback && (post.status === 'feedback' || post.status === 'rejected') && (
               <div className={`review-result ${post.status}`}>
-                <strong>{post.status === 'rejected' ? '반려되었어요' : '피드백이 도착했어요'}</strong>
+                <strong>
+                  {post.mine
+                    ? post.status === 'rejected'
+                      ? '반려되었어요'
+                      : '피드백이 도착했어요'
+                    : post.status === 'rejected'
+                      ? '반려한 기사예요'
+                      : '보낸 피드백'}
+                </strong>
                 {post.feedback.note && <p>{post.feedback.note}</p>}
-                {post.status === 'feedback' && (
+                {post.mine && post.status === 'feedback' && (
                   <p className="review-hint">표시된 부분을 확인하고 기사를 수정해 다시 제출해주세요.</p>
                 )}
-                {post.status === 'rejected' && (
+                {post.mine && post.status === 'rejected' && (
                   <p className="review-hint">반려된 기사는 수정할 수 없어요. 새 기사로 작성해주세요.</p>
                 )}
               </div>
@@ -354,7 +368,7 @@ export default function PostDetail({ id }: { id: string }) {
                         setMode('edit');
                       }}
                     >
-                      {news && post.status === 'feedback' ? '수정해서 다시 제출' : '수정'}
+                      {news && post.mine && post.status === 'feedback' ? '수정해서 다시 제출' : '수정'}
                     </button>
                   )}
                   <button

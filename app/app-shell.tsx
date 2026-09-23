@@ -100,7 +100,7 @@ export type ShellIdentity = {
   admin?: boolean;
 };
 type Reply = {
-  kind: 'reply' | 'desk' | 'followup' | 'signup';
+  kind: 'reply' | 'answer' | 'desk' | 'followup' | 'signup';
   id: string;
   post_id: string;
   title: string;
@@ -110,6 +110,7 @@ type Reply = {
 };
 const replyKinds: Record<Reply['kind'], string> = {
   reply: '댓글',
+  answer: '답변',
   desk: '새 글',
   followup: '추가 문의',
   signup: '가입 승인',

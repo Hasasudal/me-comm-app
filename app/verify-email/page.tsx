@@ -1,5 +1,6 @@
 import AuthFrame from '../auth/auth-frame';
 import VerifyTips from './verify-tips';
+export const metadata = { title: '이메일 인증 | 미컴 라운지' };
 
 export default function VerifyEmailPage() {
   return (

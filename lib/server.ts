@@ -253,7 +253,8 @@ export const privateCategories = ['news', ...deskCategories];
 // Bell items, newest first when ordered by created_at. `?1` is the member id. Desk names are server constants.
 export function alertsSql(desks: string[], admin = false) {
   const parts = [
-    "SELECT 'reply' AS kind,comments.id,comments.post_id,posts.title,comments.author_name,substr(comments.content,1,80) AS excerpt,comments.created_at FROM comments JOIN posts ON posts.id=comments.post_id WHERE posts.author_id=?1 AND comments.author_id<>?1",
+    // Comments on my inquiry or suggestion are the staff's answers, so the bell labels them as such.
+    `SELECT CASE WHEN posts.category IN (${deskCategories.map((desk) => `'${desk}'`).join(',')}) THEN 'answer' ELSE 'reply' END AS kind,comments.id,comments.post_id,posts.title,comments.author_name,substr(comments.content,1,80) AS excerpt,comments.created_at FROM comments JOIN posts ON posts.id=comments.post_id WHERE posts.author_id=?1 AND comments.author_id<>?1`,
   ];
   if (desks.length) {
     const inDesks = `(${desks.map((desk) => `'${desk}'`).join(',')})`;

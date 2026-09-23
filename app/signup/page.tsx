@@ -1,5 +1,6 @@
 import AuthFrame from '../auth/auth-frame';
 import SignupForm from './signup-form';
+export const metadata = { title: '회원가입 | 미컴 라운지' };
 
 export default function SignupPage() {
   return (
