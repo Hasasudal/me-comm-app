@@ -43,6 +43,8 @@ type Post = {
   images?: string[];
   resolved_at?: number | null;
   pinned_at?: number | null;
+  club_id?: string | null;
+  club_name?: string | null;
 };
 type Identity = ShellIdentity & { admin?: boolean };
 const formatDate = (n: number) =>
@@ -58,6 +60,13 @@ export default function PostDetail({ id }: { id: string }) {
   const [notice, setNotice] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [clubs, setClubs] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (mode !== 'edit' || post?.category !== 'clubs') return;
+    api<{ clubs: { id: string; name: string }[] }>('/api/clubs')
+      .then((data) => setClubs(data.clubs))
+      .catch(() => setClubs([]));
+  }, [mode, post?.category]);
   const reload = useCallback(async () => {
     const data = await api<{ post: Post }>(`/api/posts/${id}`);
     setPost(data.post);
@@ -112,6 +121,7 @@ export default function PostDetail({ id }: { id: string }) {
           images,
           password: form.get('password') || undefined,
           ...recruitment,
+          ...(post.category === 'clubs' ? { club_id: form.get('club_id') || null } : {}),
         },
         'PATCH',
       );
@@ -229,7 +239,10 @@ export default function PostDetail({ id }: { id: string }) {
           <section className="detail-card">
             <div className="detail-head">
               <div>
-                <span className={`category-tag ${post.category}`}>{boardLabels[post.category]}</span>
+                <span className={`category-tag ${post.category}`}>
+                  {boardLabels[post.category]}
+                  {post.club_name && ` · ${post.club_name}`}
+                </span>
                 {news && <span className={`status-badge ${post.status}`}>{statusLabels[post.status]}</span>}
                 {post.pinned_at && <span className="status-badge feedback">고정</span>}
                 {deskStatus[post.category] && (
@@ -367,6 +380,19 @@ export default function PostDetail({ id }: { id: string }) {
                       className="feedback-reference"
                     />
                   </>
+                )}
+                {post.category === 'clubs' && (
+                  <label>
+                    동아리
+                    <select name="club_id" required={!!post.club_id} defaultValue={post.club_id || ''} key={clubs.length}>
+                      {!post.club_id && <option value="">선택 안 함</option>}
+                      {clubs.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 )}
                 <div className="form-grid">
                   <label>
