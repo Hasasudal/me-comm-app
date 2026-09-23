@@ -49,3 +49,6 @@ next-env.d.ts
 /outputs/
 /work/
 backups/
+
+# Archify visual-check sidecars (screenshots, receipts)
+docs/architecture/*.visual-check.*

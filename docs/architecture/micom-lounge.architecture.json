@@ -1,0 +1,270 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "미컴 라운지 서비스 구조",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1220,
+      560
+    ]
+  },
+  "components": [
+    {
+      "id": "people",
+      "type": "frontend",
+      "label": "학생·관리자",
+      "sublabel": "브라우저 / 휴대폰",
+      "pos": [
+        40,
+        180
+      ],
+      "size": [
+        150,
+        68
+      ]
+    },
+    {
+      "id": "firebase",
+      "type": "security",
+      "label": "Firebase Auth",
+      "sublabel": "학교 이메일 로그인",
+      "brand": "firebase",
+      "pos": [
+        520,
+        30
+      ],
+      "size": [
+        170,
+        68
+      ]
+    },
+    {
+      "id": "school-mail",
+      "type": "external",
+      "label": "학교 메일",
+      "sublabel": "@ks.ac.kr 인증 메일",
+      "pos": [
+        1000,
+        30
+      ],
+      "size": [
+        160,
+        68
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Worker: micom",
+      "sublabel": "vinext 앱 · API",
+      "brand": "cloudflare",
+      "pos": [
+        520,
+        180
+      ],
+      "size": [
+        170,
+        72
+      ],
+      "tag": "직책별 권한"
+    },
+    {
+      "id": "d1",
+      "type": "database",
+      "label": "D1 micom-lounge",
+      "sublabel": "회원·글·댓글·기록",
+      "pos": [
+        1000,
+        120
+      ],
+      "size": [
+        160,
+        68
+      ]
+    },
+    {
+      "id": "images",
+      "type": "database",
+      "label": "R2 micom-images",
+      "sublabel": "첨부 사진",
+      "pos": [
+        1000,
+        250
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "backups",
+      "type": "cloud",
+      "label": "R2 micom-backups",
+      "sublabel": "주간 백업 · 180일",
+      "pos": [
+        1000,
+        370
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "github",
+      "type": "messagebus",
+      "label": "GitHub Actions",
+      "sublabel": "검사·배포·백업",
+      "brand": "github-actions",
+      "pos": [
+        520,
+        460
+      ],
+      "size": [
+        170,
+        68
+      ]
+    },
+    {
+      "id": "kakao",
+      "type": "external",
+      "label": "미컴봇",
+      "sublabel": "카카오 채널 · 호실 대여",
+      "pos": [
+        40,
+        340
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "notion",
+      "type": "external",
+      "label": "노션",
+      "sublabel": "기자재 대여",
+      "brand": "notion",
+      "pos": [
+        215,
+        340
+      ],
+      "size": [
+        140,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Cloudflare",
+      "wraps": [
+        "worker",
+        "d1",
+        "images",
+        "backups"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "people-to-worker",
+      "from": "people",
+      "to": "worker",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "people-to-firebase",
+      "from": "people",
+      "to": "firebase",
+      "label": "로그인",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "worker-verifies-token",
+      "from": "worker",
+      "to": "firebase",
+      "label": "ID 토큰 검증",
+      "variant": "security"
+    },
+    {
+      "id": "verification-mail",
+      "from": "firebase",
+      "to": "school-mail",
+      "label": "인증 메일",
+      "variant": "dashed"
+    },
+    {
+      "id": "worker-to-d1",
+      "from": "worker",
+      "to": "d1",
+      "label": "SQL"
+    },
+    {
+      "id": "worker-to-images",
+      "from": "worker",
+      "to": "images",
+      "label": "사진 저장"
+    },
+    {
+      "id": "github-deploys",
+      "from": "github",
+      "to": "worker",
+      "label": "배포·마이그레이션",
+      "variant": "dashed"
+    },
+    {
+      "id": "github-backups",
+      "from": "github",
+      "to": "backups",
+      "label": "D1 내보내기",
+      "variant": "dashed"
+    },
+    {
+      "id": "people-to-kakao",
+      "from": "people",
+      "to": "kakao",
+      "variant": "dashed"
+    },
+    {
+      "id": "people-to-notion",
+      "from": "people",
+      "to": "notion",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "앱과 데이터",
+      "items": [
+        "Worker 하나가 화면과 API를 모두 처리",
+        "D1에 회원·글·직책·변경 기록",
+        "R2에 사진, 글을 볼 수 있는 사람만 열람"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "로그인과 권한",
+      "items": [
+        "Firebase가 @ks.ac.kr 계정 확인",
+        "인증 메일 미수신은 관리자 가입 승인",
+        "일반·학사·학생회·관리자 직책"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "운영",
+      "items": [
+        "main 병합 시 자동 검사·배포",
+        "매주 D1을 R2로 백업",
+        "대여는 미컴봇·노션으로 연결"
+      ]
+    }
+  ]
+}
