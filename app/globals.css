@@ -533,6 +533,14 @@ h1 {
   color: white;
   border-color: #26334d;
 }
+.filter.club-apply {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.filter-row + .filter-row {
+  padding-top: 14px;
+}
 .post-row {
   display: flex;
   align-items: center;

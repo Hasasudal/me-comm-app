@@ -380,20 +380,6 @@ export default function Community({ category = 'all', admin = false }: { categor
                 placeholder="제목·본문·작성자로 검색"
               />
             </div>
-            {recruiting && (
-              <div className="filter-row" aria-label="모집 상태">
-                {[false, true].map((value) => (
-                  <button
-                    key={String(value)}
-                    className={openOnly === value ? 'filter selected' : 'filter'}
-                    aria-pressed={openOnly === value}
-                    onClick={() => setOpenOnly(value)}
-                  >
-                    {value ? '모집 중만' : '전체'}
-                  </button>
-                ))}
-              </div>
-            )}
             {category === 'clubs' && (
               <div className="filter-row" aria-label="동아리">
                 {[{ id: '', name: '전체' }, ...clubs].map((item) => (
@@ -406,9 +392,23 @@ export default function Community({ category = 'all', admin = false }: { categor
                     {item.name}
                   </button>
                 ))}
-                <button className="filter" onClick={() => void applyClub()}>
+                <button className="filter club-apply" onClick={() => void applyClub()}>
                   <Plus size={14} /> 동아리 개설 신청
                 </button>
+              </div>
+            )}
+            {recruiting && (
+              <div className="filter-row" aria-label="모집 상태">
+                {[false, true].map((value) => (
+                  <button
+                    key={String(value)}
+                    className={openOnly === value ? 'filter selected' : 'filter'}
+                    aria-pressed={openOnly === value}
+                    onClick={() => setOpenOnly(value)}
+                  >
+                    {value ? '모집 중만' : '모든 글'}
+                  </button>
+                ))}
               </div>
             )}
             {category === 'all' && (
