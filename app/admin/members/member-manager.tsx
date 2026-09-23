@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ChevronRight, RotateCcw, Search, ShieldCheck, UserCheck, UserX } from 'lucide-react';
 import { api } from '../../api-client';
 import { AppShell, roleLabels, type Role, type ShellIdentity } from '../../app-shell';
+import ClubManager from './club-manager';
 
 type User = {
   id: string;
@@ -295,6 +296,7 @@ export default function MemberManager() {
               </ol>
             )}
           </details>
+          <ClubManager />
         </section>
       )}
     </AppShell>
