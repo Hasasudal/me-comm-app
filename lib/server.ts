@@ -100,11 +100,13 @@ export const authorFields = {
     .nullable()
     .transform((value) => value || null),
 };
+export const clubField = { club_id: z.string().trim().max(64).optional().nullable() };
 export const createSchema = z.object({
   ...contentFields,
   images: imagesField,
   ...recruitmentFields,
   ...authorFields,
+  ...clubField,
   category: z.enum(['board', 'inquiry', 'complaint', 'news', 'clubs', 'contests']),
   password: passwordField,
 });
@@ -113,6 +115,7 @@ export const editSchema = z.object({
   images: imagesField,
   ...recruitmentFields,
   ...authorFields,
+  ...clubField,
   password: passwordField.optional(),
 });
 export const markSchema = z
@@ -225,6 +228,8 @@ export type PostRow = {
   author_id: string | null;
   author_name: string | null;
   prefix: string | null;
+  club_id: string | null;
+  club_name?: string | null;
   feedback: string | null;
   resolved_at: number | null;
   pinned_at: number | null;
@@ -232,7 +237,8 @@ export type PostRow = {
   updated_at: number;
 };
 export const listColumns =
-  'id,title,category,prefix,author_name,status,recruitment_status,deadline,headcount,roles,resolved_at,pinned_at,created_at,updated_at,' +
+  'id,title,category,prefix,club_id,author_name,status,recruitment_status,deadline,headcount,roles,resolved_at,pinned_at,created_at,updated_at,' +
+  '(SELECT name FROM clubs WHERE clubs.id=posts.club_id) AS club_name,' +
   '(SELECT COUNT(*) FROM comments WHERE comments.post_id=posts.id) AS comment_count,' +
   '(SELECT COUNT(*) FROM images WHERE images.post_id=posts.id) AS image_count';
 export const commentSchema = z.object({
@@ -280,7 +286,10 @@ export async function writerOf(userId: string | null) {
   return row ?? null;
 }
 export async function visiblePost(id: string, member: Member) {
-  const post = await db().prepare('SELECT * FROM posts WHERE id=?').bind(id).first<PostRow>();
+  const post = await db()
+    .prepare('SELECT posts.*,clubs.name AS club_name FROM posts LEFT JOIN clubs ON clubs.id=posts.club_id WHERE posts.id=?')
+    .bind(id)
+    .first<PostRow>();
   const staff =
     isAdmin(member) || (post && deskCategories.includes(post.category) && managesDesk(member, post.category));
   if (!post || (privateCategories.includes(post.category) && !staff && post.author_id !== member.userId))
@@ -310,6 +319,8 @@ export function publicPost(post: PostRow) {
     title: post.title,
     content: post.content,
     prefix: post.prefix,
+    club_id: post.club_id,
+    club_name: post.club_name ?? null,
     author_name: post.author_name,
     status: post.status,
     feedback: parseReview(post.feedback),

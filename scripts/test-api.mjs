@@ -20,6 +20,8 @@ async function request(path, { method = 'GET', body, cookie = author } = {}) {
 const suffix = Date.now();
 execute('DELETE FROM attempts'); // runs back to back would otherwise share rate-limit windows
 const ids = {};
+const testClub = `test-club-${suffix}`;
+execute(`INSERT INTO clubs (id,name,status,created_at) VALUES ('${testClub}','검증동아리${suffix}','active',${Date.now()})`);
 try {
   assert.equal((await request('/api/posts', { cookie: '' })).status, 401, 'anonymous list is denied');
   assert.equal(
@@ -37,7 +39,13 @@ try {
   for (const category of ['board', 'clubs', 'contests', 'news']) {
     const recruitment =
       category === 'clubs' || category === 'contests'
-        ? { recruitment_status: 'open', deadline: '2026-12-31', headcount: 3, roles: '기획, 디자인' }
+        ? {
+            recruitment_status: 'open',
+            deadline: '2026-12-31',
+            headcount: 3,
+            roles: '기획, 디자인',
+            ...(category === 'clubs' ? { club_id: testClub } : {}),
+          }
         : {};
     const r = await request('/api/posts', {
       method: 'POST',
@@ -823,6 +831,7 @@ try {
 } finally {
   for (const id of Object.values(ids))
     await request(`/api/posts/${id}`, { method: 'DELETE', cookie: admin, body: {} }).catch(() => {});
+  execute(`DELETE FROM clubs WHERE id='${testClub}'`);
   fixture.cleanup();
 }
 console.log(
