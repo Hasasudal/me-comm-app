@@ -65,7 +65,7 @@ export default function PostDetail({ id }: { id: string }) {
     if (mode !== 'edit' || post?.category !== 'clubs') return;
     api<{ clubs: { id: string; name: string }[] }>('/api/clubs')
       .then((data) => setClubs(data.clubs))
-      .catch(() => setClubs([]));
+      .catch((e) => setError((e as Error).message));
   }, [mode, post?.category]);
   const reload = useCallback(async () => {
     const data = await api<{ post: Post }>(`/api/posts/${id}`);
