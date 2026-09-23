@@ -36,6 +36,8 @@
 - **학과 뉴스**: 작성자와 관리자만. 상태는 `pending`/`feedback`/`rejected`/`published`. 관리자 검토 화면에서 형광펜·굵게·메모
   주석(본문 오프셋 기반, `lib/annotations.ts`)과 승인/피드백/반려, Word 내보내기(`lib/news-docx.ts`, 사진 포함).
 - **공개 게시판**: 로그인 회원 모두 열람. 관리자만 상단 고정(`pinned_at`).
+- **동아리 칸**: 회원이 신청(`/api/clubs`)하고 관리자가 회원·직책 관리 화면 아래에서 승인합니다. 동아리 글은
+  `posts.club_id`로 연결되며, 글이 남은 동아리는 삭제할 수 없습니다.
 - **글·댓글 이름은 “별명”**입니다. 실제 계정(이름·이메일)은 관리자(+해당 desk 담당자)에게만 서버가 내려줍니다
   (`writerOf`, `WriterTag`).
 - **글 비밀번호**: 로그인한 작성자와 관리자는 필요 없음. 다른 계정이 수정·삭제할 때만 필요(PBKDF2 10만 회).
@@ -59,9 +61,9 @@ web/
     writer-tag.tsx     별명 옆 실제 계정 표시(관리자·담당자용)
   lib/                 서버 로직: server.ts(권한·검증·목록 SQL·rate limit), member-auth.ts(세션),
                        firebase-token.ts(ID 토큰 검증), images.ts(R2), database.ts(D1 연결),
-                       password.ts(PBKDF2), search.ts, annotations.ts, news-docx.ts, recruitment.ts
-  db/schema.ts         drizzle 스키마 (테이블: posts, comments, images, users, sessions, attempts, member_audit)
-  drizzle/             마이그레이션 SQL (0000~0010). 배포 시 자동 적용
+                       password.ts(PBKDF2), search.ts, annotations.ts, news-docx.ts, recruitment.ts, clubs.ts
+  db/schema.ts         drizzle 스키마 (테이블: posts, comments, images, users, sessions, attempts, member_audit, clubs)
+  drizzle/             마이그레이션 SQL (0000~0011). 배포 시 자동 적용
   scripts/test-*.mjs   통합 테스트 (로컬 dev 서버 필요)
   tests/*.test.ts      순수 함수 단위 테스트
   docs/                문서

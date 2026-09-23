@@ -181,7 +181,7 @@ export default function HelpPage() {
                   </tr>
                   <tr>
                     <td>동아리</td>
-                    <td>동아리 소개와 부원 모집</td>
+                    <td>동아리별 칸에서 소개와 부원 모집</td>
                     <td>
                       <span className="pill open">모든 회원</span>
                     </td>
@@ -218,7 +218,7 @@ export default function HelpPage() {
               </li>
               <li>
                 <strong>머릿글</strong> (선택): 제목 앞에 <code>[동아리 이름]</code>처럼 붙는 말머리입니다. 예: 동아리
-                게시판이면 동아리 이름, 학사문의면 “장학”·“휴학”.
+                게시판이면 “신입 모집”, 학사문의면 “장학”·“휴학”.
               </li>
               <li>
                 <strong>제목과 본문</strong>: 제목은 120자, 본문은 20,000자까지 쓸 수 있습니다.
@@ -232,6 +232,12 @@ export default function HelpPage() {
                 “수정·삭제” 참고).
               </li>
             </ul>
+            <h3>동아리별 칸</h3>
+            <p>
+              동아리 게시판은 동아리마다 칸이 나뉘어 있습니다. 위쪽 동아리 이름을 누르면 그 동아리 글만 보이고, 글을 쓸
+              때는 <strong>동아리</strong>를 꼭 골라야 합니다. 원하는 동아리가 없으면 <strong>동아리 개설 신청</strong>
+              버튼으로 이름을 보내 주세요. 관리자가 승인하면 칸이 생깁니다.
+            </p>
             <h3>동아리·공모전 모집 정보</h3>
             <p>
               동아리와 공모전 모집 글에는 <strong>모집 정보 (선택)</strong> 칸이 있습니다. 모집 상태, 마감일, 인원,
