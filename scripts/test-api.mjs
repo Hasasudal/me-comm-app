@@ -311,6 +311,11 @@ try {
   assert.equal(staffReply.data.comment.role, 'academic', 'staff comments carry a badge');
   assert.ok((await request(`/api/posts/${ids.inquiry}`)).data.post.resolved_at, 'a 학사 reply answers the inquiry');
   assert.equal(
+    (await request('/api/notifications')).data.replies.find((r) => r.id === staffReply.data.comment.id)?.kind,
+    'answer',
+    "the asker's bell labels a staff reply on their inquiry as an answer",
+  );
+  assert.equal(
     (await request(`/api/posts/${ids.inquiry}/comments`)).data.comments.find((c) => c.id === staffReply.data.comment.id)
       .role,
     'academic',
@@ -722,6 +727,7 @@ try {
     [['관리자 댓글', '운영진']],
     "the author's bell lists others' comments, not their own",
   );
+  assert.ok(replies.every((r) => r.kind === 'reply'), 'comments on a public post stay plain comments');
   assert.equal(
     (await request('/api/session')).data.repliedAt,
     adminComment.data.comment.created_at,

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { ImagePlus, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, ImagePlus, X } from 'lucide-react';
 
 const MAX_IMAGES = 5;
 const MAX_SIDE = 1600;
@@ -120,16 +120,83 @@ export async function photoForWord(key: string) {
   return { data: new Uint8Array(await blob.arrayBuffer()), width: canvas.width, height: canvas.height };
 }
 
+// Thumbnails open an in-page viewer (a new tab breaks the flow on phones and in the app); modified clicks still
+// open the original in a new tab. The viewer steps with buttons, arrow keys or a sideways swipe.
 export function ImageGallery({ keys }: { keys: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const viewer = useRef<HTMLDialogElement>(null);
+  const swipeFrom = useRef<number | null>(null);
+  useEffect(() => {
+    if (open === null) viewer.current?.close();
+    else if (!viewer.current?.open) viewer.current?.showModal();
+  }, [open]);
   if (!keys.length) return null;
+  const step = (by: number) => setOpen((at) => (at === null ? at : (at + by + keys.length) % keys.length));
   return (
     <div className="image-gallery">
-      {keys.map((key) => (
-        <a key={key} href={imageUrl(key)} target="_blank" rel="noopener noreferrer">
+      {keys.map((key, index) => (
+        <a
+          key={key}
+          href={imageUrl(key)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            setOpen(index);
+          }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl(key)} alt="첨부 사진" loading="lazy" />
+          <img src={imageUrl(key)} alt={`첨부 사진 ${index + 1}`} loading="lazy" />
         </a>
       ))}
+      <dialog
+        ref={viewer}
+        className="photo-viewer"
+        aria-label="사진 크게 보기"
+        onClose={() => setOpen(null)}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setOpen(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft') step(-1);
+          if (e.key === 'ArrowRight') step(1);
+        }}
+        onTouchStart={(e) => (swipeFrom.current = e.touches[0].clientX)}
+        onTouchEnd={(e) => {
+          const moved = swipeFrom.current === null ? 0 : e.changedTouches[0].clientX - swipeFrom.current;
+          swipeFrom.current = null;
+          if (Math.abs(moved) > 50) step(moved < 0 ? 1 : -1);
+        }}
+      >
+        {open !== null && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageUrl(keys[open])} alt={`첨부 사진 ${open + 1}`} />
+            <div className="photo-viewer-bar">
+              {keys.length > 1 && (
+                <button aria-label="이전 사진" onClick={() => step(-1)}>
+                  <ChevronLeft size={22} />
+                </button>
+              )}
+              <span>
+                {open + 1} / {keys.length}
+              </span>
+              {keys.length > 1 && (
+                <button aria-label="다음 사진" onClick={() => step(1)}>
+                  <ChevronRight size={22} />
+                </button>
+              )}
+              <a href={imageUrl(keys[open])} target="_blank" rel="noopener noreferrer">
+                원본 보기
+              </a>
+              <button aria-label="닫기" onClick={() => setOpen(null)}>
+                <X size={22} />
+              </button>
+            </div>
+          </>
+        )}
+      </dialog>
     </div>
   );
 }

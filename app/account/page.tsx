@@ -1,5 +1,6 @@
 import AuthFrame from '../auth/auth-frame';
 import AccountPanel from './account-panel';
+export const metadata = { title: '계정 관리 | 미컴 라운지' };
 
 export default function AccountPage() {
   return (

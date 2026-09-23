@@ -1,5 +1,6 @@
 import AuthFrame from '../auth-frame';
 import ActionHandler, { type ActionMode } from './action-handler';
+export const metadata = { title: '이메일 확인 | 미컴 라운지' };
 
 const modes = new Set<ActionMode>(['verifyEmail', 'resetPassword', 'recoverEmail']);
 

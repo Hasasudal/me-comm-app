@@ -207,7 +207,8 @@ export default function HelpPage() {
             <p>
               게시판 오른쪽 위(휴대폰에서는 화면 오른쪽 아래에 떠 있는) <strong>글 작성하기</strong>(학사문의는 <strong>문의하기</strong>, 학과 뉴스는{' '}
               <strong>기사 제출하기</strong>)를 누릅니다. 통합 게시판에서 쓰면 <strong>게시할 공간</strong>에서 게시판을
-              고를 수 있습니다.
+              고를 수 있습니다. 제목이나 본문을 쓰다가 창을 닫으려 하면(창 바깥 누르기 포함) 버릴지 한 번 더
+              묻습니다.
             </p>
             <h3>입력 항목</h3>
             <ul className="plain">
@@ -278,6 +279,10 @@ export default function HelpPage() {
             <ul className="plain">
               <li>내가 쓴 댓글은 휴지통 아이콘으로 지울 수 있습니다. 다른 사람 댓글은 지울 수 없습니다.</li>
               <li>글 목록에서 💬 옆 숫자는 댓글 수, 🖼 옆 숫자는 사진 수입니다.</li>
+              <li>
+                글의 사진을 누르면 화면 위에 크게 뜹니다. 좌우 버튼(컴퓨터는 ← → 키, 휴대폰은 옆으로 밀기)으로 넘기고,
+                <strong>원본 보기</strong>로 원래 크기를 새 창에서 볼 수 있습니다.
+              </li>
             </ul>
             <h3>알림</h3>
             <p>
@@ -526,7 +531,7 @@ export default function HelpPage() {
                 승인 탭의 <strong>승인 기사 모두 Word로</strong>: 승인된 기사 전체를 한 파일(
                 <code>승인기사_날짜.docx</code>)로 받습니다. 기사마다 새 페이지에서 시작합니다.
               </li>
-              <li>기사에 붙은 사진은 Word 파일에 들어가지 않습니다.</li>
+              <li>기사에 붙은 사진도 본문 다음에 함께 들어갑니다(페이지 폭에 맞춰 줄어듭니다).</li>
             </ul>
             <p>
               같은 ⋯ 메뉴에서 기사 <strong>수정</strong>(오탈자 정리 등)과 <strong>삭제</strong>도 할 수 있습니다.

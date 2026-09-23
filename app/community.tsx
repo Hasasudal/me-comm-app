@@ -204,6 +204,10 @@ export default function Community({ category = 'all', admin = false }: { categor
   }
   function closeCreate() {
     if (busy) return;
+    // A tap outside the dialog (easy on phones), Esc or ✕ would otherwise drop a half-written post.
+    const form = dialog.current?.querySelector('form');
+    const field = (name: string) => String((form?.elements.namedItem(name) as HTMLInputElement | null)?.value || '').trim();
+    if ((field('title') || field('content') || images.length) && !window.confirm('작성 중인 글을 버릴까요?')) return;
     setCreating(false);
     setModalError('');
   }
