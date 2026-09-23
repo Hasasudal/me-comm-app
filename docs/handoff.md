@@ -5,7 +5,7 @@
 구조 그림은 [docs/architecture/micom-lounge.html](architecture/micom-lounge.html),
 사용자용 설명은 사이트 `/help`(`app/help/help-page.tsx`)에 있습니다.
 
-> git 저장소 루트는 `web/` 폴더입니다. 그 위 폴더(`미컴 앱/`)의 `.claude/launch.json`과 기획 문서는 저장소 밖입니다.
+> git 저장소 루트는 `web/` 폴더입니다. 그 위 폴더(`미컴 앱/`)의 `.claude/launch.json`, 기획 문서, 로고 원본 `Logo.jpg`는 저장소 밖입니다.
 
 ## 1. 서비스 한눈에
 
@@ -36,8 +36,12 @@
 - **학과 뉴스**: 작성자와 관리자만. 상태는 `pending`/`feedback`/`rejected`/`published`. 관리자 검토 화면에서 형광펜·굵게·메모
   주석(본문 오프셋 기반, `lib/annotations.ts`)과 승인/피드백/반려, Word 내보내기(`lib/news-docx.ts`, 사진 포함).
 - **공개 게시판**: 로그인 회원 모두 열람. 관리자만 상단 고정(`pinned_at`).
-- **동아리 칸**: 회원이 신청(`/api/clubs`)하고 관리자가 회원·직책 관리 화면 아래에서 승인합니다. 동아리 글은
-  `posts.club_id`로 연결되며, 글이 남은 동아리는 삭제할 수 없습니다.
+- **동아리 칸**: 회원이 **동아리 개설 신청**(`POST /api/clubs`)을 하면 관리자가 회원·직책 관리 화면 맨 아래
+  **동아리 관리**(`app/admin/members/club-manager.tsx`, `/api/admin/clubs`)에서 승인·거절·이름 변경·삭제합니다.
+  동아리 글은 승인된 동아리를 꼭 골라야 하고 `posts.club_id`로 연결됩니다(검증은 `lib/clubs.ts`의 `clubFor`).
+  동아리가 생기기 전 글은 `club_id`가 비어 있어 **전체** 칸에만 보이고, 수정할 때 동아리를 지정할 수 있습니다.
+  글이 남은 동아리는 삭제할 수 없고, 승인된 동아리는 다시 대기로 돌아가지 않습니다. 관리자가 동아리를 바로 만드는
+  버튼은 없어서, 관리자도 신청한 뒤 스스로 승인합니다.
 - **글·댓글 이름은 “별명”**입니다. 실제 계정(이름·이메일)은 관리자(+해당 desk 담당자)에게만 서버가 내려줍니다
   (`writerOf`, `WriterTag`).
 - **글 비밀번호**: 로그인한 작성자와 관리자는 필요 없음. 다른 계정이 수정·삭제할 때만 필요(PBKDF2 10만 회).
@@ -56,6 +60,7 @@ web/
     admin/             뉴스 검토(review-workspace), 회원·직책 관리(members)
     help/              사이트 안 사용설명서 (기능 바꾸면 여기도 갱신)
     login/ signup/ verify-email/ auth/action/   가입·로그인·이메일 인증 (firebase-client.ts)
+    auth/auth-frame.tsx  가입·로그인 화면 공통 틀(로고 포함)
     site-notice.tsx    전 페이지 상단 배너 (SITE_NOTICE = null 로 제거)
     image-picker.tsx   사진 업로드(브라우저에서 1600px 축소)·갤러리·Word용 JPEG 변환
     writer-tag.tsx     별명 옆 실제 계정 표시(관리자·담당자용)
@@ -64,7 +69,9 @@ web/
                        password.ts(PBKDF2), search.ts, annotations.ts, news-docx.ts, recruitment.ts, clubs.ts
   db/schema.ts         drizzle 스키마 (테이블: posts, comments, images, users, sessions, attempts, member_audit, clubs)
   drizzle/             마이그레이션 SQL (0000~0011). 배포 시 자동 적용
-  scripts/test-*.mjs   통합 테스트 (로컬 dev 서버 필요)
+  public/logo.png      학과 로고(MEDIA Communication). 사이드바·로그인 화면 위쪽에 표시
+  public/favicon.png   브라우저 탭 아이콘(로고의 무지개+MEDIA 부분)
+  scripts/test-*.mjs   통합 테스트 (로컬 dev 서버 필요, 동아리는 test-clubs.mjs)
   tests/*.test.ts      순수 함수 단위 테스트
   docs/                문서
 ```
@@ -99,18 +106,30 @@ node scripts/test-api.mjs    # 통합 테스트 (dev 서버가 떠 있어야 함
 - **테스트 계정**: `scripts/test-member-fixture.mjs`가 D1에 직접 세션을 넣어 만듭니다. 실제 Firebase 로그인은 로컬에서 재현할 수 없어,
   필요하면 Identity Toolkit REST로 임시 계정을 만들고 확인 뒤 삭제했습니다.
 - **Windows 셸**: 한국어 경로라 따옴표 필수. 복잡한 문자열 치환은 셸 대신 Python 스크립트나 Edit 도구로 합니다.
-- **작업 후 정리**: 브라우저 확인용으로 넣은 회원·글·세션은 반드시 삭제합니다.
+- **`test-api.mjs`가 가끔 `fetch failed … ECONNRESET`로 멈춥니다**(40번째 요청 즈음, 서버는 정상 응답). `main`에서도
+  똑같이 생기는 로컬 환경 문제이고, 개발 서버를 다시 켜고 돌리면 대개 통과합니다. 도중에 멈추면 테스트 글이 남아
+  다음 실행의 검사를 깨뜨리므로 먼저 지웁니다:
+  `DELETE FROM posts WHERE author_id LIKE 'test-member-%'` (댓글·사진 행도 같은 조건으로), `DELETE FROM clubs WHERE id LIKE 'test-club-%'`.
+- **로그인한 화면 확인**: Claude의 브라우저 창은 스크립트로 쿠키를 넣을 수 없어 로그인 상태를 만들 수 없습니다.
+  대신 Windows에 있는 Edge를 헤드리스로 띄워(`msedge.exe --headless=new --remote-debugging-port=…`) DevTools 프로토콜의
+  `Network.setCookie`로 `micom_session` 쿠키를 넣고 화면을 찍습니다. 세션은 fixture처럼 D1에 직접 넣고, 확인 뒤 지웁니다.
+- **이미지 가공 도구가 없습니다**(Python PIL·ImageMagick 없음). 로고처럼 잘라내거나 배경을 투명하게 할 때는 위의 헤드리스
+  Edge에서 canvas로 처리했습니다.
+- **작업 후 정리**: 브라우저 확인용으로 넣은 회원·글·세션·동아리는 반드시 삭제합니다.
 
 ## 6. 남은 일
 
 | 우선 | 항목 | 메모 |
 |---|---|---|
+| 높음 | 운영에 기존 동아리 등록 | 배포 직후 승인된 동아리가 없어 동아리 글을 쓸 수 없음. 관리자가 신청 → 승인. 사용자 몫 |
 | 높음 | 학교 전산실에 `noreply@mecomm-project.firebaseapp.com` 수신 허용 요청 | 인증 메일 미수신의 근본 해결. 사용자 몫 |
 | 중간 | 도메인 구매 → Firebase 발신 도메인·사이트 주소 | 스팸 분류 감소. 구매 후 DNS 설정 동행 필요 |
 | 중간 | 학사 프린터 신청 기능 | 파일 업로드(R2), PDF 장수 자동 계산, 매수 제한, 조교 출력 → 수령 알림 |
 | 낮음 | 테스트 계정 만들기 | `아이디+test1@ks.ac.kr` 방식 우선 확인, 안 되면 허용 목록 방식 |
 | 낮음 | PC 카카오톡으로 채널 채팅 바로 열기 | 현재 PC 카톡이 지원하지 않아 보류. QR + 웹 채팅으로 대체 중 |
 | 낮음 | 사이트 상단 배너 제거 | 인증 메일 문제 해결되면 `app/site-notice.tsx`의 `SITE_NOTICE = null` |
+| 낮음 | 관리자 알림 벨에 동아리 신청 표시 | 지금은 회원·직책 관리 화면의 "동아리 관리"를 열어야 보임. 신청이 잦아지면 `alertsSql`에 추가 |
+| 낮음 | 통합 게시판 첫 화면 그림의 "m" 아이콘 | 예전 로고 모양이 장식으로 남아 있음. 새 로고에 맞출지 결정 필요 |
 
 ## 7. 사용자와 일하는 방식
 

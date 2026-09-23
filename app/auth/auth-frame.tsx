@@ -19,12 +19,11 @@ export default function AuthFrame({
       <section className="auth-card">
         <SiteNotice className="in-card" />
         <a className="brand auth-brand" href="/" aria-label="미컴 라운지 홈">
-          <span className="brand-mark">
-            M<span>.</span>
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="brand-logo" src="/logo.png" alt="" width={480} height={201} />
           <span>
             미컴<span className="brand-light">라운지</span>
-            <small>MEDIA COMMUNICATION</small>
+            <small>OUR CAMPUS, CONNECTED</small>
           </span>
         </a>
         <p className="eyebrow">{eyebrow}</p>
