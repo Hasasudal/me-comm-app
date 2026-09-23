@@ -21,7 +21,12 @@ export async function PATCH(request: Request, context: Context) {
     const result = await db()
       .prepare('UPDATE clubs SET status=COALESCE(?,status),name=COALESCE(?,name) WHERE id=?')
       .bind(change.status ?? null, change.name ?? null, id)
-      .run();
+      .run()
+      .catch((e: unknown) => {
+        // Two admins renaming at once can slip past the check above; the unique index still decides.
+        if (e instanceof Error && e.message.includes('UNIQUE')) throw new HttpError(409, '이미 있거나 신청된 동아리 이름입니다.');
+        throw e;
+      });
     if (!result.meta.changes) throw new HttpError(404, '동아리를 찾을 수 없습니다.');
     return json({ ok: true });
   });

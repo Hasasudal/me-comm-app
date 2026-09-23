@@ -217,7 +217,7 @@ export default function HelpPage() {
                 답변 담당자도 볼 수 있습니다.
               </li>
               <li>
-                <strong>머릿글</strong> (선택): 제목 앞에 <code>[동아리 이름]</code>처럼 붙는 말머리입니다. 예: 동아리
+                <strong>머릿글</strong> (선택): 제목 앞에 <code>[신입 모집]</code>처럼 붙는 말머리입니다. 예: 동아리
                 게시판이면 “신입 모집”, 학사문의면 “장학”·“휴학”.
               </li>
               <li>
