@@ -100,6 +100,9 @@ node scripts/test-api.mjs    # 통합 테스트 (dev 서버가 떠 있어야 함
   현재 페이지 경로를 나열해 `Cache-Control: no-cache`를 주고 있으니, 페이지를 추가하면 `next.config.ts`도 갱신하세요.
 - **`npm test`는 테스트 파일을 `package.json`에 하나씩 나열**합니다. `tests/`에 새 파일을 만들면 거기에도 추가해야 실행됩니다.
   통합 테스트(`scripts/test-*.mjs`)는 CI에서 돌지 않으니 PR 전에 직접 돌리세요.
+- **아이폰 노치·하단 막대**: `app/layout.tsx`가 `viewport-fit=cover`로 화면을 끝까지 쓰고, `globals.css`의 `--safe-top/right/bottom/left`
+  만큼 상단바·사이드바·떠 있는 버튼 등을 안쪽으로 띄웁니다. 화면 가장자리에 붙는 요소를 새로 만들면 이 변수를 더하세요.
+  휴대폰(700px 이하) 전용 배치는 `globals.css` 끝의 "Phone layout" 블록에 모여 있습니다.
 - **PBKDF2 반복 횟수는 Workers 상한이 10만 회**입니다. 더 올리면 런타임 오류가 납니다.
 - **rate limit**: 글 10/분, 댓글 20/분, 사진 30/분, 비밀번호 10/분, 로그인 IP 120/분 + 계정 10/분.
   통합 테스트를 연달아 돌리면 걸리므로 `execute('DELETE FROM attempts')`로 창을 비웁니다.

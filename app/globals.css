@@ -2,6 +2,11 @@
 @import 'tailwindcss';
 
 :root {
+  /* Device safe areas (notch, home bar); 0 on devices without them. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
   --blue: #2454e6;
   --ink: #202634;
   --muted: #788191;
@@ -3441,5 +3446,60 @@ label small {
   .breadcrumb > a:first-child,
   .breadcrumb > a:first-child + svg {
     display: none;
+  }
+}
+
+/* Safe areas: with viewport-fit=cover the page reaches under the notch and home bar, so edge-attached parts
+   step inside them. Desktop sidebar covers a landscape phone (wider than 700px) with the notch on the left. */
+.sidebar {
+  width: calc(var(--sidebar-width) + var(--safe-left));
+  padding-top: calc(35px + var(--safe-top));
+  padding-bottom: calc(20px + var(--safe-bottom));
+  padding-left: calc(22px + var(--safe-left));
+}
+.main-wrap {
+  margin-left: calc(var(--sidebar-width) + var(--safe-left));
+  width: calc(100% - var(--sidebar-width) - var(--safe-left));
+  padding-right: var(--safe-right);
+}
+.app-shell.sidebar-closed .main-wrap {
+  margin-left: 0;
+  width: 100%;
+  padding-left: var(--safe-left);
+}
+.page-footer {
+  padding-bottom: calc(24px + var(--safe-bottom));
+}
+.auth-page {
+  padding: calc(48px + var(--safe-top)) calc(20px + var(--safe-right)) calc(48px + var(--safe-bottom))
+    calc(20px + var(--safe-left));
+}
+@media (max-width: 950px) {
+  .sidebar {
+    padding-left: calc(16px + var(--safe-left));
+  }
+}
+@media (max-width: 700px) {
+  .topbar {
+    height: calc(64px + var(--safe-top));
+    padding-top: var(--safe-top);
+  }
+  .sidebar {
+    top: calc(64px + var(--safe-top));
+    width: calc(252px + var(--safe-left));
+    padding-top: 35px;
+  }
+  .main-wrap {
+    margin-left: 0;
+    width: 100%;
+    padding-left: var(--safe-left);
+  }
+  /* The floating write button would cover the open menu. */
+  .sidebar.mobile-open ~ .main-wrap .page-heading > .primary {
+    display: none;
+  }
+  .reply-panel {
+    top: calc(72px + var(--safe-top));
+    max-height: min(420px, calc(100dvh - 96px - var(--safe-top) - var(--safe-bottom)));
   }
 }
