@@ -205,7 +205,7 @@ export default function HelpPage() {
           <section id="write">
             <h2>글쓰기</h2>
             <p>
-              게시판 오른쪽 위 <strong>글 작성하기</strong>(학사문의는 <strong>문의하기</strong>, 학과 뉴스는{' '}
+              게시판 오른쪽 위(휴대폰에서는 화면 오른쪽 아래에 떠 있는) <strong>글 작성하기</strong>(학사문의는 <strong>문의하기</strong>, 학과 뉴스는{' '}
               <strong>기사 제출하기</strong>)를 누릅니다. 통합 게시판에서 쓰면 <strong>게시할 공간</strong>에서 게시판을
               고를 수 있습니다.
             </p>
@@ -476,7 +476,7 @@ export default function HelpPage() {
           <section id="admin-review">
             <h2>뉴스 검토</h2>
             <p>
-              관리자에게만 보이는 사이드바의 <strong>뉴스 승인</strong> 화면은 왼쪽 기사 목록, 오른쪽 기사 본문으로
+              관리자에게만 보이는 사이드바의 <strong>뉴스 승인</strong> 화면은 기사 목록과 기사 본문으로(컴퓨터에서는 왼쪽·오른쪽, 휴대폰에서는 위·아래)
               나뉩니다. 위쪽 탭(
               <span className="pill wait">승인 대기</span> <span className="pill fb">피드백</span>{' '}
               <span className="pill no">반려</span> <span className="pill done">승인</span>)으로 상태별 기사를 봅니다.

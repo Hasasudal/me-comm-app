@@ -1046,7 +1046,7 @@ label small {
 }
 .recruitment-summary > span:not(.recruitment-status) {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: auto 1fr;
   column-gap: 7px;
   align-items: center;
   min-width: 140px;
@@ -1381,7 +1381,7 @@ label small {
     white-space: nowrap;
   }
   .welcome-panel {
-    height: 222px;
+    height: auto;
     padding: 21px;
     margin-bottom: 26px;
   }
@@ -1390,16 +1390,13 @@ label small {
   }
   .welcome-panel p {
     font-size: 13px;
-    max-width: 180px;
   }
+  /* The art keeps its 310x220 layout box; negative margins take back the space the scale-down frees. */
   .orbit-art {
-    position: absolute;
-    right: -58px;
-    top: 14px;
-    transform: scale(0.58);
-    opacity: 0.6;
-    width: 250px;
-    transform-origin: center right;
+    width: 310px;
+    margin: -38px -54px;
+    transform: scale(0.65);
+    transform-origin: center;
   }
   .welcome-panel > div:first-child {
     position: relative;
@@ -1497,6 +1494,15 @@ label small {
   }
 }
 @media (max-width: 520px) {
+  /* Phones stack the greeting above the illustration so the logo art is fully visible. */
+  .welcome-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .orbit-art {
+    margin: -30px auto -40px;
+    transform: scale(0.72);
+  }
   .admin-join-page {
     padding: 20px 14px;
   }
@@ -3349,4 +3355,91 @@ label small {
   line-height: 20px;
   vertical-align: 1px;
   overflow-wrap: anywhere;
+}
+
+/* Phone layout. The site is planned to become an app, so phones get touch-sized controls and app-like placement. */
+@media (max-width: 700px) {
+  /* Touch targets: top bar icons, the notice close button and comment delete are at least 40px. */
+  .icon-button,
+  .account-actions a,
+  .account-actions button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .site-notice button {
+    width: 36px;
+    height: 36px;
+  }
+  .comment-head {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .comment-head button {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin: -8px -8px -8px auto;
+  }
+  /* The bell sits left of other icons, so its panel spans the screen instead of hanging off the left edge. */
+  .reply-panel {
+    position: fixed;
+    top: 72px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: min(420px, calc(100dvh - 96px));
+  }
+  /* iOS zooms into inputs under 16px on focus. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  /* Title and subtitle take the full width; the page's main action floats bottom-right like an app button. */
+  .page-heading {
+    flex-wrap: wrap;
+  }
+  .page-heading > div:first-child {
+    flex: 1 1 100%;
+  }
+  .page-heading p:last-child {
+    max-width: none;
+  }
+  .page-heading > .primary {
+    position: fixed;
+    right: 16px;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    z-index: 40;
+    border-radius: 999px;
+    padding: 14px 20px;
+    box-shadow: 0 10px 24px #1f4fd84d;
+    margin: 0;
+  }
+  /* One-line breadcrumb that never pushes the top bar icons. */
+  .topbar > div:first-child {
+    min-width: 0;
+  }
+  .breadcrumb {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  main:has(.page-heading > .primary) {
+    padding-bottom: 88px;
+  }
+  .toast {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 520px) {
+  /* The board icon repeats the category tag, so titles get that width instead. */
+  .post-row .category-symbol {
+    display: none;
+  }
+  /* The first crumb (home) is dropped so the current page stays visible; the menu and logo lead home. */
+  .breadcrumb > a:first-child,
+  .breadcrumb > a:first-child + svg {
+    display: none;
+  }
 }

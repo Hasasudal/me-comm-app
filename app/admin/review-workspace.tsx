@@ -286,7 +286,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
         {!selected ? (
           <div className="review-empty">
             <FileText size={30} />
-            <p>{loading ? '기사를 불러오는 중입니다…' : '왼쪽 목록에서 기사를 선택하세요.'}</p>
+            <p>{loading ? '기사를 불러오는 중입니다…' : '목록에서 기사를 선택하세요.'}</p>
           </div>
         ) : (
           <>
