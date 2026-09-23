@@ -5,7 +5,7 @@
 구조 그림은 [docs/architecture/micom-lounge.html](architecture/micom-lounge.html),
 사용자용 설명은 사이트 `/help`(`app/help/help-page.tsx`)에 있습니다.
 
-> git 저장소 루트는 `web/` 폴더입니다. 그 위 폴더(`미컴 앱/`)의 `.claude/launch.json`, 기획 문서, `*.tar.gz`는 저장소 밖입니다.
+> git 저장소 루트는 `web/` 폴더입니다. 그 위 폴더(`미컴 앱/`)의 `.claude/launch.json`과 기획 문서는 저장소 밖입니다.
 
 ## 1. 서비스 한눈에
 
