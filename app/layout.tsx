@@ -5,8 +5,9 @@ export const metadata: Metadata = {
   title: '미컴 라운지 | 학과 커뮤니티',
   description: '학과 소식부터 동아리와 공모전 팀원 모집까지, 미컴 라운지.',
   icons: {
-    icon: '/favicon.svg',
-    shortcut: '/favicon.svg',
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/favicon.png',
   },
 };
 
