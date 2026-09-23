@@ -43,6 +43,7 @@ import {
 } from './app-shell';
 
 type WritableBoard = Exclude<BoardId, 'all'>;
+type Club = { id: string; name: string };
 type Post = {
   id: string;
   title: string;
@@ -60,6 +61,7 @@ type Post = {
   snippet?: string | null;
   resolved_at?: number | null;
   pinned_at?: number | null;
+  club_name?: string | null;
 };
 type Identity = ShellIdentity & { admin: boolean };
 const prefixHints: Record<WritableBoard, string> = {
@@ -67,7 +69,7 @@ const prefixHints: Record<WritableBoard, string> = {
   inquiry: '예: 장학, 휴학',
   complaint: '예: 시설, 행사',
   news: '예: 행사, 인터뷰',
-  clubs: '예: 동아리 이름',
+  clubs: '예: 신입 모집, 공지',
   contests: '예: 공모전 이름',
 };
 const formatDate = (n: number) => new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit' }).format(n);
@@ -86,6 +88,13 @@ export default function Community({ category = 'all', admin = false }: { categor
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [openOnly, setOpenOnly] = useState(false);
+  const [clubs, setClubs] = useState<Club[]>([]);
+  // The selected club tab lives in the URL (/clubs?club=<id>) so a tab can be shared.
+  const [club, setClub] = useState(() =>
+    typeof window !== 'undefined' && category === 'clubs'
+      ? new URLSearchParams(window.location.search).get('club') || ''
+      : '',
+  );
   const recruiting = category === 'clubs' || category === 'contests';
   const [newsSeenBefore, setNewsSeenBefore] = useState(0);
   const [notice, setNotice] = useState('');
@@ -106,6 +115,7 @@ export default function Community({ category = 'all', admin = false }: { categor
       if (category !== 'all') params.set('category', category);
       if (search) params.set('q', search);
       if (recruiting && openOnly) params.set('open', '1');
+      if (category === 'clubs' && club) params.set('club', club);
       if (cursor) params.set('cursor', cursor);
       if (cursor) setLoadingMore(true);
       else {
@@ -127,7 +137,7 @@ export default function Community({ category = 'all', admin = false }: { categor
         }
       }
     },
-    [category, search, recruiting, openOnly],
+    [category, search, recruiting, openOnly, club],
   );
 
   useEffect(() => {
@@ -135,6 +145,12 @@ export default function Community({ category = 'all', admin = false }: { categor
       .then((data) => setIdentity({ ...data, loaded: true }))
       .catch(() => setIdentity((value) => ({ ...value, loaded: true })));
   }, []);
+  useEffect(() => {
+    if (!identity.signedIn || (category !== 'clubs' && category !== 'all')) return;
+    api<{ clubs: Club[] }>('/api/clubs')
+      .then((data) => setClubs(data.clubs))
+      .catch(() => setClubs([]));
+  }, [category, identity.signedIn]);
   useEffect(() => {
     if (admin || !identity.loaded || !identity.signedIn) return;
     const timer = setTimeout(() => void load(), 0);
@@ -165,6 +181,20 @@ export default function Community({ category = 'all', admin = false }: { categor
     else dialog.current?.close();
   }, [creating]);
 
+  function selectClub(id: string) {
+    setClub(id);
+    window.history.replaceState(null, '', id ? `/clubs?club=${encodeURIComponent(id)}` : '/clubs');
+  }
+  async function applyClub() {
+    const name = window.prompt('개설할 동아리 이름을 입력해주세요 (30자 이내)')?.trim();
+    if (!name) return;
+    try {
+      await api('/api/clubs', { name });
+      setNotice('동아리 개설을 신청했습니다. 관리자가 승인하면 칸이 생겨요.');
+    } catch (e) {
+      window.alert((e as Error).message);
+    }
+  }
   function openCreate() {
     setModalError('');
     setDraftCategory(category === 'all' ? 'board' : category);
@@ -201,6 +231,7 @@ export default function Community({ category = 'all', admin = false }: { categor
         images,
         password: form.get('password'),
         ...recruitment,
+        ...(formCategory === 'clubs' ? { club_id: form.get('club_id') || null } : {}),
       });
       setNotice(
         formCategory === 'news'
@@ -363,6 +394,23 @@ export default function Community({ category = 'all', admin = false }: { categor
                 ))}
               </div>
             )}
+            {category === 'clubs' && (
+              <div className="filter-row" aria-label="동아리">
+                {[{ id: '', name: '전체' }, ...clubs].map((item) => (
+                  <button
+                    key={item.id || 'all'}
+                    className={club === item.id ? 'filter selected' : 'filter'}
+                    aria-pressed={club === item.id}
+                    onClick={() => selectClub(item.id)}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+                <button className="filter" onClick={() => void applyClub()}>
+                  <Plus size={14} /> 동아리 개설 신청
+                </button>
+              </div>
+            )}
             {category === 'all' && (
               <div className="filter-row" aria-label="게시글 분류">
                 {boards
@@ -434,7 +482,10 @@ export default function Community({ category = 'all', admin = false }: { categor
                       )}
                     </div>
                     <div className="post-info">
-                      <span className={`category-tag ${post.category}`}>{boardLabels[post.category]}</span>
+                      <span className={`category-tag ${post.category}`}>
+                        {boardLabels[post.category]}
+                        {post.club_name && ` · ${post.club_name}`}
+                      </span>
                       {post.pinned_at && <span className="status-badge feedback">고정</span>}
                       {deskStatus[post.category] && (
                         <span className={`status-badge ${post.resolved_at ? 'published' : 'pending'}`}>
@@ -617,6 +668,24 @@ export default function Community({ category = 'all', admin = false }: { categor
                     </select>
                   </label>
                 )}
+                {draftCategory === 'clubs' &&
+                  (clubs.length ? (
+                    <label>
+                      동아리
+                      <select name="club_id" required defaultValue={club}>
+                        <option value="" disabled>
+                          동아리를 선택해주세요
+                        </option>
+                        {clubs.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <p className="form-note">아직 승인된 동아리가 없어요. 동아리 게시판에서 먼저 개설을 신청해주세요.</p>
+                  ))}
                 <div className="form-grid">
                   <label>
                     별명
