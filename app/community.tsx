@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
+  Asterisk,
   CalendarDays,
   Check,
   ChevronRight,
@@ -313,7 +314,9 @@ export default function Community({ category = 'all', admin = false }: { categor
             <span className="orbit-badge badge-people">
               <Users size={25} />
             </span>
-            <span className="orbit-badge badge-star">✳</span>
+            <span className="orbit-badge badge-star">
+              <Asterisk size={32} strokeWidth={2.4} />
+            </span>
             <span className="orbit-label">BETTER TOGETHER</span>
           </div>
         </section>
