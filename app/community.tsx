@@ -305,7 +305,7 @@ export default function Community({ category = 'all', admin = false }: { categor
             <div className="orbit two" />
             <div className="orbit-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/favicon.png" alt="" width={256} height={256} />
+              <img src="/logo-mark.png" alt="" width={480} height={242} />
             </div>
             <span className="orbit-badge badge-news">
               <Newspaper size={24} />
