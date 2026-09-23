@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api-client';
 
 type Club = {
@@ -15,9 +15,20 @@ type Club = {
 export default function ClubManager() {
   const [clubs, setClubs] = useState<Club[] | null>(null);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const openedOnce = useRef(false);
   const load = useCallback(async () => {
     try {
-      setClubs((await api<{ clubs: Club[] }>('/api/admin/clubs')).clubs);
+      const result = (await api<{ clubs: Club[] }>('/api/admin/clubs')).clubs;
+      setClubs(result);
+      // Auto-open only once, right after the first load, when something needs attention.
+      if (!openedOnce.current) {
+        openedOnce.current = true;
+        if (detailsRef.current && result.some((club) => club.status === 'pending')) {
+          detailsRef.current.open = true;
+        }
+      }
     } catch (e) {
       setError((e as Error).message);
     }
@@ -28,11 +39,14 @@ export default function ClubManager() {
   }, [load]);
   async function run(action: Promise<unknown>) {
     setError('');
+    setBusy(true);
     try {
       await action;
       await load();
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
   function rename(club: Club) {
@@ -46,7 +60,7 @@ export default function ClubManager() {
   }
   const pending = clubs?.filter((club) => club.status === 'pending').length ?? 0;
   return (
-    <details className="member-audit" open={pending > 0}>
+    <details className="member-audit" ref={detailsRef}>
       <summary>
         동아리 관리 <span>{pending ? `대기 ${pending}` : (clubs?.length ?? 0)}</span>
       </summary>
@@ -60,7 +74,7 @@ export default function ClubManager() {
       ) : clubs.length === 0 ? (
         <p className="member-audit-empty">아직 신청된 동아리가 없습니다.</p>
       ) : (
-        <ol>
+        <ol className="club-list">
           {clubs.map((club) => (
             <li key={club.id}>
               <span>
@@ -75,16 +89,17 @@ export default function ClubManager() {
                 {club.status === 'pending' ? (
                   <button
                     className="restore-button"
+                    disabled={busy}
                     onClick={() => void run(api(`/api/admin/clubs/${club.id}`, { status: 'active' }, 'PATCH'))}
                   >
                     승인
                   </button>
                 ) : (
-                  <button className="secondary" onClick={() => rename(club)}>
+                  <button className="rename-button" disabled={busy} onClick={() => rename(club)}>
                     이름 변경
                   </button>
                 )}
-                <button className="suspend-button" onClick={() => remove(club)}>
+                <button className="suspend-button" disabled={busy} onClick={() => remove(club)}>
                   {club.status === 'pending' ? '거절' : '삭제'}
                 </button>
               </span>

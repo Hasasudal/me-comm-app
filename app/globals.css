@@ -3261,6 +3261,16 @@ label small {
     grid-template-columns: minmax(0, 1fr);
     gap: 2px;
   }
+  .club-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+.club-list li {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.rename-button {
+  color: #4b5568;
 }
 .status-chip.pending {
   background: #fff4e0;
