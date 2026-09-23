@@ -70,7 +70,8 @@ web/
   db/schema.ts         drizzle 스키마 (테이블: posts, comments, images, users, sessions, attempts, member_audit, clubs)
   drizzle/             마이그레이션 SQL (0000~0011). 배포 시 자동 적용
   public/logo.png      학과 로고(MEDIA Communication). 사이드바·로그인 화면 위쪽에 표시
-  public/favicon.png   브라우저 탭 아이콘(로고의 무지개+MEDIA 부분)
+  public/logo-mark.png 작은 크기용 로고(무지개+MEDIA, 작아서 안 읽히는 "Since 1989" 제외). 첫 화면 그림 가운데
+  public/favicon.png   브라우저 탭 아이콘(logo-mark를 정사각형으로)
   scripts/test-*.mjs   통합 테스트 (로컬 dev 서버 필요, 동아리는 test-clubs.mjs)
   tests/*.test.ts      순수 함수 단위 테스트
   docs/                문서
