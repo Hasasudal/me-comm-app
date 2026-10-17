@@ -236,6 +236,10 @@ export function AppShell({
     try {
       await api('/api/auth/session', {}, 'DELETE');
     } finally {
+      // Loaded on demand so every page's shell doesn't ship the Firebase SDK; a failure must not block leaving.
+      await Promise.all([import('firebase/auth'), import('./firebase-client')])
+        .then(async ([{ signOut }, { firebaseAuth }]) => signOut(await firebaseAuth()))
+        .catch(() => {});
       window.location.assign('/');
     }
   }
@@ -271,7 +275,7 @@ export function AppShell({
               <board.icon size={20} />
               {board.label}
               {active === board.id && <span className="nav-dot" />}
-              {identity.admin && !!identity.waiting?.[board.id] && (
+              {!!identity.waiting?.[board.id] && (
                 <span className="nav-count" aria-label={`${deskStatus[board.id]?.[0]} ${identity.waiting[board.id]}건`}>
                   {identity.waiting[board.id]}
                 </span>

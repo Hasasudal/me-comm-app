@@ -2,14 +2,13 @@
 
 import { applyActionCode, checkActionCode, confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
 import { FormEvent, useEffect, useState } from 'react';
-import { firebaseAuth } from '../../firebase-client';
+import { firebaseAuth, safeReturnTo } from '../../firebase-client';
 import { firebaseMessage } from '../firebase-errors';
 
 export type ActionMode = 'verifyEmail' | 'resetPassword' | 'recoverEmail';
 
 function returnPath(value: string) {
-  if (!value.startsWith('/') || value.startsWith('//') || value.startsWith('/auth/')) return '/login';
-  return value;
+  return safeReturnTo(value) !== value || value.startsWith('/auth/') ? '/login' : value;
 }
 
 export default function ActionHandler({

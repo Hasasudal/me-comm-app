@@ -51,7 +51,7 @@ export async function createMemberFixture() {
       name: '활성회원',
       status: 'active',
       token: `active-${crypto.randomUUID()}`,
-      expires: now + 60_000,
+      expires: now + 600_000, // a full test run with ~5s wrangler calls outlasts a minute
     },
     {
       id: 'test-member-second',
@@ -59,7 +59,7 @@ export async function createMemberFixture() {
       name: '두번째회원',
       status: 'active',
       token: `second-${crypto.randomUUID()}`,
-      expires: now + 60_000,
+      expires: now + 600_000, // a full test run with ~5s wrangler calls outlasts a minute
     },
     {
       id: 'test-member-expired',
@@ -75,7 +75,7 @@ export async function createMemberFixture() {
       name: '정지회원',
       status: 'suspended',
       token: `suspended-${crypto.randomUUID()}`,
-      expires: now + 60_000,
+      expires: now + 600_000, // a full test run with ~5s wrangler calls outlasts a minute
     },
   ];
   const ids = members.map((member) => quote(member.id)).join(',');
