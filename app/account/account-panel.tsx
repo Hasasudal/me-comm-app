@@ -1,6 +1,14 @@
 'use client';
 
-import { deleteUser, sendPasswordResetEmail, signOut, updateProfile, verifyBeforeUpdateEmail } from 'firebase/auth';
+import {
+  deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
+  signOut,
+  updateProfile,
+  verifyBeforeUpdateEmail,
+} from 'firebase/auth';
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api-client';
 import { firebaseAuth } from '../firebase-client';
@@ -104,15 +112,24 @@ export default function AccountPanel() {
     setBusy(true);
     setError('');
     setNotice('');
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const passwordInput = form.elements.namedItem('password') as HTMLInputElement | null;
     try {
-      const confirm = String(new FormData(event.currentTarget).get('confirm') || '');
+      const confirm = String(data.get('confirm') || '');
+      const password = String(data.get('password') || '');
+      if (!password) throw new Error('현재 비밀번호를 입력해주세요.');
       await api('/api/account', { confirm, dryRun: true }, 'DELETE');
       const { user } = await currentUser();
-      // Server row first: if Firebase deletion then fails, signing in again simply creates a fresh row.
+      if (!user.email) throw new Error('계정 이메일을 확인할 수 없습니다.');
+      // Fresh sign-in first: deleteUser rejects stale sessions, and by then the server data would already be gone.
+      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+      if (passwordInput) passwordInput.value = '';
       await api('/api/account', { confirm }, 'DELETE');
       await deleteUser(user);
       window.location.assign('/');
     } catch (cause) {
+      if (passwordInput) passwordInput.value = '';
       setError(firebaseMessage(cause));
       setBusy(false);
     }
@@ -180,8 +197,12 @@ export default function AccountPanel() {
         <h2>회원 탈퇴</h2>
         <p>
           게시글과 댓글은 ‘탈퇴한 회원’ 이름으로 남고, 학사문의·학생회 건의와 검토 중인 뉴스 기사는 삭제됩니다. 계정과
-          관리자 권한, 로그인 세션도 삭제됩니다.
+          관리자 권한, 로그인 세션도 삭제됩니다. 본인 확인을 위해 현재 비밀번호가 필요합니다.
         </p>
+        <label>
+          현재 비밀번호
+          <input name="password" type="password" required autoComplete="current-password" />
+        </label>
         <label>
           확인을 위해 ‘회원탈퇴’ 입력
           <input name="confirm" required autoComplete="off" />

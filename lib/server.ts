@@ -69,7 +69,19 @@ const hiddenInText = /[\u0000-\u0008\u000B-\u001F\u007F\u200B\u200C\u200E\u200F\
 /** `.refine(...visible)` rejects single-line fields (names, titles) that carry hidden characters. */
 export const visible = [(value: string) => !hidden.test(value), '보이지 않는 특수문자는 사용할 수 없습니다.'] as const;
 export const stripHidden = (value: string) => value.replace(hiddenInText, '');
-const reservedNames = ['관리자', '운영자', '학사', '학생회', 'admin'];
+// Staff may sign as their own role; admins as any of these. Compared without spaces and case.
+const reservedNames = new Map<string, Role | null>([
+  ['관리자', null],
+  ['운영자', null],
+  ['admin', null],
+  ['학사', 'academic'],
+  ['학생회', 'council'],
+]);
+export function checkAuthorName(name: string, member: Member) {
+  const key = name.replace(/\s+/g, '').toLowerCase();
+  if (reservedNames.has(key) && !isAdmin(member) && reservedNames.get(key) !== member.role)
+    throw new HttpError(400, '운영진으로 오해될 수 있는 이름은 사용할 수 없습니다.');
+}
 export const contentFields = {
   title: z
     .string()
@@ -120,11 +132,7 @@ export const authorFields = {
     .trim()
     .min(1, '작성자 이름을 입력해주세요.')
     .max(20, '작성자 이름은 20자 이내로 입력해주세요.')
-    .refine(...visible)
-    .refine(
-      (name) => !reservedNames.includes(name.replace(/\s+/g, '').toLowerCase()),
-      '운영진으로 오해될 수 있는 이름은 사용할 수 없습니다.',
-    ),
+    .refine(...visible),
   prefix: z
     .string()
     .trim()
@@ -180,7 +188,7 @@ export async function identity(request?: Request) {
     if (member) {
       // Latest review result on the member's own news, so the sidebar can flag unseen feedback.
       const reviewed = await db()
-        .prepare("SELECT MAX(updated_at) AS at FROM posts WHERE category='news' AND author_id=? AND status<>'pending'")
+        .prepare("SELECT MAX(reviewed_at) AS at FROM posts WHERE category='news' AND author_id=?")
         .bind(member.userId)
         .first<{ at: number | null }>();
       // Staff see how many posts on the desks they answer still wait for a reply.
@@ -276,11 +284,12 @@ export type PostRow = {
   feedback: string | null;
   resolved_at: number | null;
   pinned_at: number | null;
+  reviewed_at: number | null;
   created_at: number;
   updated_at: number;
 };
 export const listColumns =
-  'id,title,category,prefix,club_id,author_name,status,recruitment_status,deadline,headcount,roles,resolved_at,pinned_at,created_at,updated_at,' +
+  'id,title,category,prefix,club_id,author_name,status,recruitment_status,deadline,headcount,roles,resolved_at,pinned_at,reviewed_at,created_at,updated_at,' +
   '(SELECT name FROM clubs WHERE clubs.id=posts.club_id) AS club_name,' +
   '(SELECT COUNT(*) FROM comments WHERE comments.post_id=posts.id) AS comment_count,' +
   '(SELECT COUNT(*) FROM images WHERE images.post_id=posts.id) AS image_count';
@@ -379,6 +388,7 @@ export function publicPost(post: PostRow) {
     roles: post.roles,
     resolved_at: post.resolved_at,
     pinned_at: post.pinned_at,
+    reviewed_at: post.reviewed_at,
     created_at: post.created_at,
     updated_at: post.updated_at,
   };

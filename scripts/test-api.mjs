@@ -352,6 +352,18 @@ try {
     '학생회 cannot open inquiries',
   );
   assert.deepEqual(Object.keys((await request('/api/session', { cookie: admin })).data.waiting), ['complaint']);
+  // Staff may sign as their own role; members may not.
+  const sign = (author_name, cookie = admin) =>
+    request(`/api/posts/${ids.complaint}/comments`, { method: 'POST', cookie, body: { author_name, content: '검토하겠습니다.' } });
+  const signed = await sign('학생회');
+  assert.equal(signed.status, 201, '학생회 may sign as 학생회');
+  assert.equal((await sign('학사')).status, 400, '학생회 cannot sign as 학사');
+  assert.equal(
+    (await sign('학 생회', author)).data.error,
+    '운영진으로 오해될 수 있는 이름은 사용할 수 없습니다.',
+    'members cannot sign as 학생회',
+  );
+  await request(`/api/comments/${signed.data.comment.id}`, { method: 'DELETE', cookie: admin, body: {} });
   setRole('test-member-active', 'admin');
   assert.equal((await request(`/api/posts/${ids.news}`, { cookie: admin })).status, 200, 'admin can open any news');
 
@@ -614,6 +626,7 @@ try {
   );
   authored = (await request(`/api/posts/${ids.news}`)).data.post;
   assert.equal(authored.feedback, null, 'resubmission clears feedback');
+  assert.equal(authored.reviewed_at, null, 'resubmission clears the review time');
 
   news = await pending();
   assert.equal(
@@ -797,6 +810,25 @@ try {
     ).status,
     200,
   );
+  const approved = (await request(`/api/posts/${ids.news2}`)).data.post;
+  assert.ok(approved.reviewed_at >= news.updated_at, 'approval stamps the review time');
+  assert.equal((await request('/api/session')).data.newsReviewedAt, approved.reviewed_at, 'the writer sees the new result');
+  // An admin fixing approved news changes updated_at (the review guard) but is not a new result for the writer.
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(
+    (
+      await request(`/api/posts/${ids.news2}`, {
+        method: 'PATCH',
+        cookie: admin,
+        body: { title: `승인 검증 ${suffix}`, content: '관리자가 고친 기사', author_name: '작성자' },
+      })
+    ).data.status,
+    'published',
+  );
+  const fixed = (await request(`/api/posts/${ids.news2}`)).data.post;
+  assert.ok(fixed.updated_at > approved.updated_at, 'admin edit bumps updated_at');
+  assert.equal(fixed.reviewed_at, approved.reviewed_at, 'admin edit keeps the review time');
+  assert.equal((await request('/api/session')).data.newsReviewedAt, approved.reviewed_at, 'no new result after an admin edit');
   const tabs = Object.fromEntries(
     await Promise.all(
       ['rejected', 'published'].map(async (s) => [

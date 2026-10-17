@@ -1,4 +1,5 @@
 import {
+  checkAuthorName,
   createSchema,
   db,
   deskCategories,
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
   return handle(async () => {
     const member = await requireMember(request);
     const data = createSchema.parse(await input(request));
+    checkAuthorName(data.author_name, member);
     await limit(request, 'create', 10, member.userId);
     await limit(request, 'create-day', 30, member.userId, 86400000);
     const id = crypto.randomUUID(),
