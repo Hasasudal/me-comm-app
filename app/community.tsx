@@ -37,6 +37,7 @@ import {
   deskStatus,
   boardPaths,
   boards,
+  loadSession,
   markSeen,
   seenAt,
   type BoardId,
@@ -73,7 +74,15 @@ const prefixHints: Record<WritableBoard, string> = {
   clubs: '예: 신입 모집, 공지',
   contests: '예: 공모전 이름',
 };
-const formatDate = (n: number) => new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit' }).format(n);
+// Seoul time to match the server's deadline logic; older posts carry the year so last year's 03.02 isn't read as this year's.
+const seoulYear = (n: number) => new Intl.DateTimeFormat('en', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(n);
+const formatDate = (n: number) =>
+  new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    ...(seoulYear(n) === seoulYear(Date.now()) ? {} : { year: 'numeric' }),
+    month: '2-digit',
+    day: '2-digit',
+  }).format(n);
 
 export default function Community({ category = 'all', admin = false }: { category?: BoardId; admin?: boolean }) {
   const [identity, setIdentity] = useState<Identity>({
@@ -142,7 +151,7 @@ export default function Community({ category = 'all', admin = false }: { categor
   );
 
   useEffect(() => {
-    api<Omit<Identity, 'loaded'>>('/api/session')
+    loadSession<Omit<Identity, 'loaded'>>()
       .then((data) => setIdentity({ ...data, loaded: true }))
       .catch(() => setIdentity((value) => ({ ...value, loaded: true })));
   }, []);
@@ -206,7 +215,8 @@ export default function Community({ category = 'all', admin = false }: { categor
     if (busy) return;
     // A tap outside the dialog (easy on phones), Esc or ✕ would otherwise drop a half-written post.
     const form = dialog.current?.querySelector('form');
-    const field = (name: string) => String((form?.elements.namedItem(name) as HTMLInputElement | null)?.value || '').trim();
+    const field = (name: string) =>
+      String((form?.elements.namedItem(name) as HTMLInputElement | null)?.value || '').trim();
     if ((field('title') || field('content') || images.length) && !window.confirm('작성 중인 글을 버릴까요?')) return;
     setCreating(false);
     setModalError('');
@@ -301,9 +311,15 @@ export default function Community({ category = 'all', admin = false }: { categor
               <span>여기서 시작됩니다.</span>
             </h2>
             <p>새로운 소식, 같은 관심사, 함께할 사람들.</p>
-            <button onClick={openCreate}>
-              첫 이야기를 꺼내보세요 <ArrowUpRight size={18} />
-            </button>
+            {identity.signedIn ? (
+              <button onClick={openCreate}>
+                첫 이야기를 꺼내보세요 <ArrowUpRight size={18} />
+              </button>
+            ) : (
+              <a href="/login?returnTo=/">
+                첫 이야기를 꺼내보세요 <ArrowUpRight size={18} />
+              </a>
+            )}
           </div>
           <div className="orbit-art" aria-hidden="true">
             <div className="orbit one" />
@@ -338,17 +354,26 @@ export default function Community({ category = 'all', admin = false }: { categor
             <ShieldCheck size={32} />
             <h3>관리자 전용 공간입니다</h3>
             <p>
-              {identity.signedIn
-                ? '관리자 직책이 필요합니다. 관리자에게 직책을 요청해주세요.'
-                : '로그인한 뒤 이용할 수 있습니다.'}
+              {identity.blocked ||
+                (identity.signedIn
+                  ? '관리자 직책이 필요합니다. 관리자에게 직책을 요청해주세요.'
+                  : '로그인한 뒤 이용할 수 있습니다.')}
             </p>
-            {!identity.signedIn && (
+            {!identity.signedIn && !identity.blocked && (
               <a className="primary" href="/login?returnTo=/admin">
                 로그인 <ArrowRight size={16} />
               </a>
             )}
           </div>
         )
+      ) : identity.blocked ? (
+        <section className="member-gate" role="alert">
+          <div className="member-gate-icon">
+            <LockKeyhole size={29} />
+          </div>
+          <h2>이용할 수 없는 계정입니다</h2>
+          <p>{identity.blocked}</p>
+        </section>
       ) : !identity.signedIn ? (
         <section className="member-gate">
           <div className="member-gate-icon">
@@ -382,7 +407,7 @@ export default function Community({ category = 'all', admin = false }: { categor
             <div className="search-row">
               <Search size={18} />
               <input
-                aria-label="제목 검색"
+                aria-label="글 검색"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="제목·본문·작성자로 검색"
@@ -692,7 +717,9 @@ export default function Community({ category = 'all', admin = false }: { categor
                       </select>
                     </label>
                   ) : (
-                    <p className="form-note">아직 승인된 동아리가 없어요. 동아리 게시판에서 먼저 개설을 신청해주세요.</p>
+                    <p className="form-note">
+                      아직 승인된 동아리가 없어요. 동아리 게시판에서 먼저 개설을 신청해주세요.
+                    </p>
                   ))}
                 <div className="form-grid">
                   <label>

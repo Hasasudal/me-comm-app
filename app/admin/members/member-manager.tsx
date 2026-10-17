@@ -25,7 +25,12 @@ type AuditEntry = {
   after: string;
   created_at: number;
 };
-const statusLabels: Record<string, string> = { active: '이용 중', suspended: '정지', pending: '승인 대기' };
+const statusLabels: Record<string, string> = {
+  active: '이용 중',
+  suspended: '정지',
+  pending: '승인 대기',
+  rejected: '가입 거절',
+};
 const auditValue = (entry: AuditEntry, value: string) =>
   entry.action === 'role' ? roleLabels[value as Role] || value : statusLabels[value] || value;
 const formatWhen = (n: number) =>
@@ -56,6 +61,8 @@ export default function MemberManager() {
   );
   const [role, setRole] = useState('all');
   const [page, setPage] = useState(1);
+  // Paging reuses the last searched filters, not whatever the inputs hold before 검색 is pressed.
+  const [searched, setSearched] = useState({ query, status, role });
   const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -68,23 +75,24 @@ export default function MemberManager() {
     }
   }, []);
   const load = useCallback(
-    async (nextPage = page) => {
+    async (nextPage = page, filters = searched) => {
       setBusy(true);
       setError('');
       try {
         const result = await api<{ users: User[]; total: number }>(
-          `/api/admin/users?q=${encodeURIComponent(query)}&status=${status}&role=${role}&page=${nextPage}`,
+          `/api/admin/users?q=${encodeURIComponent(filters.query)}&status=${filters.status}&role=${filters.role}&page=${nextPage}`,
         );
         setUsers(result.users);
         setTotal(result.total);
         setPage(nextPage);
+        setSearched(filters);
       } catch (cause) {
         setError((cause as Error).message);
       } finally {
         setBusy(false);
       }
     },
-    [page, query, status, role],
+    [page, searched],
   );
   useEffect(() => {
     api<Session>('/api/session')
@@ -100,7 +108,7 @@ export default function MemberManager() {
   }, []);
   async function search(event: FormEvent) {
     event.preventDefault();
-    await load(1);
+    await load(1, { query, status, role });
   }
   async function update(user: User, change: { status?: User['status']; role?: Role }, question: string) {
     if (!window.confirm(question)) return;
@@ -122,16 +130,31 @@ export default function MemberManager() {
           `${user.display_name} 회원의 이용을 정지할까요?\n모든 기기에서 로그아웃됩니다.`,
         )
       : update(user, { status: 'active' }, `${user.display_name} 회원의 이용을 복구할까요?`);
-  // Members whose verification mail never arrived: an admin confirms who they are before letting them in.
+  // Pending rows only exist for sign-ins whose school mail was never verified: anyone could have typed that address,
+  // so the admin must confirm who they are first. Declining deletes the row so the real owner can still join later.
   const approve = (user: User) =>
     update(
       user,
       { status: 'active' },
-      `${user.display_name}(${user.email}) 회원의 가입을 승인할까요?
-학번이나 연락처로 본인인지 먼저 확인해주세요.`,
+      `이메일 인증을 하지 않은 계정입니다. 본인 확인 후 승인하세요.
+${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
     );
-  const decline = (user: User) =>
-    update(user, { status: 'suspended' }, `${user.display_name}(${user.email}) 회원의 가입을 거절할까요?`);
+  async function decline(user: User) {
+    if (
+      !window.confirm(`${user.display_name}(${user.email}) 회원의 가입을 거절할까요?
+가입 요청이 삭제됩니다.`)
+    )
+      return;
+    setBusy(true);
+    setError('');
+    try {
+      await api(`/api/admin/users/${encodeURIComponent(user.id)}`, {}, 'DELETE');
+      await Promise.all([load(page), loadAudit()]);
+    } catch (cause) {
+      setError((cause as Error).message);
+      setBusy(false);
+    }
+  }
   const assign = (user: User, next: Role) =>
     next !== user.role &&
     update(
@@ -218,7 +241,7 @@ export default function MemberManager() {
                       <span className={`role-badge ${user.role}`}>{roleLabels[user.role]}</span>
                     )}
                     {user.status === 'suspended' && <span className="status-chip">이용 정지</span>}
-                    {user.status === 'pending' && <span className="status-chip pending">승인 대기</span>}
+                    {user.status === 'pending' && <span className="status-chip pending">메일 미인증 · 승인 대기</span>}
                   </strong>
                   <span>{user.email}</span>
                 </div>

@@ -5,18 +5,25 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   check-and-deploy:
     runs-on: ubuntu-latest
     # Deploys run one at a time so migrations and uploads never overlap.
     concurrency: ${{ github.event_name == 'push' && 'production' || github.ref }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Informational: next 16.3.4 has a critical advisory in code vinext does not run (next/og, image optimizer),
+      # so this reports without failing the job. Make it a hard gate once that advisory is resolved.
+      - run: npm audit --omit=dev --audit-level=critical
+        continue-on-error: true
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm test

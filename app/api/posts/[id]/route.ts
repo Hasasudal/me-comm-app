@@ -8,6 +8,7 @@ import {
   input,
   isAdmin,
   json,
+  parseReview,
   passwordField,
   publicPost,
   recruitmentValues,
@@ -46,9 +47,16 @@ export async function PATCH(request: Request, context: Context) {
     const news = post.category === 'news';
     if (news && post.status === 'rejected' && !admin)
       throw new HttpError(409, '반려된 기사는 수정할 수 없습니다. 새 기사로 작성해주세요.');
-    // Any change to news sends it back for review and clears the previous feedback.
-    const status = news ? 'pending' : 'published';
-    const feedback = news ? null : post.feedback;
+    // A writer's change to news sends it back for review and clears the previous feedback; an admin (the reviewer)
+    // fixing it keeps the review result. Marks point at character offsets, so a body change drops them but keeps the note.
+    const review = news && !admin;
+    const status = review ? 'pending' : news ? post.status : 'published';
+    const kept = parseReview(post.feedback);
+    const feedback = review
+      ? null
+      : kept && data.content !== post.content
+        ? JSON.stringify({ ...kept, marks: [] })
+        : post.feedback;
     const [recruitmentStatus, deadline, headcount, roles] = recruitmentValues(data, post.category);
     // Older club posts made before clubs existed may stay unassigned until someone picks one.
     const clubId =

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { db, handle, HttpError, input, json, requireAdmin } from '../../../../../lib/server';
+import { db, handle, HttpError, input, json, requireAdmin, visible } from '../../../../../lib/server';
 import { clubNameField } from '../../../../../lib/clubs';
 
 type Context = { params: Promise<{ id: string }> };
@@ -11,7 +11,7 @@ export async function PATCH(request: Request, context: Context) {
     await requireAdmin(request);
     const { id } = await context.params;
     const change = z
-      .object({ status: z.literal('active').optional(), name: clubNameField.optional() })
+      .object({ status: z.literal('active').optional(), name: clubNameField.refine(...visible).optional() })
       .refine((value) => value.status || value.name, '바꿀 내용을 선택해주세요.')
       .parse(await input(request));
     if (change.name) {
@@ -37,10 +37,16 @@ export async function DELETE(request: Request, context: Context) {
     await requireAdmin(request);
     await input(request); // same-origin check
     const { id } = await context.params;
-    const used = await db().prepare('SELECT 1 FROM posts WHERE club_id=? LIMIT 1').bind(id).first();
-    if (used) throw new HttpError(409, '글이 남아 있는 동아리는 삭제할 수 없습니다.');
-    const result = await db().prepare('DELETE FROM clubs WHERE id=?').bind(id).run();
-    if (!result.meta.changes) throw new HttpError(404, '동아리를 찾을 수 없습니다.');
+    // One statement, so a post filed between a check and the delete cannot be orphaned.
+    const result = await db()
+      .prepare('DELETE FROM clubs WHERE id=? AND NOT EXISTS (SELECT 1 FROM posts WHERE club_id=?)')
+      .bind(id, id)
+      .run();
+    if (!result.meta.changes) {
+      const exists = await db().prepare('SELECT 1 FROM clubs WHERE id=?').bind(id).first();
+      if (exists) throw new HttpError(409, '글이 남아 있는 동아리는 삭제할 수 없습니다.');
+      throw new HttpError(404, '동아리를 찾을 수 없습니다.');
+    }
     return json({ ok: true });
   });
 }

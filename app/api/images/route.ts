@@ -1,7 +1,43 @@
 import { db, handle, HttpError, json, limit, requireMember } from '../../../lib/server';
-import { bucket, imageTypes, looksLike, MAX_IMAGE_BYTES, MAX_UNATTACHED, sweepUnattached } from '../../../lib/images';
+import {
+  bucket,
+  imageTypes,
+  looksLike,
+  MAX_IMAGE_BYTES,
+  MAX_UNATTACHED,
+  stripJpegMetadata,
+  sweepUnattached,
+} from '../../../lib/images';
 
 export const dynamic = 'force-dynamic';
+
+const tooBig = () => new HttpError(413, '사진은 5MB 이하만 올릴 수 있습니다.');
+
+// Reads the body but stops as soon as it passes the cap, so a missing or false Content-Length cannot make the
+// worker buffer more than that.
+async function readBody(request: Request) {
+  if (Number(request.headers.get('content-length')) > MAX_IMAGE_BYTES) throw tooBig();
+  const reader = request.body?.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (reader) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > MAX_IMAGE_BYTES) {
+      await reader.cancel();
+      throw tooBig();
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return bytes;
+}
 
 // Uploads one photo (the raw image as the body). It stays unattached until a post claims it.
 export async function POST(request: Request) {
@@ -13,17 +49,21 @@ export async function POST(request: Request) {
     const ext = imageTypes[type];
     if (!ext) throw new HttpError(415, 'JPG, PNG, WebP 사진만 올릴 수 있습니다.');
     await limit(request, 'image', 30, member.userId);
-    const body = await request.arrayBuffer();
+    let body: Uint8Array | null = await readBody(request);
     if (!body.byteLength) throw new HttpError(400, '사진이 비어 있습니다.');
-    if (body.byteLength > MAX_IMAGE_BYTES) throw new HttpError(413, '사진은 5MB 이하만 올릴 수 있습니다.');
-    if (!looksLike(ext, new Uint8Array(body, 0, Math.min(12, body.byteLength))))
-      throw new HttpError(415, '사진 파일이 올바르지 않습니다.');
+    if (!looksLike(ext, body.subarray(0, 12))) throw new HttpError(415, '사진 파일이 올바르지 않습니다.');
+    // The app re-encodes photos, but a direct upload could still carry the camera's GPS position.
+    if (ext === 'jpg') body = stripJpegMetadata(body);
+    if (!body) throw new HttpError(415, '사진 파일이 올바르지 않습니다.');
     const pending = await db()
       .prepare('SELECT COUNT(*) AS count FROM images WHERE owner_id=? AND post_id IS NULL')
       .bind(member.userId)
       .first<{ count: number }>();
-    if ((pending?.count || 0) >= MAX_UNATTACHED)
-      throw new HttpError(429, '등록하지 않은 사진이 너무 많습니다. 글을 먼저 등록하거나 내일 다시 시도해주세요.');
+    let count = pending?.count || 0;
+    // Photos from drafts given up an hour ago or more make room before the cap turns the member away.
+    if (count >= MAX_UNATTACHED) count -= await sweepUnattached(member.userId, 60 * 60 * 1000);
+    if (count >= MAX_UNATTACHED)
+      throw new HttpError(429, '등록하지 않은 사진이 너무 많습니다. 글을 먼저 등록하거나 한 시간 뒤 다시 시도해주세요.');
     const key = `${crypto.randomUUID()}.${ext}`;
     await bucket().put(key, body, { httpMetadata: { contentType: type } });
     await db()

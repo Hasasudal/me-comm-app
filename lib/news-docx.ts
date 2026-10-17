@@ -22,12 +22,17 @@ const formatDate = (n: number) =>
     n,
   );
 
+// XML 1.0 forbids these control characters; one in a run makes Word refuse the whole file.
+const xmlSafe = (text: string) => text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+
 // Plain structure of one article in the document; kept separate from docx so it can be tested without a zip.
 export function articleBlocks(article: ExportArticle) {
   return {
-    heading: `${article.prefix ? `[${article.prefix}] ` : ''}${article.title}`,
-    meta: `${article.author_name || '이름 없음'} · ${formatDate(article.created_at)} · ${statusText[article.status] || article.status}`,
-    paragraphs: article.content.replace(/\r\n/g, '\n').split('\n'),
+    heading: xmlSafe(`${article.prefix ? `[${article.prefix}] ` : ''}${article.title}`),
+    meta: xmlSafe(
+      `${article.author_name || '이름 없음'} · ${formatDate(article.created_at)} · ${statusText[article.status] || article.status}`,
+    ),
+    paragraphs: xmlSafe(article.content).replace(/\r\n/g, '\n').split('\n'),
   };
 }
 

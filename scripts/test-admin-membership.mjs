@@ -83,6 +83,21 @@ try {
         ['test-pending-2', 'suspended'],
       ],
     );
+    // Declining through DELETE drops the pending row (logged) so the real mailbox owner can still join later.
+    execute(
+      `INSERT INTO users (id,email,display_name,status,role,created_at,updated_at) VALUES ('test-pending-3','pending3@ks.ac.kr','대기삼','pending','member',${now},${now})`,
+    );
+    assert.equal((await request('/api/admin/users/test-pending-3', { method: 'DELETE', body: {} })).status, 200);
+    assert.equal(
+      (await request('/api/admin/users/test-pending-1', { method: 'DELETE', body: {} })).status,
+      404,
+      'only pending sign-ups can be deleted',
+    );
+    assert.ok(!(await request('/api/admin/users?q=pending3&limit=50')).data.users.length, 'the declined row is gone');
+    const declined = (await request('/api/admin/audit')).data.entries.find(
+      (e) => e.target_email === 'pending3@ks.ac.kr',
+    );
+    assert.deepEqual([declined.before, declined.after], ['pending', 'rejected'], 'declining is logged');
     const logged = (await request('/api/admin/audit')).data.entries.find((e) => e.target_email === 'pending1@ks.ac.kr');
     assert.deepEqual(
       [logged.action, logged.before, logged.after],

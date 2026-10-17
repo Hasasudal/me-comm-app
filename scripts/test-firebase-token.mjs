@@ -65,6 +65,9 @@ assert.equal(
 );
 await assert.rejects(() => verify({ ...validClaims, email: 'student@example.com' }), /학교 이메일/);
 await assert.rejects(() => verify({ ...validClaims, email: 'student@sub.ks.ac.kr' }), /학교 이메일/);
+// U+212A KELVIN SIGN lowercases to 'k', so it must be rejected before the address is lowercased.
+await assert.rejects(() => verify({ ...validClaims, email: 'student@Ks.ac.kr' }), /학교 이메일/);
+assert.equal((await verify({ ...validClaims, email: 'Student@KS.AC.KR' })).email, 'student@ks.ac.kr');
 assert.equal(
   (await verify({ ...validClaims, name: ' ' })).displayName,
   'student',

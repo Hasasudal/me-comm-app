@@ -16,9 +16,16 @@ type Comment = {
   writer?: Writer;
 };
 const formatTime = (n: number) =>
-  new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(n);
+  new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(n);
 
-export default function Comments({ postId }: { postId: string }) {
+// onChange runs after a comment is added or removed, so the parent can refresh state the server derives from comments (desk "answered" badge).
+export default function Comments({ postId, onChange }: { postId: string; onChange?: () => void }) {
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -45,6 +52,7 @@ export default function Comments({ postId }: { postId: string }) {
         content: data.get('content'),
       });
       setComments((list) => [...(list || []), comment]);
+      onChange?.();
       // Keep the name for the next comment; clear only the text.
       (form.elements.namedItem('content') as HTMLTextAreaElement).value = '';
     } catch (e) {
@@ -60,6 +68,7 @@ export default function Comments({ postId }: { postId: string }) {
     try {
       await api(`/api/comments/${comment.id}`, {}, 'DELETE');
       setComments((list) => (list || []).filter((item) => item.id !== comment.id));
+      onChange?.();
     } catch (e) {
       setError((e as Error).message);
     }

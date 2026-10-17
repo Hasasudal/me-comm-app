@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 // Firebase uids never take this form, so no account can claim the withdrawn member's content.
 const WITHDRAWN_ID = 'withdrawn';
 const WITHDRAWN_NAME = '탈퇴한 회원';
+const LAST_ADMIN = '마지막 관리자는 다른 회원에게 관리자 직책을 준 뒤 탈퇴할 수 있습니다.';
 
 export async function PATCH(request: Request) {
   return handle(async () => {
@@ -52,32 +53,35 @@ export async function DELETE(request: Request) {
       const count = await db()
         .prepare("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND status='active'")
         .first<{ count: number }>();
-      if ((count?.count || 0) <= 1)
-        throw new HttpError(409, '마지막 관리자는 다른 회원에게 관리자 직책을 준 뒤 탈퇴할 수 있습니다.');
+      if ((count?.count || 0) <= 1) throw new HttpError(409, LAST_ADMIN);
     }
     if (dryRun) return json({ ok: true });
+    // Re-checked inside every statement so a concurrent demotion cannot withdraw the last admin; the member's own
+    // row still counts until the final DELETE, hence >=2.
+    const guard =
+      member.role === 'admin' ? " AND (SELECT COUNT(*) FROM users WHERE role='admin' AND status='active')>=2" : '';
     // Posts and comments stay for the community, credited to a withdrawn member; unfinished news, inquiries and
     // complaints are dropped (with their photos) and approved news stays for the admin archive.
-    const dropped =
-      "author_id=? AND (category IN ('inquiry','complaint') OR (category='news' AND status<>'published'))";
+    const dropped = `author_id=? AND (category IN ('inquiry','complaint') OR (category='news' AND status<>'published'))${guard}`;
     const doomed = await db()
       .prepare(`SELECT id FROM posts WHERE ${dropped}`)
       .bind(member.userId)
       .all<{ id: string }>();
     await deletePostImages(doomed.results.map((row) => row.id));
     await sweepUnattached(member.userId);
-    await db().batch([
+    const results = await db().batch([
       db().prepare(`DELETE FROM comments WHERE post_id IN (SELECT id FROM posts WHERE ${dropped})`).bind(member.userId),
       db().prepare(`DELETE FROM posts WHERE ${dropped}`).bind(member.userId),
       db()
-        .prepare('UPDATE posts SET author_id=?,author_name=? WHERE author_id=?')
+        .prepare(`UPDATE posts SET author_id=?,author_name=? WHERE author_id=?${guard}`)
         .bind(WITHDRAWN_ID, WITHDRAWN_NAME, member.userId),
       db()
-        .prepare('UPDATE comments SET author_id=?,author_name=? WHERE author_id=?')
+        .prepare(`UPDATE comments SET author_id=?,author_name=? WHERE author_id=?${guard}`)
         .bind(WITHDRAWN_ID, WITHDRAWN_NAME, member.userId),
-      db().prepare('DELETE FROM sessions WHERE user_id=?').bind(member.userId),
-      db().prepare('DELETE FROM users WHERE id=?').bind(member.userId),
+      db().prepare(`DELETE FROM sessions WHERE user_id=?${guard}`).bind(member.userId),
+      db().prepare(`DELETE FROM users WHERE id=?${guard}`).bind(member.userId),
     ]);
+    if (!results[5].meta.changes) throw new HttpError(409, LAST_ADMIN);
     return json({ ok: true }, 200, { 'Set-Cookie': expiredSessionCookie() });
   });
 }

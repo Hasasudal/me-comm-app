@@ -24,12 +24,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
     if (!target) throw new HttpError(404, '회원을 찾을 수 없습니다.');
     const losesAdmin =
       target.role === 'admin' && (change.status === 'suspended' || (change.role && change.role !== 'admin'));
-    if (losesAdmin) {
-      const count = await db()
-        .prepare("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND status='active'")
-        .first<{ count: number }>();
-      if ((count?.count || 0) <= 1) throw new HttpError(409, '마지막 관리자의 직책은 바꾸거나 정지할 수 없습니다.');
-    }
+    // Checked inside each statement, so two admins demoting each other at once cannot leave none.
+    const guard = losesAdmin ? "(SELECT COUNT(*) FROM users WHERE role='admin' AND status='active' AND id<>?)>=1" : '1';
+    const guardArgs = losesAdmin ? [userId] : [];
     const status = change.status || target.status;
     const role = change.role || target.role;
     const now = Date.now();
@@ -44,7 +41,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
       .map(([action, before, after]) =>
         db()
           .prepare(
-            'INSERT INTO member_audit (id,actor_id,actor_name,target_id,target_name,target_email,action,before,after,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+            `INSERT INTO member_audit (id,actor_id,actor_name,target_id,target_name,target_email,action,before,after,created_at) SELECT ?,?,?,?,?,?,?,?,?,? WHERE ${guard}`,
           )
           .bind(
             crypto.randomUUID(),
@@ -57,17 +54,51 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
             before,
             after,
             now,
+            ...guardArgs,
           ),
       );
-    await db().batch([
-      ...audit,
+    const results = await db().batch([
       db()
         .prepare(
-          "UPDATE users SET status=?,role=?,suspended_at=CASE WHEN ?=status THEN suspended_at WHEN ?='suspended' THEN ? ELSE NULL END,updated_at=? WHERE id=?",
+          `UPDATE users SET status=?,role=?,suspended_at=CASE WHEN ?=status THEN suspended_at WHEN ?='suspended' THEN ? ELSE NULL END,updated_at=? WHERE id=? AND ${guard}`,
         )
-        .bind(status, role, status, status, now, now, userId),
-      ...(change.status === 'suspended' ? [db().prepare('DELETE FROM sessions WHERE user_id=?').bind(userId)] : []),
+        .bind(status, role, status, status, now, now, userId, ...guardArgs),
+      ...audit,
+      ...(change.status === 'suspended'
+        ? [
+            db()
+              .prepare(`DELETE FROM sessions WHERE user_id=? AND ${guard}`)
+              .bind(userId, ...guardArgs),
+          ]
+        : []),
     ]);
+    if (!results[0].meta.changes)
+      throw losesAdmin
+        ? new HttpError(409, '마지막 관리자의 직책은 바꾸거나 정지할 수 없습니다.')
+        : new HttpError(404, '회원을 찾을 수 없습니다.');
     return json({ ok: true, status, role });
+  });
+}
+
+// Turning down an unverified sign-up drops the row instead of suspending it, so whoever really owns that mailbox
+// can still verify it and join later. Only 'pending' rows qualify; active members are suspended through PATCH.
+export async function DELETE(request: Request, context: { params: Promise<{ userId: string }> }) {
+  return handle(async () => {
+    const current = await requireAdmin(request);
+    const { userId } = await context.params;
+    await input(request);
+    const results = await db().batch([
+      db()
+        .prepare(
+          "INSERT INTO member_audit (id,actor_id,actor_name,target_id,target_name,target_email,action,before,after,created_at) SELECT ?,?,?,id,display_name,email,'status','pending','rejected',? FROM users WHERE id=? AND status='pending'",
+        )
+        .bind(crypto.randomUUID(), current.userId, current.displayName, Date.now(), userId),
+      db()
+        .prepare("DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE id=? AND status='pending')")
+        .bind(userId),
+      db().prepare("DELETE FROM users WHERE id=? AND status='pending'").bind(userId),
+    ]);
+    if (!results[2].meta.changes) throw new HttpError(404, '승인 대기 중인 회원을 찾을 수 없습니다.');
+    return json({ ok: true });
   });
 }
