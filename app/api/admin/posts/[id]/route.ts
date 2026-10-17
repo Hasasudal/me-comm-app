@@ -38,8 +38,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     let statement;
     if (command.action === 'approve')
       statement = db()
-        .prepare(`UPDATE posts SET status='published',feedback=NULL,updated_at=? ${guard}`)
-        .bind(now, id, command.updated_at);
+        .prepare(`UPDATE posts SET status='published',feedback=NULL,updated_at=?,reviewed_at=? ${guard}`)
+        .bind(now, now, id, command.updated_at);
     else if (command.action === 'edit')
       statement = db()
         .prepare(`UPDATE posts SET title=?,content=?,prefix=?,updated_at=? ${guard}`)
@@ -50,12 +50,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (command.marks.some((mark) => mark.end > post.content.length))
         throw new HttpError(400, '표시 범위가 본문을 벗어났습니다.');
       statement = db()
-        .prepare(`UPDATE posts SET status='feedback',feedback=?,updated_at=? ${guard}`)
-        .bind(JSON.stringify({ note: command.note, marks: command.marks }), now, id, command.updated_at);
+        .prepare(`UPDATE posts SET status='feedback',feedback=?,updated_at=?,reviewed_at=? ${guard}`)
+        .bind(JSON.stringify({ note: command.note, marks: command.marks }), now, now, id, command.updated_at);
     } else
       statement = db()
-        .prepare(`UPDATE posts SET status='rejected',feedback=?,updated_at=? ${guard}`)
-        .bind(JSON.stringify({ note: command.note, marks: [] }), now, id, command.updated_at);
+        .prepare(`UPDATE posts SET status='rejected',feedback=?,updated_at=?,reviewed_at=? ${guard}`)
+        .bind(JSON.stringify({ note: command.note, marks: [] }), now, now, id, command.updated_at);
     const result = await statement.run();
     if (!result.meta.changes) throw new HttpError(409, '다른 작업으로 글이 변경되었습니다. 목록을 새로고침해주세요.');
     return json({ ok: true });

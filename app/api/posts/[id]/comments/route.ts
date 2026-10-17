@@ -1,4 +1,5 @@
 import {
+  checkAuthorName,
   commentSchema,
   db,
   deskCategories,
@@ -66,6 +67,7 @@ export async function POST(request: Request, context: Context) {
   return handle(async () => {
     const { member, post } = await commentablePost(request, context);
     const data = commentSchema.parse(await input(request));
+    checkAuthorName(data.author_name, member);
     await limit(request, 'comment', 20, member.userId);
     await limit(request, 'comment-day', 300, member.userId, 86400000);
     const comment = {
@@ -79,7 +81,16 @@ export async function POST(request: Request, context: Context) {
       .prepare(
         'INSERT INTO comments (id,post_id,author_id,author_name,content,created_at) SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM comments WHERE post_id=?)<?',
       )
-      .bind(comment.id, post.id, member.userId, comment.author_name, comment.content, comment.created_at, post.id, MAX_COMMENTS)
+      .bind(
+        comment.id,
+        post.id,
+        member.userId,
+        comment.author_name,
+        comment.content,
+        comment.created_at,
+        post.id,
+        MAX_COMMENTS,
+      )
       .run();
     if (!inserted.meta.changes) throw new HttpError(409, '댓글이 너무 많아 더 달 수 없습니다.');
     // A desk post is answered once its staff reply, and waits again when the asker follows up.

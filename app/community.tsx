@@ -52,6 +52,7 @@ type Post = {
   category: WritableBoard;
   created_at: number;
   updated_at: number;
+  reviewed_at?: number | null;
   status?: string;
   prefix?: string | null;
   author_name?: string | null;
@@ -528,7 +529,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                       {category === 'news' && post.status && (
                         <span className={`status-badge ${post.status}`}>{statusLabels[post.status]}</span>
                       )}
-                      {category === 'news' && post.status !== 'pending' && post.updated_at > newsSeenBefore && (
+                      {category === 'news' && (post.reviewed_at || 0) > newsSeenBefore && (
                         <span className="new-badge">새 결과</span>
                       )}
                       <h3>

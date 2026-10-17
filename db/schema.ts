@@ -21,6 +21,8 @@ export const posts = sqliteTable(
     feedback: text('feedback'),
     resolved_at: integer('resolved_at'),
     pinned_at: integer('pinned_at'),
+    // When the latest review decision was made; the writer's "새 결과" badge compares this, not updated_at.
+    reviewed_at: integer('reviewed_at'),
     created_at: integer('created_at').notNull(),
     updated_at: integer('updated_at').notNull(),
   },

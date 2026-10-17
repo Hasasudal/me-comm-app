@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  checkAuthorName,
   checkPostPassword,
   db,
   editSchema,
@@ -44,6 +45,8 @@ export async function PATCH(request: Request, context: Context) {
     const { id } = await context.params;
     const post = await visiblePost(id, member);
     await checkPostPassword(request, post, data.password, member);
+    // The editor's role decides; an unchanged name stays, so a password co-editor can still fix a staff-signed post.
+    if (data.author_name !== post.author_name) checkAuthorName(data.author_name, member);
     const news = post.category === 'news';
     if (news && post.status === 'rejected' && !admin)
       throw new HttpError(409, '반려된 기사는 수정할 수 없습니다. 새 기사로 작성해주세요.');
@@ -66,7 +69,7 @@ export async function PATCH(request: Request, context: Context) {
     await checkImages(data.images, member.userId, await postImages(id));
     await db()
       .prepare(
-        'UPDATE posts SET title=?,content=?,author_name=?,prefix=?,club_id=?,status=?,feedback=?,recruitment_status=?,deadline=?,headcount=?,roles=?,updated_at=? WHERE id=?',
+        "UPDATE posts SET title=?,content=?,author_name=?,prefix=?,club_id=?,status=?,feedback=?,recruitment_status=?,deadline=?,headcount=?,roles=?,updated_at=?,reviewed_at=CASE WHEN ?='pending' THEN NULL ELSE reviewed_at END WHERE id=?",
       )
       .bind(
         data.title,
@@ -81,6 +84,7 @@ export async function PATCH(request: Request, context: Context) {
         headcount,
         roles,
         Date.now(),
+        status,
         id,
       )
       .run();
