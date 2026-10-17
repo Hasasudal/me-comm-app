@@ -95,13 +95,16 @@ const PENDING_MESSAGE =
 // until an admin approves it (status 'active') or turns it down ('suspended'). Verified mail skips the wait.
 export async function issueMemberSession(identity: Identity) {
   const existing = await db()
-    .prepare('SELECT id,status FROM users WHERE id=? OR email=?')
+    .prepare('SELECT id,email,status FROM users WHERE id=? OR email=?')
     .bind(identity.userId, identity.email)
-    .all<{ id: string; status: string }>();
+    .all<{ id: string; email: string; status: string }>();
   const conflict = existing.results.find((row) => row.id !== identity.userId);
   if (conflict) throw new HttpError(409, '이미 다른 계정에서 사용 중인 학교 이메일입니다.');
   const current = existing.results.find((row) => row.id === identity.userId);
   if (current?.status === 'suspended') throw new HttpError(403, '이용이 정지된 계정입니다. 관리자에게 문의해주세요.');
+  // An unverified token must never move the stored address, or a member could claim someone else's mailbox.
+  if (!identity.emailVerified && current && current.email !== identity.email)
+    throw new HttpError(403, '변경한 학교 이메일을 인증한 뒤 다시 로그인해주세요.');
   if (!identity.emailVerified && current?.status !== 'active') {
     if (!current) {
       const now = Date.now();

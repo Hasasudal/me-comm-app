@@ -93,8 +93,9 @@ export default function AccountPanel() {
       const confirm = String(new FormData(event.currentTarget).get('confirm') || '');
       await api('/api/account', { confirm, dryRun: true }, 'DELETE');
       const { user } = await currentUser();
-      await deleteUser(user);
+      // Server row first: if Firebase deletion then fails, signing in again simply creates a fresh row.
       await api('/api/account', { confirm }, 'DELETE');
+      await deleteUser(user);
       window.location.assign('/');
     } catch (cause) {
       setError(firebaseMessage(cause));
