@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Bold, Eraser, Highlighter, StickyNote, X } from 'lucide-react';
 import { memoNumbers, overlaps, segments, type Mark, type MarkType } from '../lib/annotations';
 
@@ -145,6 +145,28 @@ export function AnnotatedArticle({
     setMemoMode(false);
     setMemoText('');
   }
+  // Touch long-press selections fire no mouseup/keyup, so also follow selectionchange once the handles settle.
+  // Only non-empty selections inside this article count: clearing stays with mouseup/keyup, so focusing the memo input can't close it.
+  const captureRef = useRef(capture);
+  useLayoutEffect(() => {
+    captureRef.current = capture;
+  });
+  const editable = !!onChange;
+  useEffect(() => {
+    if (!editable) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onSelection = () => {
+      clearTimeout(timer);
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !article.current?.contains(selection.anchorNode)) return;
+      timer = setTimeout(() => captureRef.current(), 250);
+    };
+    document.addEventListener('selectionchange', onSelection);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('selectionchange', onSelection);
+    };
+  }, [editable]);
   function close() {
     setToolbar(null);
     setMemoMode(false);

@@ -28,6 +28,8 @@ export const posts = sqliteTable(
     index('idx_posts_status_created').on(table.status, table.created_at),
     index('idx_posts_author').on(table.author_id, table.created_at),
     index('idx_posts_club').on(table.club_id, table.created_at),
+    // Board lists (category + status, newest first) and waiting counts (category IN (...) AND resolved_at IS NULL).
+    index('idx_posts_category_created').on(table.category, table.created_at),
   ],
 );
 

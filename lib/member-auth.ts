@@ -92,8 +92,8 @@ const PENDING_MESSAGE =
   '학교 메일 인증이 안 된 계정이라 관리자 승인을 기다리고 있어요. 승인되면 다시 로그인해주세요. 인증 메일의 링크를 눌러도 바로 이용할 수 있어요.';
 
 // A school address whose verification mail never arrived can still ask to join: it is recorded as 'pending'
-// until an admin approves it (status 'active') or turns it down ('suspended'). Verified mail skips the wait.
-export async function issueMemberSession(identity: Identity) {
+// until an admin approves it (status 'active') or turns it down (row deleted). Verified mail skips the wait.
+export async function issueMemberSession(identity: Identity, request?: Request) {
   const existing = await db()
     .prepare('SELECT id,email,status FROM users WHERE id=? OR email=?')
     .bind(identity.userId, identity.email)
@@ -120,8 +120,17 @@ export async function issueMemberSession(identity: Identity) {
   const token = randomToken(),
     tokenHash = await sha256(token),
     now = Date.now(),
-    expiresAt = now + SESSION_SECONDS * 1000;
+    expiresAt = now + SESSION_SECONDS * 1000,
+    previous = request && cookieValue(request, COOKIE_NAME);
   await db().batch([
+    // Signing in again on this browser replaces its old session instead of leaving it orphaned.
+    ...(previous
+      ? [
+          db()
+            .prepare('DELETE FROM sessions WHERE token_hash=?')
+            .bind(await sha256(previous)),
+        ]
+      : []),
     db()
       .prepare(
         "INSERT INTO users (id,email,display_name,status,suspended_at,created_at,updated_at) VALUES (?,?,?,'active',NULL,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,status=CASE WHEN users.status='pending' THEN 'active' ELSE users.status END,updated_at=excluded.updated_at",

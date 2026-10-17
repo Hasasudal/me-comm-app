@@ -28,6 +28,8 @@ type CommentRow = {
 // Staff comments show the writer's role so official answers stand out.
 const badge = (role: string | null) => (role && role !== 'member' ? role : null);
 export const dynamic = 'force-dynamic';
+// Creation stops at this many, so listing this many is the whole thread and needs no pages.
+const MAX_COMMENTS = 500;
 
 // Comments exist only on public boards; news talks happen through review feedback.
 async function commentablePost(request: Request, context: Context) {
@@ -44,9 +46,9 @@ export async function GET(request: Request, context: Context) {
     const { member, admin, post } = await commentablePost(request, context);
     const rows = await db()
       .prepare(
-        'SELECT comments.id,comments.author_id,comments.author_name,comments.content,comments.created_at,users.role,users.display_name AS writer_name,users.email AS writer_email FROM comments LEFT JOIN users ON users.id=comments.author_id WHERE comments.post_id=? ORDER BY comments.created_at ASC, comments.id ASC',
+        'SELECT comments.id,comments.author_id,comments.author_name,comments.content,comments.created_at,users.role,users.display_name AS writer_name,users.email AS writer_email FROM comments LEFT JOIN users ON users.id=comments.author_id WHERE comments.post_id=? ORDER BY comments.created_at ASC, comments.id ASC LIMIT ?',
       )
-      .bind(post.id)
+      .bind(post.id, MAX_COMMENTS)
       .all<CommentRow>();
     const writers = seesWriters(member, post.category);
     return json({
@@ -65,16 +67,21 @@ export async function POST(request: Request, context: Context) {
     const { member, post } = await commentablePost(request, context);
     const data = commentSchema.parse(await input(request));
     await limit(request, 'comment', 20, member.userId);
+    await limit(request, 'comment-day', 300, member.userId, 86400000);
     const comment = {
       id: crypto.randomUUID(),
       author_name: data.author_name,
       content: data.content,
       created_at: Date.now(),
     };
-    await db()
-      .prepare('INSERT INTO comments (id,post_id,author_id,author_name,content,created_at) VALUES (?,?,?,?,?,?)')
-      .bind(comment.id, post.id, member.userId, comment.author_name, comment.content, comment.created_at)
+    // The cap and the insert are one statement, so racing requests cannot pass MAX_COMMENTS.
+    const inserted = await db()
+      .prepare(
+        'INSERT INTO comments (id,post_id,author_id,author_name,content,created_at) SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM comments WHERE post_id=?)<?',
+      )
+      .bind(comment.id, post.id, member.userId, comment.author_name, comment.content, comment.created_at, post.id, MAX_COMMENTS)
       .run();
+    if (!inserted.meta.changes) throw new HttpError(409, '댓글이 너무 많아 더 달 수 없습니다.');
     // A desk post is answered once its staff reply, and waits again when the asker follows up.
     if (deskCategories.includes(post.category)) {
       const asker = post.author_id === member.userId;

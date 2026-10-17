@@ -17,7 +17,7 @@ import {
 import { AnnotatedArticle, statusLabels } from '../../annotated-article';
 import type { Review } from '../../../lib/annotations';
 import { api } from '../../api-client';
-import { AppShell, boardLabels, boardPaths, deskStatus, type ShellIdentity } from '../../app-shell';
+import { AppShell, boardLabels, boardPaths, deskStatus, loadSession, type ShellIdentity } from '../../app-shell';
 import Comments from './comments';
 import { WriterTag, type Writer } from '../../writer-tag';
 import { ImageGallery, ImagePicker } from '../../image-picker';
@@ -48,7 +48,9 @@ type Post = {
 };
 type Identity = ShellIdentity & { admin?: boolean };
 const formatDate = (n: number) =>
-  new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }).format(n);
+  new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' }).format(
+    n,
+  );
 
 export default function PostDetail({ id }: { id: string }) {
   const [post, setPost] = useState<Post | null>(null);
@@ -75,7 +77,7 @@ export default function PostDetail({ id }: { id: string }) {
     let active = true;
     async function load() {
       try {
-        const session = await api<Identity>('/api/session');
+        const session = await loadSession<Identity>();
         if (!active) return;
         setIdentity({ ...session, loaded: true });
         if (!session.signedIn) return;
@@ -207,11 +209,25 @@ export default function PostDetail({ id }: { id: string }) {
       {/* Admins reach others' articles from the review screen, so that is where they go back to. */}
       <a className="back-link" href={reviewing ? '/admin' : category ? boardPaths[category] : '/'}>
         <ArrowLeft size={17} />
-        {reviewing ? '뉴스 승인 목록' : news ? '내 기사 목록' : category ? `${boardLabels[category]} 목록` : '게시판 목록'}
+        {reviewing
+          ? '뉴스 승인 목록'
+          : news
+            ? '내 기사 목록'
+            : category
+              ? `${boardLabels[category]} 목록`
+              : '게시판 목록'}
       </a>
       {loading ? (
         <section className="detail-card loading" role="status">
           회원 계정을 확인하는 중입니다…
+        </section>
+      ) : identity.blocked ? (
+        <section className="member-gate" role="alert">
+          <div className="member-gate-icon">
+            <LockKeyhole size={29} />
+          </div>
+          <h2>이용할 수 없는 계정입니다</h2>
+          <p>{identity.blocked}</p>
         </section>
       ) : !identity.signedIn ? (
         <section className="member-gate">
@@ -398,7 +414,12 @@ export default function PostDetail({ id }: { id: string }) {
                 {post.category === 'clubs' && (
                   <label>
                     동아리
-                    <select name="club_id" required={!!post.club_id} defaultValue={post.club_id || ''} key={clubs.length}>
+                    <select
+                      name="club_id"
+                      required={!!post.club_id}
+                      defaultValue={post.club_id || ''}
+                      key={clubs.length}
+                    >
                       {!post.club_id && <option value="">선택 안 함</option>}
                       {clubs.map((item) => (
                         <option key={item.id} value={item.id}>
@@ -491,7 +512,12 @@ export default function PostDetail({ id }: { id: string }) {
                 </div>
               </form>
             )}
-            {!news && mode === 'view' && <Comments postId={post.id} />}
+            {!news && mode === 'view' && (
+              <Comments
+                postId={post.id}
+                onChange={deskStatus[post.category] ? () => void reload().catch(() => {}) : undefined}
+              />
+            )}
           </section>
         )
       )}

@@ -25,11 +25,26 @@ type Article = {
 };
 type ReviewPage = { posts: Article[]; total: number; nextCursor: string | null };
 const reviewTabs: ReviewStatus[] = ['pending', 'feedback', 'rejected', 'published'];
-const formatDate = (n: number) => new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit' }).format(n);
+const formatDate = (n: number) =>
+  new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit' }).format(n);
 
-// Unsent marks survive reloads in this browser. The key includes updated_at, so a resubmitted article starts clean.
+// Unsent marks survive reloads in this browser. The key includes updated_at, so a resubmitted or edited article starts clean
+// (old offsets would point at the wrong text).
 type Draft = { marks: Mark[]; note: string };
-const draftKey = (article: Article) => `micom:review-draft:${article.id}:${article.updated_at}`;
+const draftPrefix = (article: Article) => `micom:review-draft:${article.id}:`;
+const draftKey = (article: Article) => `${draftPrefix(article)}${article.updated_at}`;
+// Drops drafts saved against an older version of this article; true when one existed.
+function dropStaleDrafts(article: Article) {
+  try {
+    const stale = Object.keys(localStorage).filter(
+      (key) => key.startsWith(draftPrefix(article)) && key !== draftKey(article),
+    );
+    stale.forEach((key) => localStorage.removeItem(key));
+    return stale.length > 0;
+  } catch {
+    return false;
+  }
+}
 function readDraft(article: Article): Draft | null {
   try {
     return JSON.parse(localStorage.getItem(draftKey(article)) || 'null') as Draft | null;
@@ -66,16 +81,20 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
   const selected = articles.find((article) => article.id === selectedId) || null;
   const dirty = tab === 'pending' && (marks.length > 0 || !!note.trim());
 
-  const reset = useCallback((article: Article | null) => {
-    const draft = article?.status === 'pending' ? readDraft(article) : null;
-    setMarks(draft?.marks || (article && article.status !== 'pending' ? article.feedback?.marks || [] : []));
-    setNote(draft?.note || '');
-    setNoteOpen(!!draft?.note);
-    setPanel('review');
-    setReason('');
-    setMenuOpen(false);
-    setActionError('');
-  }, []);
+  const reset = useCallback(
+    (article: Article | null) => {
+      if (article && dropStaleDrafts(article)) onNotice('기사가 수정되어 이전 검토 초안을 불러오지 않았습니다.');
+      const draft = article?.status === 'pending' ? readDraft(article) : null;
+      setMarks(draft?.marks || (article && article.status !== 'pending' ? article.feedback?.marks || [] : []));
+      setNote(draft?.note || '');
+      setNoteOpen(!!draft?.note);
+      setPanel('review');
+      setReason('');
+      setMenuOpen(false);
+      setActionError('');
+    },
+    [onNotice],
+  );
   const load = useCallback(
     async (keepId?: string | null) => {
       const id = ++loadId.current;

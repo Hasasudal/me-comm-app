@@ -369,7 +369,8 @@ h1 {
   font-size: 14px;
   color: #6c7f9c;
 }
-.welcome-panel button {
+.welcome-panel button,
+.welcome-panel a {
   padding: 0;
   display: flex;
   align-items: center;
@@ -1407,7 +1408,8 @@ label small {
     position: relative;
     z-index: 1;
   }
-  .welcome-panel button {
+  .welcome-panel button,
+  .welcome-panel a {
     font-size: 13px;
   }
   .feed-header {

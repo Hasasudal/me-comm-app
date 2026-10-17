@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight,
   Bell,
@@ -98,7 +98,22 @@ export type ShellIdentity = {
   waiting?: Partial<Record<BoardId, number>>;
   pendingMembers?: number;
   admin?: boolean;
+  // Set when /api/session refuses the account (403, e.g. suspended): the server's message, shown instead of a login prompt.
+  blocked?: string;
 };
+
+// The plain api() helper drops the status, so a 403 would read as an ordinary failure and look signed out.
+export async function loadSession<T extends object>(): Promise<T & { signedIn: boolean; blocked?: string }> {
+  const response = await fetch('/api/session', { cache: 'no-store' });
+  const data = (await response.json().catch(() => ({}))) as T & { signedIn: boolean; error?: string };
+  if (response.status === 403)
+    return { signedIn: false, blocked: data.error || '이용이 정지된 계정입니다. 관리자에게 문의해주세요.' } as T & {
+      signedIn: boolean;
+      blocked: string;
+    };
+  if (!response.ok) throw new Error(data.error || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.');
+  return data;
+}
 type Reply = {
   kind: 'reply' | 'answer' | 'desk' | 'followup' | 'signup';
   id: string;
@@ -132,7 +147,13 @@ export function markSeen(kind: SeenKind, userId: string) {
   } catch {}
 }
 const formatWhen = (n: number) =>
-  new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(n);
+  new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(n);
 
 // Topbar bell: recent comments others left on my posts; opening it marks them seen.
 function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number | null }) {
@@ -141,11 +162,38 @@ function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number |
   const [replies, setReplies] = useState<Reply[] | null>(null);
   const [error, setError] = useState('');
   const fresh = (repliedAt || 0) > seenBefore;
+  const root = useRef<HTMLDivElement>(null),
+    bell = useRef<HTMLButtonElement>(null),
+    panel = useRef<HTMLDivElement>(null);
+
+  const close = useCallback(
+    (refocus: boolean) => {
+      setOpen(false);
+      setSeenBefore(seenAt('replies', userId));
+      if (refocus) bell.current?.focus();
+    },
+    [userId],
+  );
+  useEffect(() => {
+    if (!open) return;
+    panel.current?.focus();
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') close(true);
+    };
+    const onDown = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) close(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [open, close]);
 
   async function toggle() {
     if (open) {
-      setOpen(false);
-      setSeenBefore(seenAt('replies', userId));
+      close(true);
       return;
     }
     setOpen(true);
@@ -159,13 +207,13 @@ function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number |
   }
 
   return (
-    <div className="reply-bell">
-      <button aria-label={fresh ? '새 알림' : '알림'} aria-expanded={open} onClick={() => void toggle()}>
+    <div className="reply-bell" ref={root}>
+      <button ref={bell} aria-label={fresh ? '새 알림' : '알림'} aria-expanded={open} onClick={() => void toggle()}>
         <Bell size={18} />
         {fresh && <span className="nav-alert" />}
       </button>
       {open && (
-        <div className="reply-panel" role="dialog" aria-label="알림">
+        <div className="reply-panel" role="dialog" aria-label="알림" tabIndex={-1} ref={panel}>
           <strong>알림</strong>
           {error ? (
             <p className="reply-empty">{error}</p>
@@ -208,6 +256,26 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [mobileNav, setMobileNav] = useState(false);
+  const sidebar = useRef<HTMLElement>(null),
+    menuButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!mobileNav) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setMobileNav(false);
+      menuButton.current?.focus();
+    };
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (!sidebar.current?.contains(target) && !menuButton.current?.contains(target)) setMobileNav(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [mobileNav]);
   // Desktop users can fold the sidebar away; the choice is remembered in this browser.
   const [sidebarClosed, setSidebarClosed] = useState(false);
   useEffect(() => {
@@ -246,7 +314,7 @@ export function AppShell({
 
   return (
     <div className={`app-shell ${sidebarClosed ? 'sidebar-closed' : ''}`}>
-      <aside className={`sidebar ${mobileNav ? 'mobile-open' : ''}`}>
+      <aside id="app-sidebar" ref={sidebar} className={`sidebar ${mobileNav ? 'mobile-open' : ''}`}>
         <a className="brand" href="/" aria-label="미컴 라운지 홈">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="brand-logo" src="/logo.png" alt="" width={480} height={201} />
@@ -376,7 +444,14 @@ export function AppShell({
             >
               {sidebarClosed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
             </button>
-            <button className="icon-button mobile-menu" aria-label="메뉴 열기" onClick={() => setMobileNav(!mobileNav)}>
+            <button
+              ref={menuButton}
+              className="icon-button mobile-menu"
+              aria-label={mobileNav ? '메뉴 닫기' : '메뉴 열기'}
+              aria-expanded={mobileNav}
+              aria-controls="app-sidebar"
+              onClick={() => setMobileNav(!mobileNav)}
+            >
               <Menu size={22} />
             </button>
             <span className="breadcrumb">{breadcrumb}</span>

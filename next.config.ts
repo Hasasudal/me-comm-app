@@ -1,8 +1,28 @@
 import type { NextConfig } from 'next';
 
+// Report-Only trial of a full policy; the enforced CSP below stays unchanged. Promote it to the enforced header
+// once the browser console shows no violation reports across login, posting with photos and the admin pages.
+// script-src needs 'unsafe-inline' because vinext inlines the RSC payload and bootstrap as <script> tags; nonces
+// would need a middleware that sets a per-request nonce (vinext reads it from the request CSP header).
+// reCAPTCHA entries cover Firebase Auth's optional reCAPTCHA Enterprise check; Google Fonts is imported in globals.css.
+const reportOnlyCsp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob:",
+  "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com",
+  "frame-src https://mecomm-project.firebaseapp.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "object-src 'none'",
+].join('; ');
+
 const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
+  { key: 'Content-Security-Policy-Report-Only', value: reportOnlyCsp },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },

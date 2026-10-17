@@ -1,6 +1,6 @@
 'use client';
 
-import { deleteUser, sendPasswordResetEmail, updateProfile, verifyBeforeUpdateEmail } from 'firebase/auth';
+import { deleteUser, sendPasswordResetEmail, signOut, updateProfile, verifyBeforeUpdateEmail } from 'firebase/auth';
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api-client';
 import { firebaseAuth } from '../firebase-client';
@@ -84,6 +84,21 @@ export default function AccountPanel() {
       setBusy(false);
     }
   }
+  // Firebase password resets do not end D1 sessions, so members can end every device's session themselves.
+  async function signOutEverywhere() {
+    if (!window.confirm('이 기기를 포함한 모든 기기에서 로그아웃할까요?')) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await api('/api/auth/session', { all: true }, 'DELETE');
+      await signOut(await firebaseAuth()).catch(() => {});
+      window.location.assign('/login');
+    } catch (cause) {
+      setError(firebaseMessage(cause));
+      setBusy(false);
+    }
+  }
   async function remove(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -142,6 +157,13 @@ export default function AccountPanel() {
         <h2>비밀번호</h2>
         <button className="secondary full" type="button" disabled={busy} onClick={() => void resetPassword()}>
           비밀번호 재설정 메일 받기
+        </button>
+      </section>
+      <section className="account-section">
+        <h2>로그인 세션</h2>
+        <p>비밀번호를 바꿨거나 다른 기기에 로그인이 남아 있다면 모든 기기에서 로그아웃하세요.</p>
+        <button className="secondary full" type="button" disabled={busy} onClick={() => void signOutEverywhere()}>
+          모든 기기에서 로그아웃
         </button>
       </section>
       {notice && (

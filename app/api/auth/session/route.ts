@@ -4,7 +4,9 @@ import { verifyFirebaseIdToken } from '../../../../lib/firebase-token';
 import {
   expiredSessionCookie,
   issueMemberSession,
+  optionalMember,
   revokeCurrentSession,
+  revokeMemberSessions,
   sessionCookie,
 } from '../../../../lib/member-auth';
 import { handle, HttpError, input, json, limit } from '../../../../lib/server';
@@ -20,14 +22,21 @@ export async function POST(request: Request) {
     if (!projectId) throw new HttpError(503, '학교 계정 로그인이 아직 설정되지 않았습니다.');
     const identity = await verifyFirebaseIdToken(idToken, { projectId });
     await limit(request, 'member-session', 10, identity.userId);
-    const session = await issueMemberSession(identity);
+    const session = await issueMemberSession(identity, request);
     return json({ ok: true, expiresAt: session.expiresAt }, 201, { 'Set-Cookie': sessionCookie(session.token) });
   });
 }
 
 export async function DELETE(request: Request) {
   return handle(async () => {
-    await revokeCurrentSession(request);
+    // A bare DELETE signs out this browser; { all: true } (JSON, so input() checks Origin) signs out every device,
+    // e.g. after a password reset, which Firebase does not pass on to D1 sessions.
+    const all =
+      request.headers.get('content-type')?.includes('application/json') &&
+      z.object({ all: z.boolean().optional() }).parse(await input(request)).all;
+    const member = all ? await optionalMember(request) : null;
+    if (member) await revokeMemberSessions(member.userId);
+    else await revokeCurrentSession(request);
     return json({ ok: true }, 200, { 'Set-Cookie': expiredSessionCookie() });
   });
 }

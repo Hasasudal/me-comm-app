@@ -20,10 +20,16 @@ export async function handle(action: () => Promise<Response>) {
   } catch (e) {
     if (e instanceof HttpError) return json({ error: e.message }, e.status);
     if (e instanceof FirebaseTokenError) return json({ error: e.message }, 401);
-    if (e instanceof z.ZodError) return json({ error: e.issues[0]?.message || '입력 내용을 확인해주세요.' }, 400);
+    if (e instanceof z.ZodError) return json({ error: zodMessage(e.issues[0]) }, 400);
     console.error('Community API failed', e instanceof Error ? e.message : 'Unknown error');
     return json({ error: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.' }, 503);
   }
+}
+// Only messages written in our schemas reach users; zod's English defaults (and enum lists) become one generic line.
+function zodMessage(issue: z.ZodIssue | undefined) {
+  if (!issue) return '입력값을 확인해주세요.';
+  const fallback = z.defaultErrorMap(issue, { defaultError: 'Invalid input', data: undefined }).message;
+  return issue.message && issue.message !== fallback ? issue.message : '입력값을 확인해주세요.';
 }
 export async function input(request: Request) {
   const origin = request.headers.get('origin');
@@ -56,9 +62,25 @@ export async function input(request: Request) {
     throw new HttpError(400, '입력 형식이 올바르지 않습니다.');
   }
 }
+// C0 controls, DEL, bidi overrides/isolates and zero-width marks: invisible, so they spoof names or hide text.
+const hidden = /[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/;
+// Multi-line text keeps \t, \n and the zero-width joiner (U+200D, used inside emoji); the rest is dropped.
+const hiddenInText = /[\u0000-\u0008\u000B-\u001F\u007F\u200B\u200C\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+/** `.refine(...visible)` rejects single-line fields (names, titles) that carry hidden characters. */
+export const visible = [(value: string) => !hidden.test(value), '보이지 않는 특수문자는 사용할 수 없습니다.'] as const;
+export const stripHidden = (value: string) => value.replace(hiddenInText, '');
+const reservedNames = ['관리자', '운영자', '학사', '학생회', 'admin'];
 export const contentFields = {
-  title: z.string().trim().min(1, '제목을 입력해주세요.').max(120, '제목은 120자 이내로 입력해주세요.'),
-  content: z.string().trim().min(1, '본문을 입력해주세요.').max(20000, '본문은 20,000자 이내로 입력해주세요.'),
+  title: z
+    .string()
+    .trim()
+    .min(1, '제목을 입력해주세요.')
+    .max(120, '제목은 120자 이내로 입력해주세요.')
+    .refine(...visible),
+  content: z
+    .string()
+    .transform(stripHidden)
+    .pipe(z.string().trim().min(1, '본문을 입력해주세요.').max(20000, '본문은 20,000자 이내로 입력해주세요.')),
 };
 export const passwordField = z
   .string()
@@ -69,6 +91,11 @@ export const recruitmentFields = {
   deadline: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, '마감일을 확인해주세요.')
+    // The regex alone lets 2026-99-99 or 2026-02-30 through; a real date survives the round trip.
+    .refine((day) => {
+      const date = new Date(`${day}T00:00:00Z`);
+      return !isNaN(date.getTime()) && date.toISOString().slice(0, 10) === day;
+    }, '마감일을 확인해주세요.')
     .optional()
     .nullable(),
   headcount: z
@@ -83,6 +110,7 @@ export const recruitmentFields = {
     .trim()
     .min(1, '필요한 역할을 입력해주세요.')
     .max(200, '필요한 역할은 200자 이내로 입력해주세요.')
+    .refine(...visible)
     .optional()
     .nullable(),
 };
@@ -91,11 +119,17 @@ export const authorFields = {
     .string()
     .trim()
     .min(1, '작성자 이름을 입력해주세요.')
-    .max(20, '작성자 이름은 20자 이내로 입력해주세요.'),
+    .max(20, '작성자 이름은 20자 이내로 입력해주세요.')
+    .refine(...visible)
+    .refine(
+      (name) => !reservedNames.includes(name.replace(/\s+/g, '').toLowerCase()),
+      '운영진으로 오해될 수 있는 이름은 사용할 수 없습니다.',
+    ),
   prefix: z
     .string()
     .trim()
     .max(30, '머릿글은 30자 이내로 입력해주세요.')
+    .refine(...visible)
     .optional()
     .nullable()
     .transform((value) => value || null),
@@ -199,7 +233,8 @@ export async function requireAdmin(request: Request) {
   return member;
 }
 // Counts per signed-in member when `subject` is given; IP is only a fallback because campus Wi-Fi shares one address.
-export async function limit(request: Request, scope: string, max = 30, subject?: string) {
+// The window opens at the first hit and is fixed (not sliding).
+export async function limit(request: Request, scope: string, max = 30, subject?: string, windowMs = 60000) {
   const who = subject ? `member:${subject}` : `ip:${request.headers.get('cf-connecting-ip') || 'local'}`;
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${scope}:${who}`));
   const key = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -209,9 +244,17 @@ export async function limit(request: Request, scope: string, max = 30, subject?:
     .prepare(
       'INSERT INTO attempts (key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count',
     )
-    .bind(key, now + 60000)
+    .bind(key, now + windowMs)
     .first<{ count: number }>();
-  if (result && result.count > max) throw new HttpError(429, '요청이 너무 많습니다. 1분 후 다시 시도해주세요.');
+  if (result && result.count > max)
+    throw new HttpError(
+      429,
+      windowMs <= 60000
+        ? '요청이 너무 많습니다. 1분 후 다시 시도해주세요.'
+        : windowMs >= 86400000
+          ? '하루 이용 한도를 넘었습니다. 내일 다시 시도해주세요.'
+          : '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+    );
 }
 export type PostRow = {
   id: string;
@@ -243,7 +286,10 @@ export const listColumns =
   '(SELECT COUNT(*) FROM images WHERE images.post_id=posts.id) AS image_count';
 export const commentSchema = z.object({
   author_name: authorFields.author_name,
-  content: z.string().trim().min(1, '댓글을 입력해주세요.').max(1000, '댓글은 1,000자 이내로 입력해주세요.'),
+  content: z
+    .string()
+    .transform(stripHidden)
+    .pipe(z.string().trim().min(1, '댓글을 입력해주세요.').max(1000, '댓글은 1,000자 이내로 입력해주세요.')),
 });
 // News and the desks (1:1 inquiries, student-council suggestions) are private to their author and the staff who
 // handle them; other boards are open to members. Each desk is answered, through comments, by its role or an admin.
@@ -302,6 +348,8 @@ export async function checkPostPassword(request: Request, post: PostRow, passwor
   if (isAdmin(member) || (post.author_id && post.author_id === member.userId)) return;
   if (!password) throw new HttpError(400, '게시글 비밀번호를 입력해주세요.');
   await limit(request, 'password', 10, member.userId);
+  // Per post too, so many accounts cannot share the guessing; the post id stands in as the subject.
+  await limit(request, `password-post:${post.id}`, 20, post.id, 3600000);
   if (!(await verifyPassword(password, post.salt, post.password_hash)))
     throw new HttpError(403, '비밀번호가 일치하지 않습니다.');
 }

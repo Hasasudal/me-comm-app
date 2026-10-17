@@ -51,6 +51,8 @@ export async function GET(request: Request) {
     }
     const q = (url.searchParams.get('q') || '').trim().slice(0, 100);
     if (q) {
+      // LIKE over every body is the costliest query here, so searches get their own cap.
+      await limit(request, 'search', 60, member.userId);
       where.push(
         "(title LIKE ? ESCAPE '\\' OR prefix LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' OR author_name LIKE ? ESCAPE '\\')",
       );
@@ -69,7 +71,7 @@ export async function GET(request: Request) {
       cursor
         ? null
         : db()
-            .prepare(`SELECT ${columns} FROM posts WHERE ${filter} AND pinned_at IS NOT NULL ORDER BY pinned_at DESC`)
+            .prepare(`SELECT ${columns} FROM posts WHERE ${filter} AND pinned_at IS NOT NULL ORDER BY pinned_at DESC LIMIT 10`)
             .bind(...binds)
             .all<ListRow>(),
       db()
@@ -93,6 +95,7 @@ export async function POST(request: Request) {
     const member = await requireMember(request);
     const data = createSchema.parse(await input(request));
     await limit(request, 'create', 10, member.userId);
+    await limit(request, 'create-day', 30, member.userId, 86400000);
     const id = crypto.randomUUID(),
       salt = crypto.randomUUID(),
       now = Date.now();

@@ -3,10 +3,14 @@ import { createMemberFixture } from './test-member-fixture.mjs';
 
 const base = 'http://localhost:5173';
 
-async function request(path, { cookie, method = 'GET' } = {}) {
+async function request(path, { cookie, method = 'GET', body } = {}) {
   const response = await fetch(base + path, {
     method,
-    headers: cookie ? { Cookie: cookie } : {},
+    headers: {
+      ...(cookie ? { Cookie: cookie } : {}),
+      ...(body ? { 'Content-Type': 'application/json', Origin: base } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
   });
   const raw = await response.text();
   let data = {};
@@ -45,6 +49,13 @@ try {
     401,
     'a logged-out session cannot be reused',
   );
+  const everywhere = await request('/api/auth/session', {
+    cookie: fixture.secondCookie,
+    method: 'DELETE',
+    body: { all: true },
+  });
+  assert.equal(everywhere.status, 200, 'a member can sign out of every device');
+  assert.equal((await request('/api/posts', { cookie: fixture.secondCookie })).status, 401, 'all sessions end');
 } finally {
   fixture.cleanup();
 }

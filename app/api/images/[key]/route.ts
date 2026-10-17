@@ -1,4 +1,4 @@
-import { db, handle, HttpError, requireMember, visiblePost } from '../../../../lib/server';
+import { db, handle, HttpError, json, requireMember, visiblePost } from '../../../../lib/server';
 import { bucket } from '../../../../lib/images';
 
 export const dynamic = 'force-dynamic';
@@ -15,15 +15,35 @@ export async function GET(request: Request, context: { params: Promise<{ key: st
     if (!row) throw new HttpError(404, '사진을 찾을 수 없습니다.');
     if (row.post_id) await visiblePost(row.post_id, member);
     else if (row.owner_id !== member.userId) throw new HttpError(404, '사진을 찾을 수 없습니다.');
-    const object = await bucket().get(key);
+    // onlyIf answers If-None-Match: a matching ETag comes back without a body.
+    const object = await bucket().get(key, { onlyIf: request.headers });
     if (!object) throw new HttpError(404, '사진을 찾을 수 없습니다.');
+    const headers = {
+      // Revalidate every time so a photo stops showing once its viewer loses access; the ETag keeps that cheap.
+      'Cache-Control': 'private, no-cache',
+      ETag: object.httpEtag,
+      'X-Content-Type-Options': 'nosniff',
+    };
+    if (!('body' in object)) return new Response(null, { status: 304, headers });
     return new Response(object.body, {
-      headers: {
-        'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
-        // Keys never change content, so browsers may keep them; "private" keeps shared caches out.
-        'Cache-Control': 'private, max-age=86400, immutable',
-        'X-Content-Type-Options': 'nosniff',
-      },
+      headers: { ...headers, 'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream' },
     });
+  });
+}
+
+// The uploader may throw away a photo they took back before posting; attached photos go with their post.
+export async function DELETE(request: Request, context: { params: Promise<{ key: string }> }) {
+  return handle(async () => {
+    const member = await requireMember(request);
+    const origin = request.headers.get('origin');
+    if (origin && origin !== new URL(request.url).origin) throw new HttpError(403, '허용되지 않은 요청입니다.');
+    const { key } = await context.params;
+    const result = await db()
+      .prepare('DELETE FROM images WHERE key=? AND owner_id=? AND post_id IS NULL')
+      .bind(key, member.userId)
+      .run();
+    if (!result.meta.changes) throw new HttpError(404, '사진을 찾을 수 없습니다.');
+    await bucket().delete(key);
+    return json({ ok: true });
   });
 }

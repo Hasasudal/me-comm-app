@@ -108,8 +108,11 @@ export async function verifyFirebaseIdToken(token: string, options: VerifyOption
   if (typeof claims.exp !== 'number' || claims.exp <= now) throw new FirebaseTokenError();
   if (typeof claims.email !== 'string') throw new FirebaseTokenError();
 
-  const email = claims.email.trim().toLowerCase();
-  if (!/^[^@\s]+@ks\.ac\.kr$/.test(email)) throw new FirebaseTokenError('인증된 경성대학교 학교 이메일이 필요합니다.');
+  // Check the raw address as ASCII first: toLowerCase() folds look-alikes such as U+212A (Kelvin sign) into 'k'.
+  const raw = claims.email.trim();
+  if (!/^[a-z0-9._%+-]+@ks\.ac\.kr$/i.test(raw))
+    throw new FirebaseTokenError('인증된 경성대학교 학교 이메일이 필요합니다.');
+  const email = raw.toLowerCase();
   // Sign-up saves the name in a second step that can fail (a dropped mobile connection); fall back to the mail ID
   // rather than locking the account out. Members can change it on the account page.
   const named = typeof claims.name === 'string' ? claims.name.trim() : '';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { ChevronLeft, ChevronRight, ImagePlus, X } from 'lucide-react';
 
 const MAX_IMAGES = 5;
@@ -9,7 +9,10 @@ export const imageUrl = (key: string) => `/api/images/${key}`;
 
 // Phone photos are often 5-10MB; shrink to at most 1600px and re-encode before upload.
 async function shrink(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
+  // Chrome and Android cannot decode HEIC (Safari can, so the picker still offers it).
+  const bitmap = await createImageBitmap(file).catch(() => {
+    throw new Error('이 사진 형식은 열 수 없습니다. JPG나 PNG로 바꿔 올려주세요.');
+  });
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * scale);
@@ -38,29 +41,40 @@ export function ImagePicker({
   onBusy,
 }: {
   value: string[];
-  onChange: (keys: string[]) => void;
+  onChange: Dispatch<SetStateAction<string[]>>;
   onBusy?: (busy: boolean) => void;
 }) {
   const [uploading, setUploading] = useState(0);
   const [error, setError] = useState('');
+  // Keys uploaded by this picker; only these may be deleted on removal (photos already on a post stay until saved).
+  const uploaded = useRef(new Set<string>());
 
+  // The add button is hidden while uploading, so `value` cannot change under the count below; updates are
+  // functional so a photo removed mid-upload is not brought back.
   async function add(files: FileList | null) {
     const picked = Array.from(files || []).slice(0, MAX_IMAGES - value.length);
     if (!picked.length) return;
     setError('');
     setUploading(picked.length);
     onBusy?.(true);
-    const keys = [...value];
     for (const file of picked) {
       try {
-        keys.push(await upload(file));
-        onChange([...keys]);
+        const key = await upload(file);
+        uploaded.current.add(key);
+        onChange((keys) => [...keys, key]);
       } catch (e) {
         setError((e as Error).message);
       }
       setUploading((n) => n - 1);
     }
     onBusy?.(false);
+  }
+
+  function remove(key: string) {
+    onChange((keys) => keys.filter((k) => k !== key));
+    if (!uploaded.current.delete(key)) return;
+    // Frees the upload right away; if this fails the server's sweep still removes it later.
+    void fetch(imageUrl(key), { method: 'DELETE' }).catch(() => {});
   }
 
   return (
@@ -73,7 +87,7 @@ export function ImagePicker({
           <div className="image-thumb" key={key}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={imageUrl(key)} alt="첨부한 사진" />
-            <button type="button" aria-label="사진 빼기" onClick={() => onChange(value.filter((k) => k !== key))}>
+            <button type="button" aria-label="사진 빼기" onClick={() => remove(key)}>
               <X size={14} />
             </button>
           </div>
@@ -81,7 +95,7 @@ export function ImagePicker({
         {Array.from({ length: uploading }, (_, i) => (
           <div className="image-thumb loading" key={`loading-${i}`} aria-label="사진 올리는 중" />
         ))}
-        {value.length + uploading < MAX_IMAGES && (
+        {!uploading && value.length < MAX_IMAGES && (
           <label className="image-add">
             <ImagePlus size={20} />
             <span>추가</span>

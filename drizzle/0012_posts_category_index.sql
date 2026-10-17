@@ -1,0 +1,1 @@
+CREATE INDEX `idx_posts_category_created` ON `posts` (`category`,`created_at`);

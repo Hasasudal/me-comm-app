@@ -19,6 +19,12 @@ test('article blocks keep prefix, meta and every line', () => {
   });
 });
 
+test('XML-invalid control characters are dropped, tabs and line breaks kept', () => {
+  const blocks = articleBlocks({ ...article, title: 'a\u0001b', content: 'x\u0000y\u000Bz\tw\nv' });
+  assert.equal(blocks.heading, '[행사] ab');
+  assert.deepEqual(blocks.paragraphs, ['xyz\tw', 'v']);
+});
+
 test('file names are safe for Windows and name bundles by date', () => {
   assert.equal(exportFileName([{ ...article, title: 'a/b:c?' }]), '기사_a_b_c_.docx');
   assert.equal(exportFileName([article, article], Date.UTC(2026, 8, 17, 16)), '승인기사_2026-09-18.docx');
