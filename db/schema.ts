@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex, primaryKey } from 'drizzle-orm/sqlite-core';
 
 export const posts = sqliteTable(
   'posts',
@@ -55,10 +55,17 @@ export const users = sqliteTable(
     // member | academic (학사) | council (학생회) | admin; admins assign roles.
     role: text('role').notNull().default('member'),
     suspended_at: integer('suspended_at'),
+    // Newsletter subscription (on by default; members turn it off) and the random unsubscribe token, made lazily.
+    newsletter: integer('newsletter').notNull().default(1),
+    newsletter_token: text('newsletter_token'),
     created_at: integer('created_at').notNull(),
     updated_at: integer('updated_at').notNull(),
   },
-  (table) => [uniqueIndex('idx_users_email').on(table.email), index('idx_users_status').on(table.status)],
+  (table) => [
+    uniqueIndex('idx_users_email').on(table.email),
+    index('idx_users_status').on(table.status),
+    uniqueIndex('idx_users_newsletter_token').on(table.newsletter_token),
+  ],
 );
 
 export const sessions = sqliteTable(
@@ -131,4 +138,33 @@ export const clubs = sqliteTable(
     created_at: integer('created_at').notNull(),
   },
   (table) => [uniqueIndex('idx_clubs_name').on(table.name)],
+);
+
+// Admin-written newsletters, mailed in batches through the Apps Script relay. sent_at is set once nothing is pending.
+export const newsletters = sqliteTable('newsletters', {
+  id: text('id').primaryKey(),
+  subject: text('subject').notNull(),
+  html: text('html').notNull(),
+  created_by: text('created_by').notNull(),
+  created_by_name: text('created_by_name').notNull(),
+  created_at: integer('created_at').notNull(),
+  sent_at: integer('sent_at'),
+});
+
+// One row per recipient, snapshotted on the first send call: pending -> sending (claimed) -> sent | failed.
+export const newsletterDeliveries = sqliteTable(
+  'newsletter_deliveries',
+  {
+    newsletter_id: text('newsletter_id').notNull(),
+    user_id: text('user_id').notNull(),
+    email: text('email').notNull(),
+    status: text('status').notNull(),
+    error: text('error'),
+    // Claim time while 'sending', delivery time once 'sent'.
+    sent_at: integer('sent_at'),
+  },
+  (table) => [
+    primaryKey({ columns: [table.newsletter_id, table.user_id] }),
+    index('idx_newsletter_deliveries_status').on(table.newsletter_id, table.status),
+  ],
 );

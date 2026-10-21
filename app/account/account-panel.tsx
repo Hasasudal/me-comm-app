@@ -14,7 +14,7 @@ import { api } from '../api-client';
 import { firebaseAuth } from '../firebase-client';
 import { firebaseMessage, isSchoolEmail } from '../auth/firebase-errors';
 
-type Session = { signedIn: boolean; email?: string; displayName?: string };
+type Session = { signedIn: boolean; email?: string; displayName?: string; newsletter?: boolean };
 
 export default function AccountPanel() {
   const [session, setSession] = useState<Session | null>(null);
@@ -48,6 +48,20 @@ export default function AccountPanel() {
       setNotice('이름을 변경했습니다.');
     } catch (cause) {
       setError(firebaseMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function saveNewsletter(newsletter: boolean) {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await api('/api/account', { newsletter }, 'PATCH');
+      setSession((current) => (current ? { ...current, newsletter } : current));
+      setNotice(newsletter ? '뉴스레터를 받습니다.' : '뉴스레터를 더 이상 보내지 않습니다.');
+    } catch (cause) {
+      setError((cause as Error).message);
     } finally {
       setBusy(false);
     }
@@ -175,6 +189,19 @@ export default function AccountPanel() {
         <button className="secondary full" type="button" disabled={busy} onClick={() => void resetPassword()}>
           비밀번호 재설정 메일 받기
         </button>
+      </section>
+      <section className="account-section">
+        <h2>뉴스레터</h2>
+        <p>학교 이메일로 학과 소식 뉴스레터를 보내 드립니다. 원하지 않으면 끌 수 있습니다.</p>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={!!session.newsletter}
+            disabled={busy}
+            onChange={(event) => void saveNewsletter(event.target.checked)}
+          />
+          미컴 라운지 뉴스레터 받기
+        </label>
       </section>
       <section className="account-section">
         <h2>로그인 세션</h2>

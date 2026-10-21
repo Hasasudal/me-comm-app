@@ -1,45 +1,60 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { AlertTriangle, Mail, X } from 'lucide-react';
 
-// Site-wide notice shown above every page. Set SITE_NOTICE to null to take it down; change `id` to show a new
-// notice again to people who closed the old one.
-const SITE_NOTICE: { id: string; title: string; body: string } | null = {
-  id: 'verify-mail-2026-09',
-  title: '인증 메일이 오지 않나요?',
-  body: '학교 메일에서 인증 메일이 걸러지는 경우가 있어요. 스팸 메일함·스팸 격리함을 확인하고, 그래도 없으면 가입한 이메일로 로그인만 해두세요. 관리자가 확인 후 승인해 드려요.',
-};
+// Site-wide notices shown above every page, in order. Remove an entry to take it down; change its `id` to show it
+// again to people who closed the old one. `info` uses the calm blue style instead of the red warning one.
+const SITE_NOTICES: { id: string; title: string; body: ReactNode; info?: boolean }[] = [
+  {
+    id: 'verify-mail-2026-09',
+    title: '인증 메일이 오지 않나요?',
+    body: '학교 메일에서 인증 메일이 걸러지는 경우가 있어요. 스팸 메일함·스팸 격리함을 확인하고, 그래도 없으면 가입한 이메일로 로그인만 해두세요. 관리자가 확인 후 승인해 드려요.',
+  },
+  {
+    id: 'newsletter-2026-10',
+    title: '학과 뉴스레터를 보내 드려요',
+    body: (
+      <>
+        앞으로 미컴 라운지 뉴스레터가 가입한 학교 이메일로 발송됩니다. 받고 싶지 않다면 <a href="/account">계정 설정</a>
+        에서 끄거나, 메일 아래의 ‘뉴스레터 받지 않기’를 누르면 됩니다.
+      </>
+    ),
+    info: true,
+  },
+];
+
+const closedKey = (id: string) => `micom:notice-closed:${id}`;
 
 export default function SiteNotice({ className = '' }: { className?: string }) {
-  const [closed, setClosed] = useState(true);
+  const [closed, setClosed] = useState<string[] | null>(null);
   useEffect(() => {
     // Read after hydration so the server and first client render agree.
     const timer = setTimeout(() => {
       try {
-        setClosed(!!SITE_NOTICE && localStorage.getItem(`micom:notice-closed:${SITE_NOTICE.id}`) === '1');
+        setClosed(SITE_NOTICES.filter((n) => localStorage.getItem(closedKey(n.id)) === '1').map((n) => n.id));
       } catch {
-        setClosed(false);
+        setClosed([]);
       }
     }, 0);
     return () => clearTimeout(timer);
   }, []);
-  if (!SITE_NOTICE || closed) return null;
-  function close() {
-    setClosed(true);
+  if (!closed) return null;
+  function close(id: string) {
+    setClosed((ids) => [...(ids ?? []), id]);
     try {
-      localStorage.setItem(`micom:notice-closed:${SITE_NOTICE!.id}`, '1');
+      localStorage.setItem(closedKey(id), '1');
     } catch {}
   }
-  return (
-    <div className={`site-notice ${className}`} role="note">
-      <AlertTriangle size={18} aria-hidden="true" />
+  return SITE_NOTICES.filter((n) => !closed.includes(n.id)).map((n) => (
+    <div key={n.id} className={`site-notice ${n.info ? 'info' : ''} ${className}`} role="note">
+      {n.info ? <Mail size={18} aria-hidden="true" /> : <AlertTriangle size={18} aria-hidden="true" />}
       <p>
-        <strong>{SITE_NOTICE.title}</strong> {SITE_NOTICE.body}
+        <strong>{n.title}</strong> {n.body}
       </p>
-      <button type="button" aria-label="안내 닫기" title="닫기" onClick={close}>
+      <button type="button" aria-label={`‘${n.title}’ 안내 닫기`} title="닫기" onClick={() => close(n.id)}>
         <X size={16} />
       </button>
     </div>
-  );
+  ));
 }

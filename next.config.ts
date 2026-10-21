@@ -3,13 +3,15 @@ import type { NextConfig } from 'next';
 // Enforced after a Report-Only trial showed no violations across login, posting with photos and the admin pages.
 // script-src needs 'unsafe-inline' because vinext inlines the RSC payload and bootstrap as <script> tags; nonces
 // would need a middleware that sets a per-request nonce (vinext reads it from the request CSP header).
+// img2.stibee.com hosts newsletter images, shown in the admin preview. That preview is a sandboxed srcdoc iframe:
+// it inherits this policy, and frame-src does not apply to about:srcdoc (no fetch happens), so frame-src stays as is.
 // reCAPTCHA entries cover Firebase Auth's optional reCAPTCHA Enterprise check; Google Fonts is imported in globals.css.
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://img2.stibee.com",
   "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com",
   "frame-src https://mecomm-project.firebaseapp.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
   "form-action 'self'",
@@ -43,6 +45,7 @@ const nextConfig: NextConfig = {
       { source: '/posts/:id', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
       { source: '/admin/members', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
       { source: '/auth/action', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
+      { source: '/newsletter/unsubscribe', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
     ];
   },
 };

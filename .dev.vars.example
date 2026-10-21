@@ -5,3 +5,10 @@ FIREBASE_API_KEY=
 FIREBASE_AUTH_DOMAIN=
 FIREBASE_PROJECT_ID=
 FIREBASE_APP_ID=
+
+# 뉴스레터 발송용 Google Apps Script 웹 앱 주소와 공유 비밀값입니다(docs 참고). 비워두면 발송 기능이 꺼집니다.
+# 로컬 테스트(scripts/test-newsletter.mjs)는 모의 서버를 쓰므로 아래 값으로 두고 실행합니다.
+#   NEWSLETTER_SCRIPT_URL=http://127.0.0.1:5199
+#   NEWSLETTER_SCRIPT_SECRET=local-newsletter-secret
+NEWSLETTER_SCRIPT_URL=
+NEWSLETTER_SCRIPT_SECRET=

@@ -99,6 +99,13 @@
       "when": 1792275642449,
       "tag": "0013_post_reviewed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1792563455303,
+      "tag": "0014_newsletter",
+      "breakpoints": true
     }
   ]
 }
