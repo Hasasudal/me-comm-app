@@ -106,6 +106,13 @@
       "when": 1792563455303,
       "tag": "0014_newsletter",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1792567913321,
+      "tag": "0015_newsletter_hardening",
+      "breakpoints": true
     }
   ]
 }

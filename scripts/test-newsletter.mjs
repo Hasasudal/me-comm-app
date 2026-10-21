@@ -7,7 +7,9 @@ import { createServer } from 'node:http';
 import { createMemberFixture, execute, query, setRole } from './test-member-fixture.mjs';
 
 const base = 'http://localhost:5173';
-const mock = { remaining: 100, sent: [] };
+// mode (one send call): 'html' mails the batch then answers with an HTML page (outcome unknown to the Worker);
+// 'reject' refuses the call before mailing anyone, like a bad secret or request.
+const mock = { remaining: 100, sent: [], mode: null };
 const server = createServer((req, res) => {
   let raw = '';
   req.on('data', (chunk) => (raw += chunk));
@@ -23,6 +25,9 @@ const server = createServer((req, res) => {
     if (body.action === 'quota') return reply({ ok: true, remaining: mock.remaining });
     if (body.action !== 'send' || !Array.isArray(body.messages) || !body.messages.length || body.messages.length > 20)
       return reply({ ok: false, error: 'bad_request' });
+    const mode = mock.mode;
+    mock.mode = null;
+    if (mode === 'reject') return reply({ ok: false, error: 'bad_request' });
     const results = body.messages.map((m) => {
       const to = String(m.to).trim();
       if (m.html.length > 200000) return { to, ok: false, error: 'too_large' };
@@ -31,6 +36,7 @@ const server = createServer((req, res) => {
       mock.sent.push({ to, subject: m.subject, html: m.html });
       return { to, ok: true };
     });
+    if (mode === 'html') return res.writeHead(200, { 'Content-Type': 'text/html' }).end('<html>오류</html>');
     reply({ ok: true, results, remaining: mock.remaining });
   });
 });
@@ -64,6 +70,15 @@ const create = async (subject, html = '<p>본문</p>') => {
   return r.data.id;
 };
 const send = (id) => request(`/api/admin/newsletters/${id}/send`, { method: 'POST', cookie: admin, body: {} });
+const finish = async (id) => {
+  let r;
+  do {
+    r = await send(id);
+    assert.equal(r.status, 200);
+  } while (!r.data.done);
+};
+const deliveries = (id) => query(`SELECT user_id,status,error FROM newsletter_deliveries WHERE newsletter_id='${id}'`);
+const mailed = (subject) => mock.sent.filter((m) => m.subject === subject).map((m) => m.to);
 try {
   assert.equal((await request('/api/admin/newsletters', { cookie: fixture.secondCookie })).status, 403, 'members cannot list');
   assert.equal(
@@ -88,6 +103,12 @@ try {
   const [stored] = query(`SELECT html FROM newsletters WHERE id='${id}'`);
   assert.ok(!/script|onclick/i.test(stored.html), 'scripts and handlers are stripped');
   assert.match(stored.html, /<p>안녕<\/p>/);
+  const tricky = await create('위생', `<img src="x"/onerror="alert(1)"><a href=" javascript:alert(1)">a</a><img src='javascript:x'>`);
+  const [cleaned] = query(`SELECT html FROM newsletters WHERE id='${tricky}'`);
+  assert.ok(!/onerror|javascript:/i.test(cleaned.html), '/onerror= and javascript: URLs are neutralised');
+  const big = await request('/api/admin/newsletters', { method: 'POST', cookie: admin, body: { subject: '큼', html: '가'.repeat(70000) } });
+  assert.equal(big.status, 400, 'the cap counts UTF-8 bytes (70,000 Korean chars ≈ 210KB)');
+  assert.match(big.data.error, /180KB/);
 
   const test = await request('/api/admin/newsletters/test', { method: 'POST', cookie: admin, body: { subject: '3월 소식', html: '<p>미리보기</p>' } });
   assert.equal(test.status, 200);
@@ -117,7 +138,13 @@ try {
   const again = await send(id);
   assert.equal(again.data.sent, 0);
   assert.equal(mock.sent.length, recipients.length, 'a second call sends nothing more');
-  assert.ok(query(`SELECT sent_at FROM newsletters WHERE id='${id}'`)[0].sent_at, 'marked sent');
+  const [started] = query(`SELECT sent_at,started_by,started_by_name,started_at FROM newsletters WHERE id='${id}'`);
+  assert.ok(started.sent_at, 'marked sent');
+  assert.equal(started.started_by, 'test-member-active', 'who started sending is recorded');
+  assert.ok(started.started_at);
+  const listed = (await request('/api/admin/newsletters', { cookie: admin })).data.newsletters.find((n) => n.id === id);
+  assert.equal(listed.started_by_name, '활성회원');
+  assert.ok(listed.started_at);
 
   // Quota: none left stops with everyone pending; one left mid-batch sends one and keeps the rest pending.
   const second = await create('4월 소식');
@@ -135,6 +162,64 @@ try {
   assert.equal(result.data.exhausted, true);
   mock.remaining = 100;
 
+  await finish(second);
+
+  // Unknown outcome (unreadable reply after the script mailed): failed, never resent.
+  mock.mode = 'html';
+  const unsure = await create('5월 소식');
+  result = await send(unsure);
+  assert.equal(result.status, 502);
+  assert.match(result.data.error, /보낸편지함/);
+  const unconfirmed = mailed('5월 소식');
+  assert.ok(unconfirmed.length >= 1);
+  const marked = deliveries(unsure).filter((d) => d.status === 'failed');
+  assert.equal(marked.length, unconfirmed.length, 'the whole batch is marked failed');
+  assert.ok(marked.every((d) => d.error === '발송 여부 확인 불가'));
+  await finish(unsure);
+  const all = mailed('5월 소식');
+  assert.equal(new Set(all).size, all.length, 'nobody gets it twice after an unknown outcome');
+
+  // Definite refusal: nothing was mailed, so the batch goes back to pending and is sent later.
+  mock.mode = 'reject';
+  const refused = await create('6월 소식');
+  result = await send(refused);
+  assert.equal(result.status, 502);
+  assert.equal(mailed('6월 소식').length, 0);
+  assert.ok(deliveries(refused).every((d) => d.status === 'pending'), 'refused rows are pending again');
+  await finish(refused);
+  assert.ok(deliveries(refused).every((d) => d.status === 'sent'));
+
+  // The address is read when mailing: a change after the snapshot reaches the new address.
+  execute("UPDATE users SET newsletter=1 WHERE id='test-member-second'");
+  const moved = await create('7월 소식');
+  mock.remaining = 0;
+  await send(moved); // snapshot only
+  mock.remaining = 100;
+  execute("UPDATE users SET email='second-new@ks.ac.kr' WHERE id='test-member-second'");
+  await finish(moved);
+  assert.ok(mailed('7월 소식').includes('second-new@ks.ac.kr') && !mailed('7월 소식').includes('second@ks.ac.kr'));
+
+  // An admin-approved unverified sign-up (pending rows start with newsletter=0) is not subscribed.
+  const now = Date.now();
+  execute(
+    `INSERT INTO users (id,email,display_name,status,newsletter,created_at,updated_at) VALUES ('test-newsletter-pending','nl-pending@ks.ac.kr','대기','pending',0,${now},${now})`,
+  );
+  assert.equal(
+    (await request('/api/admin/users/test-newsletter-pending', { method: 'PATCH', cookie: admin, body: { status: 'active' } }))
+      .status,
+    200,
+  );
+  assert.equal(query("SELECT newsletter FROM users WHERE id='test-newsletter-pending'")[0].newsletter, 0, 'approval keeps it off');
+  const approved = await create('8월 소식');
+  await finish(approved);
+  assert.ok(!mailed('8월 소식').includes('nl-pending@ks.ac.kr'));
+
+  // Withdrawal removes the member's delivery rows (and with them the last trace of the address).
+  assert.ok(query("SELECT 1 FROM newsletter_deliveries WHERE user_id='test-member-second'").length);
+  const left = await request('/api/account', { method: 'DELETE', cookie: fixture.secondCookie, body: { confirm: '회원탈퇴' } });
+  assert.equal(left.status, 200);
+  assert.equal(query("SELECT 1 FROM newsletter_deliveries WHERE user_id='test-member-second'").length, 0);
+
   // Unsubscribe by token; unknown tokens get the same answer.
   assert.deepEqual((await request('/api/newsletter/unsubscribe', { method: 'POST', body: { token: 'nope' } })).data, { ok: true });
   assert.equal((await request('/api/newsletter/unsubscribe', { method: 'POST', body: { token } })).status, 200);
@@ -149,7 +234,9 @@ try {
   console.log('newsletter tests passed');
 } finally {
   const ids = created.map((value) => `'${value}'`).join(',') || "''";
-  execute(`DELETE FROM newsletter_deliveries WHERE newsletter_id IN (${ids}); DELETE FROM newsletters WHERE id IN (${ids});`);
+  execute(
+    `DELETE FROM newsletter_deliveries WHERE newsletter_id IN (${ids}); DELETE FROM newsletters WHERE id IN (${ids}); DELETE FROM member_audit WHERE target_id='test-newsletter-pending'; DELETE FROM users WHERE id='test-newsletter-pending';`,
+  );
   fixture.cleanup();
   server.close();
 }

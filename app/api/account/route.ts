@@ -90,9 +90,10 @@ export async function DELETE(request: Request) {
         .prepare(`UPDATE comments SET author_id=?,author_name=? WHERE author_id=?${guard}`)
         .bind(WITHDRAWN_ID, WITHDRAWN_NAME, member.userId),
       db().prepare(`DELETE FROM sessions WHERE user_id=?${guard}`).bind(member.userId),
+      db().prepare(`DELETE FROM newsletter_deliveries WHERE user_id=?${guard}`).bind(member.userId),
       db().prepare(`DELETE FROM users WHERE id=?${guard}`).bind(member.userId),
     ]);
-    if (!results[5].meta.changes) throw new HttpError(409, LAST_ADMIN);
+    if (!results[6].meta.changes) throw new HttpError(409, LAST_ADMIN);
     return json({ ok: true }, 200, { 'Set-Cookie': expiredSessionCookie() });
   });
 }

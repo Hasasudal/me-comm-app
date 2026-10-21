@@ -7,7 +7,7 @@
 
 var SENDER_NAME = '미컴 라운지';
 var MAX_MESSAGES = 20;      // 한 번 호출에 보낼 수 있는 최대 메일 수
-var MAX_HTML = 200000;      // 본문 HTML 최대 글자 수 (Gmail 본문 한도가 약 200KB라 그보다 작게)
+var MAX_HTML_BYTES = 190000; // 본문 HTML 최대 바이트 수 (MailApp 본문 한도가 약 200KB, 한글은 글자당 3바이트)
 var EMAIL_RE = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
 
 // 배포 확인용. 민감한 정보는 돌려주지 않습니다.
@@ -39,16 +39,21 @@ function doPost(e) {
     if (!Array.isArray(list) || list.length === 0 || list.length > MAX_MESSAGES) {
       return json({ ok: false, error: 'bad_request' });
     }
+    // 받는 사람 도메인 제한 (스크립트 속성 ALLOWED_DOMAINS, 예: ks.ac.kr). 비어 있으면 제한 없음.
+    var allowed = (PropertiesService.getScriptProperties().getProperty('ALLOWED_DOMAINS') || '')
+      .split(',').map(function (d) { return d.trim().toLowerCase(); }).filter(String);
     var results = [];
     var outOfQuota = false;
     for (var i = 0; i < list.length; i++) {
       var m = list[i] || {};
       var to = typeof m.to === 'string' ? m.to.trim() : '';
-      if (!EMAIL_RE.test(to) || typeof m.subject !== 'string' || typeof m.html !== 'string') {
+      var domain = to.slice(to.lastIndexOf('@') + 1).toLowerCase();
+      if (!EMAIL_RE.test(to) || typeof m.subject !== 'string' || typeof m.html !== 'string' ||
+          (allowed.length && allowed.indexOf(domain) < 0)) {
         results.push({ to: to, ok: false, error: 'invalid' });
         continue;
       }
-      if (m.html.length > MAX_HTML) {
+      if (Utilities.newBlob(m.html).getBytes().length > MAX_HTML_BYTES) {
         results.push({ to: to, ok: false, error: 'too_large' });
         continue;
       }
@@ -61,14 +66,21 @@ function doPost(e) {
       try {
         MailApp.sendEmail({
           to: to,
-          subject: m.subject.slice(0, 250),
+          subject: m.subject.replace(/[\r\n]+/g, ' ').slice(0, 250),
           htmlBody: m.html,
           body: toPlainText(m.html),   // HTML을 못 보는 메일 앱용 텍스트
           name: SENDER_NAME
         });
         results.push({ to: to, ok: true });
       } catch (err) {
-        results.push({ to: to, ok: false, error: String(err && err.message || err).slice(0, 200) });
+        var msg = String(err && err.message || err);
+        // 구글의 하루 한도 초과 오류면 'quota'로 알리고 나머지는 보내지 않습니다.
+        if (/too many times|limit exceeded|quota/i.test(msg)) {
+          outOfQuota = true;
+          results.push({ to: to, ok: false, error: 'quota' });
+        } else {
+          results.push({ to: to, ok: false, error: msg.slice(0, 200) });
+        }
       }
     }
     return json({ ok: true, results: results, remaining: MailApp.getRemainingDailyQuota() });

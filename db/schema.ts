@@ -148,6 +148,10 @@ export const newsletters = sqliteTable('newsletters', {
   created_by: text('created_by').notNull(),
   created_by_name: text('created_by_name').notNull(),
   created_at: integer('created_at').notNull(),
+  // Who started sending: set once, by the send call that snapshots the recipients.
+  started_by: text('started_by'),
+  started_by_name: text('started_by_name'),
+  started_at: integer('started_at'),
   sent_at: integer('sent_at'),
 });
 
@@ -156,8 +160,8 @@ export const newsletterDeliveries = sqliteTable(
   'newsletter_deliveries',
   {
     newsletter_id: text('newsletter_id').notNull(),
+    // The address is read from users when the row is mailed, so it is never stale or kept after withdrawal.
     user_id: text('user_id').notNull(),
-    email: text('email').notNull(),
     status: text('status').notNull(),
     error: text('error'),
     // Claim time while 'sending', delivery time once 'sent'.

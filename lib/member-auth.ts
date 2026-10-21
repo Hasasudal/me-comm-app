@@ -93,6 +93,8 @@ const PENDING_MESSAGE =
 
 // A school address whose verification mail never arrived can still ask to join: it is recorded as 'pending'
 // until an admin approves it (status 'active') or turns it down (row deleted). Verified mail skips the wait.
+// Pending rows start unsubscribed and an admin's approval keeps it that way (the address is still unverified);
+// verifying it later subscribes them like any verified sign-up. Members can always opt in from the account page.
 export async function issueMemberSession(identity: Identity, request?: Request) {
   const existing = await db()
     .prepare('SELECT id,email,status FROM users WHERE id=? OR email=?')
@@ -110,7 +112,7 @@ export async function issueMemberSession(identity: Identity, request?: Request) 
       const now = Date.now();
       await db()
         .prepare(
-          "INSERT INTO users (id,email,display_name,status,suspended_at,created_at,updated_at) VALUES (?,?,?,'pending',NULL,?,?)",
+          "INSERT INTO users (id,email,display_name,status,newsletter,suspended_at,created_at,updated_at) VALUES (?,?,?,'pending',0,NULL,?,?)",
         )
         .bind(identity.userId, identity.email, identity.displayName, now, now)
         .run();
@@ -133,7 +135,7 @@ export async function issueMemberSession(identity: Identity, request?: Request) 
       : []),
     db()
       .prepare(
-        "INSERT INTO users (id,email,display_name,status,suspended_at,created_at,updated_at) VALUES (?,?,?,'active',NULL,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,status=CASE WHEN users.status='pending' THEN 'active' ELSE users.status END,updated_at=excluded.updated_at",
+        "INSERT INTO users (id,email,display_name,status,suspended_at,created_at,updated_at) VALUES (?,?,?,'active',NULL,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,newsletter=CASE WHEN users.status='pending' THEN 1 ELSE users.newsletter END,status=CASE WHEN users.status='pending' THEN 'active' ELSE users.status END,updated_at=excluded.updated_at",
       )
       .bind(identity.userId, identity.email, identity.displayName, now, now),
     // Keep other devices signed in: drop expired sessions and cap each member at MAX_SESSIONS.
