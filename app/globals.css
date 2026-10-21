@@ -3503,6 +3503,35 @@ label small {
   margin: -4px 0 20px;
   font-size: 12.5px;
 }
+/* Stacked notices sit 10px apart (page top and .in-card). */
+.site-notice + .site-notice {
+  margin-top: -12px;
+}
+.site-notice.in-card + .site-notice.in-card {
+  margin-top: -10px;
+}
+.site-notice.info {
+  border-color: #cfdcfb;
+  border-left-color: var(--blue);
+  background: #f3f6ff;
+  color: #3a4664;
+}
+.site-notice.info > svg,
+.site-notice.info strong,
+.site-notice.info a {
+  color: var(--blue);
+}
+.site-notice.info a {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.site-notice.info button {
+  color: #5a6a8f;
+}
+.site-notice.info button:hover {
+  background: #e3eaff;
+}
 .writer-tag {
   display: inline-flex;
   align-items: center;
