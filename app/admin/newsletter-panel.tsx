@@ -9,6 +9,8 @@ type Newsletter = {
   subject: string;
   created_at: number;
   created_by_name: string | null;
+  started_by_name: string | null;
+  started_at: number | null;
   sent_at: number | null;
   total: number;
   sent: number;
@@ -25,7 +27,8 @@ type SendResult = {
   done: boolean;
   exhausted: boolean;
 };
-const maxHtml = 150_000;
+// UTF-8 bytes, same unit as the server's cap.
+const maxHtmlBytes = 180_000;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 type Progress = { sent: number; failed: number; total: number };
 
@@ -118,6 +121,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
     try {
       await action();
     } catch (e) {
+      // Includes the 502 "결과를 확인하지 못했습니다" case: the loop stops here and load() below shows the failed count.
       setError((e as Error).message);
     } finally {
       running.current = false;
@@ -195,7 +199,8 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
     });
 
   const configured = overview?.configured ?? false;
-  const tooLarge = html.length > maxHtml;
+  const htmlBytes = new TextEncoder().encode(html).length;
+  const tooLarge = htmlBytes > maxHtmlBytes;
   const ready = configured && !!subject.trim() && !!html.trim() && !tooLarge && !busy;
   return (
     <section className="newsletter-panel" aria-labelledby="newsletter-title">
@@ -233,7 +238,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
           <small>
             HTML 파일을 불러오거나 코드를 붙여넣으세요. 앞에 붙은 설명 줄은 자동으로 정리됩니다.{' '}
             <span className={tooLarge ? 'danger-text-inline' : undefined}>
-              ({html.length.toLocaleString('ko-KR')} / {maxHtml.toLocaleString('ko-KR')}자
+              ({(htmlBytes / 1000).toFixed(1)}KB / {maxHtmlBytes / 1000}KB
               {tooLarge && ' · 뉴스레터 HTML이 너무 큽니다'})
             </span>
           </small>
@@ -338,6 +343,11 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
                     {item.failed > 0 && ` · 실패 ${item.failed}`}
                     {item.pending > 0 && ` · 남음 ${item.pending}`}
                   </small>
+                  {item.started_at && (
+                    <small>
+                      발송 시작: {item.started_by_name || '이름 없음'} · {formatDate(item.started_at)}
+                    </small>
+                  )}
                 </div>
                 <div className="newsletter-history-actions">
                   {item.pending > 0 && (

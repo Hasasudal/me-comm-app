@@ -8,9 +8,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   return handle(async () => {
     const admin = await requireAdmin(request);
+    await limit(request, 'newsletter-test', 5, admin.userId);
     const { subject, html } = z.object(newsletterFields).parse(await input(request, 1000000));
     requireConfigured();
-    await limit(request, 'newsletter-test', 5, admin.userId);
     const origin = new URL(request.url).origin;
     const { results, remaining } = await sendMail([
       { to: admin.email, subject: `[테스트] ${subject}`, html: withFooter(html, `${origin}/account`) },
