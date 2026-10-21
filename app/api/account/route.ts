@@ -4,6 +4,7 @@ import { verifyFirebaseIdToken } from '../../../lib/firebase-token';
 import { expiredSessionCookie, requireMember, revokeMemberSessions } from '../../../lib/member-auth';
 import { db, handle, HttpError, input, json } from '../../../lib/server';
 import { deletePostImages, sweepUnattached } from '../../../lib/images';
+import { newsletterToken } from '../../../lib/newsletter';
 
 export const dynamic = 'force-dynamic';
 // Firebase uids never take this form, so no account can claim the withdrawn member's content.
@@ -14,7 +15,17 @@ const LAST_ADMIN = '마지막 관리자는 다른 회원에게 관리자 직책�
 export async function PATCH(request: Request) {
   return handle(async () => {
     const member = await requireMember(request);
-    const { idToken } = z.object({ idToken: z.string().min(100).max(10000) }).parse(await input(request));
+    const { idToken, newsletter } = z
+      .object({ idToken: z.string().min(100).max(10000).optional(), newsletter: z.boolean().optional() })
+      .refine((value) => value.idToken || value.newsletter !== undefined, '바꿀 내용을 선택해주세요.')
+      .parse(await input(request));
+    // The unsubscribe token is made with the first opt-in so every subscriber's footer link works.
+    if (newsletter !== undefined)
+      await db()
+        .prepare('UPDATE users SET newsletter=?,newsletter_token=COALESCE(newsletter_token,?),updated_at=? WHERE id=?')
+        .bind(newsletter ? 1 : 0, newsletterToken(), Date.now(), member.userId)
+        .run();
+    if (!idToken) return json({ ok: true, newsletter });
     const projectId = env.FIREBASE_PROJECT_ID?.trim();
     if (!projectId) throw new HttpError(503, '학교 계정 로그인이 아직 설정되지 않았습니다.');
     const verified = await verifyFirebaseIdToken(idToken, { projectId });

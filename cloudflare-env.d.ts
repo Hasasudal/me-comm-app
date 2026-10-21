@@ -6,5 +6,7 @@ declare namespace Cloudflare {
     FIREBASE_PROJECT_ID?: string;
     FIREBASE_APP_ID?: string;
     BUCKET?: R2Bucket;
+    NEWSLETTER_SCRIPT_URL?: string;
+    NEWSLETTER_SCRIPT_SECRET?: string;
   }
 }

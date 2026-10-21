@@ -31,7 +31,8 @@ function zodMessage(issue: z.ZodIssue | undefined) {
   const fallback = z.defaultErrorMap(issue, { defaultError: 'Invalid input', data: undefined }).message;
   return issue.message && issue.message !== fallback ? issue.message : '입력값을 확인해주세요.';
 }
-export async function input(request: Request) {
+// `maxBytes` is raised only for routes carrying large bodies (newsletter HTML).
+export async function input(request: Request, maxBytes = 100000) {
   const origin = request.headers.get('origin');
   if (origin && origin !== new URL(request.url).origin) throw new HttpError(403, '허용되지 않은 요청입니다.');
   if (!request.headers.get('content-type')?.includes('application/json'))
@@ -44,7 +45,7 @@ export async function input(request: Request) {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.length;
-    if (size > 100000) {
+    if (size > maxBytes) {
       await reader.cancel();
       throw new HttpError(413, '입력 내용이 너무 큽니다.');
     }
@@ -223,6 +224,9 @@ export async function identity(request?: Request) {
         userId: member.userId,
         email: member.email,
         displayName: member.displayName,
+        newsletter: !!(
+          await db().prepare('SELECT newsletter FROM users WHERE id=?').bind(member.userId).first<{ newsletter: number }>()
+        )?.newsletter,
       };
     }
   }
