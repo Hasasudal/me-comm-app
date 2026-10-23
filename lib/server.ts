@@ -70,7 +70,8 @@ const hiddenInText = /[\u0000-\u0008\u000B-\u001F\u007F\u200B\u200C\u200E\u200F\
 /** `.refine(...visible)` rejects single-line fields (names, titles) that carry hidden characters. */
 export const visible = [(value: string) => !hidden.test(value), '보이지 않는 특수문자는 사용할 수 없습니다.'] as const;
 export const stripHidden = (value: string) => value.replace(hiddenInText, '');
-// Staff may sign as their own role; admins as any of these. Compared without spaces and case.
+// Staff may sign as their own role; admins as any of these. Compared after NFKC (fullwidth ＡＤＭＩＮ → admin),
+// keeping only letters and digits (so '[관리자]' or '관 리.자' match) and ignoring case.
 const reservedNames = new Map<string, Role | null>([
   ['관리자', null],
   ['운영자', null],
@@ -78,10 +79,23 @@ const reservedNames = new Map<string, Role | null>([
   ['학사', 'academic'],
   ['학생회', 'council'],
 ]);
+const reservedKey = (name: string) =>
+  name
+    .normalize('NFKC')
+    .replace(/[^\p{L}\p{N}]/gu, '')
+    .toLowerCase();
+/** Author, comment and club names. */
 export function checkAuthorName(name: string, member: Member) {
-  const key = name.replace(/\s+/g, '').toLowerCase();
+  const key = reservedKey(name);
   if (reservedNames.has(key) && !isAdmin(member) && reservedNames.get(key) !== member.role)
     throw new HttpError(400, '운영진으로 오해될 수 있는 이름은 사용할 수 없습니다.');
+}
+/** Post prefixes (머릿글): the same names, and '공지' only for admins. */
+export function checkPrefix(prefix: string | null, member: Member) {
+  if (!prefix) return;
+  if (reservedKey(prefix) === '공지' && !isAdmin(member))
+    throw new HttpError(400, '공지 머릿글은 관리자만 사용할 수 있습니다.');
+  checkAuthorName(prefix, member);
 }
 export const contentFields = {
   title: z
@@ -362,6 +376,7 @@ export async function checkPostPassword(request: Request, post: PostRow, passwor
   if (!password) throw new HttpError(400, '게시글 비밀번호를 입력해주세요.');
   await limit(request, 'password', 10, member.userId);
   // Per post too, so many accounts cannot share the guessing; the post id stands in as the subject.
+  // Trade-off: anyone can burn this post's hourly budget and lock co-editors out for an hour; the author and admins skip it.
   await limit(request, `password-post:${post.id}`, 20, post.id, 3600000);
   if (!(await verifyPassword(password, post.salt, post.password_hash)))
     throw new HttpError(403, '비밀번호가 일치하지 않습니다.');

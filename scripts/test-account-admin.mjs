@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createMemberFixture, query, setRole } from './test-member-fixture.mjs';
+import { createMemberFixture, setRole } from './test-member-fixture.mjs';
 
 const base = 'http://localhost:5173';
 async function request(path, { method = 'GET', body, cookie } = {}) {
@@ -37,38 +37,19 @@ assert.equal(
   400,
   'account deletion requires the exact phrase',
 );
-const post = (fields) =>
-  request('/api/posts', {
-    method: 'POST',
-    cookie: fixture.activeCookie,
-    body: { title: '탈퇴 테스트', content: '본문', author_name: '원래이름', password: 'password123', ...fields },
-  }).then((r) => r.data.id);
-const boardId = await post({ category: 'board' });
-const newsId = await post({ category: 'news' });
-await request(`/api/posts/${boardId}/comments`, {
-  method: 'POST',
-  cookie: fixture.activeCookie,
-  body: { author_name: '원래이름', content: '댓글' },
-});
+const withdraw = (body) => request('/api/account', { method: 'DELETE', cookie: fixture.activeCookie, body });
+assert.equal((await withdraw({ confirm: '회원탈퇴', dryRun: true })).status, 200, 'the pre-check needs no token');
+// Withdrawal needs a Firebase ID token from a password entry in the last 5 minutes. Tests cannot mint one that the
+// real Google keys accept, so the success path (content credited to '탈퇴한 회원') is checked by hand in the browser.
+const noToken = await withdraw({ confirm: '회원탈퇴' });
+assert.equal(noToken.status, 403, 'a session cookie alone cannot withdraw');
+assert.match(noToken.data.error, /비밀번호를 다시 확인/);
+assert.equal((await withdraw({ confirm: '회원탈퇴', idToken: 'x'.repeat(120) })).status, 401, 'a forged token is refused');
 assert.equal(
-  (await request('/api/account', { method: 'DELETE', cookie: fixture.activeCookie, body: { confirm: '회원탈퇴' } }))
-    .status,
-  200,
-  'member can delete their account',
+  (await request('/api/session', { cookie: fixture.activeCookie })).data.signedIn,
+  true,
+  'refused withdrawals keep the account',
 );
-const session = await request('/api/session', { cookie: fixture.activeCookie });
-assert.equal(session.data.signedIn, false, 'deleted account session cannot be reused');
-const kept = (await request(`/api/posts/${boardId}`, { cookie: fixture.secondCookie })).data.post;
-assert.equal(kept.author_name, '탈퇴한 회원', 'posts stay, credited to a withdrawn member');
-const [comment] = (await request(`/api/posts/${boardId}/comments`, { cookie: fixture.secondCookie })).data.comments;
-assert.equal(comment.author_name, '탈퇴한 회원', 'comments stay, credited to a withdrawn member');
-assert.equal(query(`SELECT id FROM posts WHERE id='${newsId}'`).length, 0, 'unfinished news is removed');
-assert.equal(
-  query("SELECT id FROM posts WHERE author_id='test-member-active'").length,
-  0,
-  'no content keeps the old id',
-);
-query(`DELETE FROM posts WHERE id='${boardId}'`);
 fixture.cleanup();
 
 const adminFixture = await createMemberFixture();
@@ -129,4 +110,4 @@ assert.equal(
 );
 adminFixture.cleanup();
 
-console.log('PASS: account deletion, administrator member search, suspension, session revocation and restoration.');
+console.log('PASS: withdrawal re-auth, administrator member search, suspension, session revocation and restoration.');

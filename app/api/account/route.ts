@@ -11,6 +11,8 @@ export const dynamic = 'force-dynamic';
 const WITHDRAWN_ID = 'withdrawn';
 const WITHDRAWN_NAME = '탈퇴한 회원';
 const LAST_ADMIN = '마지막 관리자는 다른 회원에게 관리자 직책을 준 뒤 탈퇴할 수 있습니다.';
+const REAUTH = '보안을 위해 비밀번호를 다시 확인해주세요.';
+const REAUTH_SECONDS = 5 * 60;
 
 export async function PATCH(request: Request) {
   return handle(async () => {
@@ -53,10 +55,11 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   return handle(async () => {
     const member = await requireMember(request);
-    const { confirm, dryRun } = z
+    const { confirm, dryRun, idToken } = z
       .object({
         confirm: z.literal('회원탈퇴', { errorMap: () => ({ message: '회원탈퇴 확인 문구를 정확히 입력해주세요.' }) }),
         dryRun: z.boolean().optional(),
+        idToken: z.string().min(100).max(10000).optional(),
       })
       .parse(await input(request));
     void confirm;
@@ -67,6 +70,14 @@ export async function DELETE(request: Request) {
       if ((count?.count || 0) <= 1) throw new HttpError(409, LAST_ADMIN);
     }
     if (dryRun) return json({ ok: true });
+    // A stolen session cookie alone must not withdraw anyone: require a token from a password entry in the last
+    // REAUTH_SECONDS (the account page reauthenticates right before this call).
+    if (!idToken) throw new HttpError(403, REAUTH);
+    const projectId = env.FIREBASE_PROJECT_ID?.trim();
+    if (!projectId) throw new HttpError(503, '학교 계정 로그인이 아직 설정되지 않았습니다.');
+    const verified = await verifyFirebaseIdToken(idToken, { projectId });
+    if (verified.userId !== member.userId || Date.now() / 1000 - verified.authTime > REAUTH_SECONDS)
+      throw new HttpError(403, REAUTH);
     // Re-checked inside every statement so a concurrent demotion cannot withdraw the last admin; the member's own
     // row still counts until the final DELETE, hence >=2.
     const guard =
@@ -78,8 +89,6 @@ export async function DELETE(request: Request) {
       .prepare(`SELECT id FROM posts WHERE ${dropped}`)
       .bind(member.userId)
       .all<{ id: string }>();
-    await deletePostImages(doomed.results.map((row) => row.id));
-    await sweepUnattached(member.userId);
     const results = await db().batch([
       db().prepare(`DELETE FROM comments WHERE post_id IN (SELECT id FROM posts WHERE ${dropped})`).bind(member.userId),
       db().prepare(`DELETE FROM posts WHERE ${dropped}`).bind(member.userId),
@@ -94,6 +103,10 @@ export async function DELETE(request: Request) {
       db().prepare(`DELETE FROM users WHERE id=?${guard}`).bind(member.userId),
     ]);
     if (!results[6].meta.changes) throw new HttpError(409, LAST_ADMIN);
+    // Photos go only once the batch went through (a rejected batch keeps the posts, so it must keep their photos);
+    // image rows are keyed by post id and owner, which the batch leaves in place.
+    await deletePostImages(doomed.results.map((row) => row.id));
+    await sweepUnattached(member.userId);
     return json({ ok: true }, 200, { 'Set-Cookie': expiredSessionCookie() });
   });
 }

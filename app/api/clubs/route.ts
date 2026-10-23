@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { db, handle, HttpError, input, json, limit, requireMember, visible } from '../../../lib/server';
+import { checkAuthorName, db, handle, HttpError, input, json, limit, requireMember, visible } from '../../../lib/server';
 import { clubNameField } from '../../../lib/clubs';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +16,7 @@ export async function POST(request: Request) {
   return handle(async () => {
     const member = await requireMember(request);
     const { name } = z.object({ name: clubNameField.refine(...visible) }).parse(await input(request));
+    checkAuthorName(name, member); // admins exempt, so their renames need no check
     await limit(request, 'club', 5, member.userId);
     // ponytail: count-then-insert, so two simultaneous requests may slip one past the cap; the rate limit bounds it.
     const pending = await db()

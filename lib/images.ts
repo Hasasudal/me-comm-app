@@ -14,35 +14,7 @@ export function looksLike(ext: string, bytes: Uint8Array) {
   if (ext === 'png') return bytes[0] === 0x89 && ascii(1, 4) === 'PNG';
   return ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP';
 }
-// Drops APP1 segments (EXIF, incl. GPS, and XMP) from a JPEG; everything else is kept byte for byte.
-// Returns null when the marker walk does not add up, so a malformed file is rejected rather than stored.
-export function stripJpegMetadata(bytes: Uint8Array) {
-  if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
-  const kept: Uint8Array[] = [bytes.subarray(0, 2)];
-  let at = 2;
-  while (at + 4 <= bytes.length) {
-    if (bytes[at] !== 0xff) return null;
-    const marker = bytes[at + 1];
-    if (marker === 0xff) {
-      at++; // fill byte
-      continue;
-    }
-    if (marker === 0xda) break; // start of scan: the rest is image data
-    const end = at + 2 + ((bytes[at + 2] << 8) | bytes[at + 3]);
-    if (end > bytes.length || end < at + 4) return null;
-    if (marker !== 0xe1) kept.push(bytes.subarray(at, end));
-    at = end;
-  }
-  if (bytes[at] !== 0xff || bytes[at + 1] !== 0xda) return null;
-  kept.push(bytes.subarray(at));
-  const out = new Uint8Array(kept.reduce((size, part) => size + part.length, 0));
-  let offset = 0;
-  for (const part of kept) {
-    out.set(part, offset);
-    offset += part.length;
-  }
-  return out;
-}
+export { stripJpegMetadata, stripMetadata } from './image-metadata';
 export const imageTypes: Record<string, string> = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' };
 export const imagesField = z
   .array(z.string().regex(/^[0-9a-f-]{36}\.(webp|jpg|png)$/, '사진 정보가 올바르지 않습니다.'))

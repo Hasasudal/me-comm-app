@@ -6,6 +6,8 @@
   "compatibility_date": "2026-05-15",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  // Old versions must not stay reachable at <version>-micom.*.workers.dev with production bindings.
+  "preview_urls": false,
   "d1_databases": [
     {
       "binding": "DB",

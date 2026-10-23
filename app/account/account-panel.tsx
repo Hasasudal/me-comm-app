@@ -139,7 +139,9 @@ export default function AccountPanel() {
       // Fresh sign-in first: deleteUser rejects stale sessions, and by then the server data would already be gone.
       await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
       if (passwordInput) passwordInput.value = '';
-      await api('/api/account', { confirm }, 'DELETE');
+      // The server checks this token's auth_time to confirm the password was just entered.
+      const idToken = await user.getIdToken(true);
+      await api('/api/account', { confirm, idToken }, 'DELETE');
       await deleteUser(user);
       window.location.assign('/');
     } catch (cause) {

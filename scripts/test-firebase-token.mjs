@@ -35,6 +35,7 @@ const validClaims = {
   iss: `https://securetoken.google.com/${projectId}`,
   sub: 'firebase-user-1',
   iat: now - 10,
+  auth_time: now - 60,
   exp: now + 3600,
   email: 'student@ks.ac.kr',
   email_verified: true,
@@ -52,6 +53,7 @@ assert.deepEqual(identity, {
   email: 'student@ks.ac.kr',
   displayName: '김미컴',
   emailVerified: true,
+  authTime: now - 60,
 });
 
 await assert.rejects(() => verify(validClaims, attacker.privateKey), /인증/);
@@ -74,4 +76,17 @@ assert.equal(
   'a missing name falls back to the mail ID',
 );
 
-console.log('PASS: Firebase token signature, claims, school email and name validation.');
+await assert.rejects(() => verify({ ...validClaims, auth_time: undefined }), /인증/, 'auth_time is required');
+await assert.rejects(() => verify({ ...validClaims, auth_time: now + 3600 }), /인증/, 'future auth_time is rejected');
+assert.equal(
+  (await verify({ ...validClaims, name: ' 김\u202E미컴\u200B ' })).displayName,
+  '김미컴',
+  'hidden and bidi characters are stripped from the name',
+);
+assert.equal(
+  (await verify({ ...validClaims, name: '\u202E\u2066' })).displayName,
+  'student',
+  'a name made only of hidden characters falls back to the mail ID',
+);
+
+console.log('PASS: Firebase token signature, claims, auth_time, school email and name validation.');

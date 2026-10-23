@@ -1,5 +1,23 @@
 import { execFileSync } from 'node:child_process';
 
+// execute() blocks the event loop for seconds, long enough for the dev server to close an idle keep-alive socket;
+// the next fetch then reuses it and gets ECONNRESET. Use a fresh connection per request (undici ships with
+// wrangler; Node's fetch honours its global dispatcher), and still retry reads once if it is unavailable.
+try {
+  const { Agent, setGlobalDispatcher } = await import('undici');
+  setGlobalDispatcher(new Agent({ pipelining: 0 }));
+} catch {}
+const baseFetch = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => {
+  try {
+    return await baseFetch(url, init);
+  } catch (error) {
+    const method = (init.method || 'GET').toUpperCase();
+    if (error?.cause?.code !== 'ECONNRESET' || (method !== 'GET' && method !== 'HEAD')) throw error;
+    return baseFetch(url, init);
+  }
+};
+
 const wrangler = './node_modules/wrangler/bin/wrangler.js';
 const config = 'dist/server/wrangler.json';
 
