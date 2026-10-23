@@ -38,7 +38,7 @@ async function commentablePost(request: Request, context: Context) {
   const admin = isAdmin(member);
   const { id } = await context.params;
   const post = await visiblePost(id, member);
-  if (post.category === 'news') throw new HttpError(400, '학과 뉴스에는 댓글을 달 수 없습니다.');
+  if (post.category === 'news') throw new HttpError(400, '학과 뉴스에는 댓글을 달 수 없어요.');
   return { member, admin, post };
 }
 
@@ -92,7 +92,7 @@ export async function POST(request: Request, context: Context) {
         MAX_COMMENTS,
       )
       .run();
-    if (!inserted.meta.changes) throw new HttpError(409, '댓글이 너무 많아 더 달 수 없습니다.');
+    if (!inserted.meta.changes) throw new HttpError(409, '댓글이 너무 많아 더 달 수 없어요.');
     // A desk post is answered once its staff reply, and waits again when the asker follows up.
     if (deskCategories.includes(post.category)) {
       const asker = post.author_id === member.userId;

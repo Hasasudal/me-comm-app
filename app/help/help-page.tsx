@@ -879,7 +879,7 @@ export default function HelpPage() {
               </div>
             </details>
             <details className="faq">
-              <summary>“요청이 너무 많습니다”라고 떠요.</summary>
+              <summary>“짧은 시간에 너무 많이 시도했어요”라고 떠요.</summary>
               <div>
                 <p>
                   짧은 시간에 글이나 댓글을 많이 올리면 잠시 막힙니다. 1분 뒤 다시 시도하세요. 글은 하루 30개, 댓글은

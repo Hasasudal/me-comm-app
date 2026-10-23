@@ -360,7 +360,7 @@ try {
   assert.equal((await sign('학사')).status, 400, '학생회 cannot sign as 학사');
   assert.equal(
     (await sign('학 생회', author)).data.error,
-    '운영진으로 오해될 수 있는 이름은 사용할 수 없습니다.',
+    '운영진으로 오해될 수 있는 이름은 쓸 수 없어요. 다른 이름을 입력해주세요.',
     'members cannot sign as 학생회',
   );
   assert.equal((await sign('ＡＤＭＩＮ', author)).status, 400, 'fullwidth admin is caught');
@@ -372,7 +372,7 @@ try {
       body: { title: '머릿글 검증', content: '본문', author_name: '별명', password, category: 'board', prefix },
     });
   assert.equal((await prefixed('[관리자]')).status, 400, 'members cannot prefix as 관리자');
-  assert.equal((await prefixed('공지')).data.error, '공지 머릿글은 관리자만 사용할 수 있습니다.', '공지 is admin-only');
+  assert.equal((await prefixed('공지')).data.error, '공지 머릿글은 운영진만 쓸 수 있어요.', '공지 is admin-only');
   await request(`/api/comments/${signed.data.comment.id}`, { method: 'DELETE', cookie: admin, body: {} });
   setRole('test-member-active', 'admin');
   assert.equal((await request(`/api/posts/${ids.news}`, { cookie: admin })).status, 200, 'admin can open any news');

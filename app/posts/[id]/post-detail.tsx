@@ -1,7 +1,7 @@
 'use client';
 
 import { recruitmentState } from '../../../lib/recruitment';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -52,6 +52,15 @@ const formatDate = (n: number) =>
     n,
   );
 
+const nameKey = 'micom:author-name';
+const savedName = () => {
+  try {
+    return localStorage.getItem(nameKey) || '';
+  } catch {
+    return '';
+  }
+};
+
 export default function PostDetail({ id }: { id: string }) {
   const [post, setPost] = useState<Post | null>(null);
   const [identity, setIdentity] = useState<Identity>({ loaded: false, signedIn: false });
@@ -63,6 +72,10 @@ export default function PostDetail({ id }: { id: string }) {
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [clubs, setClubs] = useState<{ id: string; name: string }[]>([]);
+  const noticeRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (notice) noticeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [notice]);
   useEffect(() => {
     if (mode !== 'edit' || post?.category !== 'clubs') return;
     api<{ clubs: { id: string; name: string }[] }>('/api/clubs')
@@ -131,6 +144,9 @@ export default function PostDetail({ id }: { id: string }) {
         },
         'PATCH',
       );
+      try {
+        localStorage.setItem(nameKey, String(form.get('author_name') || ''));
+      } catch {}
       await reload();
       setMode('view');
       setNotice(data.status === 'pending' ? '기사를 다시 제출했습니다. 관리자 검토를 기다려주세요.' : '수정했습니다.');
@@ -250,7 +266,7 @@ export default function PostDetail({ id }: { id: string }) {
       ) : error && !post ? (
         <section className="detail-card detail-error">
           <FileText size={32} />
-          <h1>게시글을 찾을 수 없습니다</h1>
+          <h1>글을 찾을 수 없어요</h1>
           <p>{error}</p>
           <a className="primary" href="/">
             게시판으로 돌아가기
@@ -319,7 +335,7 @@ export default function PostDetail({ id }: { id: string }) {
               </div>
             )}
             {notice && (
-              <p className="inline-notice">
+              <p className="inline-notice" ref={noticeRef}>
                 <Check size={16} />
                 {notice}
               </p>
@@ -432,7 +448,7 @@ export default function PostDetail({ id }: { id: string }) {
                 <div className="form-grid">
                   <label>
                     별명
-                    <input name="author_name" required maxLength={20} defaultValue={post.author_name || ''} />
+                    <input name="author_name" required maxLength={20} defaultValue={post.author_name || savedName()} />
                   </label>
                   <label>
                     머릿글 <small className="inline-optional">선택</small>
@@ -483,7 +499,22 @@ export default function PostDetail({ id }: { id: string }) {
                   </p>
                 )}
                 <div className="article-actions">
-                  <button type="button" className="secondary" onClick={() => setMode('view')}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={(e) => {
+                      const form = e.currentTarget.form;
+                      const field = (name: string) =>
+                        String((form?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '');
+                      const changed =
+                        field('title') !== post.title ||
+                        field('content') !== post.content ||
+                        field('prefix') !== (post.prefix || '') ||
+                        images.join() !== (post.images || []).join();
+                      if (changed && !window.confirm('고친 내용이 사라져요. 수정을 취소할까요?')) return;
+                      setMode('view');
+                    }}
+                  >
                     취소
                   </button>
                   <button className="primary" disabled={busy || uploading}>

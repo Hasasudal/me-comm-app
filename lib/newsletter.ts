@@ -15,7 +15,7 @@ export function configured() {
   return !!(env.NEWSLETTER_SCRIPT_URL?.trim() && env.NEWSLETTER_SCRIPT_SECRET?.trim());
 }
 export function requireConfigured() {
-  if (!configured()) throw new HttpError(503, '뉴스레터 발송이 아직 설정되지 않았습니다.');
+  if (!configured()) throw new HttpError(503, '뉴스레터 발송 설정이 아직 안 됐어요. 도움말의 설정 안내를 따라주세요.');
 }
 /** A send whose outcome is unknown (timeout, network error, unreadable reply): the mail may have gone out. */
 export class Unconfirmed extends HttpError {

@@ -4,12 +4,13 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { AlertTriangle, Mail, X } from 'lucide-react';
 
 // Site-wide notices shown above every page, in order. Remove an entry to take it down; change its `id` to show it
-// again to people who closed the old one. `info` uses the calm blue style instead of the red warning one.
-const SITE_NOTICES: { id: string; title: string; body: ReactNode; info?: boolean }[] = [
+// again to people who closed the old one. `audience: 'guest'` shows a notice to signed-out visitors only. `info` uses the calm blue style instead of the red warning one.
+const SITE_NOTICES: { id: string; title: string; body: ReactNode; info?: boolean; audience?: 'guest' }[] = [
   {
     id: 'verify-mail-2026-09',
     title: '인증 메일이 오지 않나요?',
     body: '학교 메일에서 인증 메일이 걸러지는 경우가 있어요. 스팸 메일함·스팸 격리함을 확인하고, 그래도 없으면 가입한 이메일로 로그인만 해두세요. 관리자가 확인 후 승인해 드려요.',
+    audience: 'guest',
   },
   {
     id: 'newsletter-2026-10',
@@ -28,6 +29,18 @@ const closedKey = (id: string) => `micom:notice-closed:${id}`;
 
 export default function SiteNotice({ className = '' }: { className?: string }) {
   const [closed, setClosed] = useState<string[] | null>(null);
+  // null until /api/session answers, so guest-only notices never flash at members.
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch('/api/session', { cache: 'no-store' })
+      .then((response) => (response.json() as Promise<{ signedIn?: boolean }>).catch(() => ({ signedIn: false })))
+      .then((data) => active && setSignedIn(!!data.signedIn))
+      .catch(() => active && setSignedIn(false));
+    return () => {
+      active = false;
+    };
+  }, []);
   useEffect(() => {
     // Read after hydration so the server and first client render agree.
     const timer = setTimeout(() => {
@@ -46,7 +59,7 @@ export default function SiteNotice({ className = '' }: { className?: string }) {
       localStorage.setItem(closedKey(id), '1');
     } catch {}
   }
-  return SITE_NOTICES.filter((n) => !closed.includes(n.id)).map((n) => (
+  return SITE_NOTICES.filter((n) => !closed.includes(n.id) && (n.audience !== 'guest' || signedIn === false)).map((n) => (
     <div key={n.id} className={`site-notice ${n.info ? 'info' : ''} ${className}`} role="note">
       {n.info ? <Mail size={18} aria-hidden="true" /> : <AlertTriangle size={18} aria-hidden="true" />}
       <p>

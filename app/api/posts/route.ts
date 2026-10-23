@@ -60,17 +60,24 @@ export async function GET(request: Request) {
       );
       binds.push(...Array(4).fill(`%${escapeLike(q)}%`));
     }
+    // "Waiting only" (oldest unanswered first) is for the staff who manage that desk; everyone else ignores it.
+    const waiting =
+      url.searchParams.get('waiting') === '1' &&
+      !!category &&
+      deskCategories.includes(category) &&
+      managesDesk(member, category);
+    if (waiting) where.push('resolved_at IS NULL');
     // Keyset cursor "createdAt:id" keeps pages stable while new posts arrive.
     const cursor = /^(\d+):([\w-]+)$/.exec(url.searchParams.get('cursor') || '');
     if (cursor) {
-      where.push('(created_at<? OR (created_at=? AND id<?))');
+      where.push(waiting ? '(created_at>? OR (created_at=? AND id>?))' : '(created_at<? OR (created_at=? AND id<?))');
       binds.push(Number(cursor[1]), Number(cursor[1]), cursor[2]);
     }
     const columns = `${listColumns}${q ? ',content' : ''}`,
       filter = where.join(' AND ');
     // Pinned posts lead the first page; the paged feed skips them so nothing shows twice.
     const [pinned, result] = await Promise.all([
-      cursor
+      cursor || waiting
         ? null
         : db()
             .prepare(`SELECT ${columns} FROM posts WHERE ${filter} AND pinned_at IS NOT NULL ORDER BY pinned_at DESC LIMIT 10`)
@@ -78,7 +85,7 @@ export async function GET(request: Request) {
             .all<ListRow>(),
       db()
         .prepare(
-          `SELECT ${columns} FROM posts WHERE ${filter} AND pinned_at IS NULL ORDER BY created_at DESC, id DESC LIMIT ?`,
+          `SELECT ${columns} FROM posts WHERE ${filter} ${waiting ? 'ORDER BY created_at ASC, id ASC' : 'AND pinned_at IS NULL ORDER BY created_at DESC, id DESC'} LIMIT ?`,
         )
         .bind(...binds, PAGE_SIZE + 1)
         .all<ListRow>(),

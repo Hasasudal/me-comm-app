@@ -36,7 +36,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ key:
   return handle(async () => {
     const member = await requireMember(request);
     const origin = request.headers.get('origin');
-    if (origin && origin !== new URL(request.url).origin) throw new HttpError(403, '허용되지 않은 요청입니다.');
+    if (origin && origin !== new URL(request.url).origin) throw new HttpError(403, '요청을 처리하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해주세요.');
     const { key } = await context.params;
     const result = await db()
       .prepare('DELETE FROM images WHERE key=? AND owner_id=? AND post_id IS NULL')

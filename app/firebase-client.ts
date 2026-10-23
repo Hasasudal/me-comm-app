@@ -17,7 +17,7 @@ export function firebaseAuth() {
     authPromise = fetch('/api/auth/config', { cache: 'no-store' })
       .then(async (response) => {
         const body = (await response.json().catch(() => ({}))) as FirebasePublicConfig & { error?: string };
-        if (!response.ok) throw new Error(body.error || '학교 계정 로그인이 아직 설정되지 않았습니다.');
+        if (!response.ok) throw new Error(body.error || '로그인 기능이 아직 준비되지 않았어요. 운영진에게 알려주세요.');
         const app = getApps()[0] || initializeApp(body);
         const auth = getAuth(app);
         auth.languageCode = 'ko';

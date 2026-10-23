@@ -4,7 +4,6 @@ import { recruitmentState } from '../lib/recruitment';
 import { ImagePicker } from './image-picker';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
-  ArrowDown,
   ArrowRight,
   ArrowUpRight,
   Asterisk,
@@ -85,6 +84,54 @@ const formatDate = (n: number) =>
     day: '2-digit',
   }).format(n);
 
+// localStorage / sessionStorage can throw (private mode, blocked data), so every access goes through these.
+const store = (area: 'localStorage' | 'sessionStorage') => ({
+  get(key: string) {
+    try {
+      return window[area].getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set(key: string, value: string) {
+    try {
+      window[area].setItem(key, value);
+    } catch {}
+  },
+  del(key: string) {
+    try {
+      window[area].removeItem(key);
+    } catch {}
+  },
+});
+const local = store('localStorage');
+const session = store('sessionStorage');
+const nameKey = 'micom:author-name';
+const draftKey = (category: string) => `micom:draft:${category}`;
+const draftFields = ['title', 'content', 'prefix', 'recruitment_status', 'deadline', 'headcount', 'roles', 'club_id'];
+type Draft = Record<string, string>;
+const readDraft = (category: string): Draft | null => {
+  try {
+    const value = JSON.parse(local.get(draftKey(category)) || 'null');
+    return value && typeof value === 'object' ? value : null;
+  } catch {
+    return null;
+  }
+};
+// Search, filters and the club tab live in the URL so a reload or back navigation lands on the same list.
+function syncUrl(changes: Record<string, string>) {
+  const params = new URLSearchParams(window.location.search);
+  for (const [name, value] of Object.entries(changes)) {
+    if (value) params.set(name, value);
+    else params.delete(name);
+  }
+  const qs = params.toString();
+  window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
+}
+const urlParam = (name: string) =>
+  typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get(name) || '';
+const listKey = () => `micom:list:${window.location.pathname}${window.location.search}`;
+
 export default function Community({ category = 'all', admin = false }: { category?: BoardId; admin?: boolean }) {
   const [identity, setIdentity] = useState<Identity>({
     admin: false,
@@ -96,9 +143,10 @@ export default function Community({ category = 'all', admin = false }: { categor
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
-  const [search, setSearch] = useState('');
-  const [openOnly, setOpenOnly] = useState(false);
+  const [query, setQuery] = useState(() => urlParam('q').slice(0, 100));
+  const [search, setSearch] = useState(() => urlParam('q').trim().slice(0, 100));
+  const [openOnly, setOpenOnly] = useState(() => urlParam('open') === '1');
+  const [waitingOnly, setWaitingOnly] = useState(() => urlParam('waiting') === '1');
   const [clubs, setClubs] = useState<Club[]>([]);
   // The selected club tab lives in the URL (/clubs?club=<id>) so a tab can be shared.
   const [club, setClub] = useState(() =>
@@ -114,10 +162,21 @@ export default function Community({ category = 'all', admin = false }: { categor
   const [busy, setBusy] = useState(false);
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [nick, setNick] = useState('');
+  const [formKey, setFormKey] = useState(0);
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const lastDraftKey = useRef('');
+  const restored = useRef(false);
+  const snapshot = useRef({ posts: [] as Post[], nextCursor: null as string | null, loading: true });
   const [draftCategory, setDraftCategory] = useState<WritableBoard>(category === 'all' ? 'board' : category);
   const dialog = useRef<HTMLDialogElement>(null);
   const loadId = useRef(0);
   const current = boards.find((board) => board.id === category) || boards[0];
+  const desk = !!deskStatus[category];
+  // Staff of a desk see a waiting count in the sidebar (admins manage every desk); the server re-checks this.
+  const staff = desk && (identity.admin || (identity.waiting?.[category] ?? 0) > 0);
+  const waiting = waitingOnly && staff;
 
   const load = useCallback(
     async (cursor?: string) => {
@@ -127,12 +186,11 @@ export default function Community({ category = 'all', admin = false }: { categor
       if (search) params.set('q', search);
       if (recruiting && openOnly) params.set('open', '1');
       if (category === 'clubs' && club) params.set('club', club);
+      if (waiting) params.set('waiting', '1');
       if (cursor) params.set('cursor', cursor);
+      // A new search keeps the previous list (dimmed) until the results arrive.
       if (cursor) setLoadingMore(true);
-      else {
-        setLoading(true);
-        setPosts([]);
-      }
+      else setLoading(true);
       setError('');
       try {
         const data = await api<{ posts: Post[]; nextCursor: string | null }>(`/api/posts?${params}`);
@@ -148,7 +206,7 @@ export default function Community({ category = 'all', admin = false }: { categor
         }
       }
     },
-    [category, search, recruiting, openOnly, club],
+    [category, search, recruiting, openOnly, club, waiting],
   );
 
   useEffect(() => {
@@ -164,14 +222,33 @@ export default function Community({ category = 'all', admin = false }: { categor
   }, [category, identity.signedIn]);
   useEffect(() => {
     if (admin || !identity.loaded || !identity.signedIn) return;
-    const timer = setTimeout(() => void load(), 0);
+    const timer = setTimeout(() => {
+      if (!restored.current) {
+        restored.current = true;
+        if (restoreList()) return;
+      }
+      void load();
+    }, 0);
     return () => clearTimeout(timer);
   }, [admin, identity.loaded, identity.signedIn, load]);
   // Search runs on the server once typing pauses.
   useEffect(() => {
-    const timer = setTimeout(() => setSearch(query.trim()), 300);
+    const timer = setTimeout(() => {
+      const value = query.trim();
+      setSearch(value);
+      syncUrl({ q: value });
+    }, 300);
     return () => clearTimeout(timer);
   }, [query]);
+  // Keep the loaded list, cursor and scroll position so coming back from a post lands where the member left.
+  useEffect(() => {
+    snapshot.current = { posts, nextCursor, loading };
+  }, [posts, nextCursor, loading]);
+  useEffect(() => {
+    window.addEventListener('pagehide', persistList);
+    return () => window.removeEventListener('pagehide', persistList);
+  }, []);
+  useEffect(() => () => clearTimeout(draftTimer.current), []);
   // Opening the news tab marks review results as seen; remember the previous time to badge what is new.
   useEffect(() => {
     if (category !== 'news' || !identity.userId) return;
@@ -192,9 +269,73 @@ export default function Community({ category = 'all', admin = false }: { categor
     else dialog.current?.close();
   }, [creating]);
 
+  function persistList() {
+    const { posts, nextCursor, loading } = snapshot.current;
+    if (loading || !posts.length) return;
+    session.set(listKey(), JSON.stringify({ at: Date.now(), posts, nextCursor, y: window.scrollY }));
+  }
+  function restoreList() {
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    if (nav?.type !== 'back_forward') return false;
+    try {
+      const saved = JSON.parse(session.get(listKey()) || 'null');
+      if (!saved || Date.now() - saved.at > 30 * 60 * 1000 || !Array.isArray(saved.posts)) return false;
+      setPosts(saved.posts);
+      setNextCursor(saved.nextCursor ?? null);
+      setLoading(false);
+      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, Number(saved.y) || 0)));
+      return true;
+    } catch {
+      return false;
+    }
+  }
   function selectClub(id: string) {
     setClub(id);
-    window.history.replaceState(null, '', id ? `/clubs?club=${encodeURIComponent(id)}` : '/clubs');
+    syncUrl({ club: id });
+  }
+  function selectOpenOnly(value: boolean) {
+    setOpenOnly(value);
+    syncUrl({ open: value ? '1' : '' });
+  }
+  function selectWaiting(value: boolean) {
+    setWaitingOnly(value);
+    syncUrl({ waiting: value ? '1' : '' });
+  }
+  function clearSearch() {
+    setQuery('');
+    setSearch('');
+    syncUrl({ q: '' });
+  }
+  function clearDraft(extra?: string) {
+    clearTimeout(draftTimer.current);
+    if (lastDraftKey.current) local.del(lastDraftKey.current);
+    local.del(draftKey(draftCategory));
+    if (extra) local.del(draftKey(extra));
+  }
+  // Title, body, prefix and category fields are autosaved shortly after typing; password and photos never are.
+  function scheduleDraft(form: HTMLFormElement) {
+    clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => {
+      const data = new FormData(form);
+      const cat = String(data.get('category') || '');
+      if (!cat) return;
+      const values: Draft = {};
+      for (const name of draftFields) {
+        const value = String(data.get(name) || '');
+        if (value) values[name] = value;
+      }
+      const key = draftKey(cat);
+      if (lastDraftKey.current && lastDraftKey.current !== key) local.del(lastDraftKey.current);
+      lastDraftKey.current = key;
+      if (values.title || values.content) local.set(key, JSON.stringify(values));
+      else local.del(key);
+    }, 500);
+  }
+  function resetDraft() {
+    clearDraft();
+    setDraft(null);
+    setImages([]);
+    setFormKey((n) => n + 1);
   }
   async function applyClub() {
     const name = window.prompt('개설할 동아리 이름을 입력해주세요 (30자 이내)')?.trim();
@@ -208,7 +349,12 @@ export default function Community({ category = 'all', admin = false }: { categor
   }
   function openCreate() {
     setModalError('');
-    setDraftCategory(category === 'all' ? 'board' : category);
+    const initial = category === 'all' ? 'board' : category;
+    setDraftCategory(initial);
+    setNick(local.get(nameKey) || '');
+    setDraft(readDraft(initial));
+    lastDraftKey.current = draftKey(initial);
+    setFormKey((n) => n + 1);
     setImages([]);
     setCreating(true);
   }
@@ -219,6 +365,7 @@ export default function Community({ category = 'all', admin = false }: { categor
     const field = (name: string) =>
       String((form?.elements.namedItem(name) as HTMLInputElement | null)?.value || '').trim();
     if ((field('title') || field('content') || images.length) && !window.confirm('작성 중인 글을 버릴까요?')) return;
+    clearDraft();
     setCreating(false);
     setModalError('');
   }
@@ -249,6 +396,8 @@ export default function Community({ category = 'all', admin = false }: { categor
         ...recruitment,
         ...(formCategory === 'clubs' ? { club_id: form.get('club_id') || null } : {}),
       });
+      local.set(nameKey, String(form.get('author_name') || '').trim());
+      clearDraft(formCategory);
       setNotice(
         formCategory === 'news'
           ? '기사를 제출했습니다. 뉴스 탭에서 검토 결과를 확인할 수 있어요.'
@@ -302,7 +451,7 @@ export default function Community({ category = 'all', admin = false }: { categor
           </button>
         )}
       </section>
-      {!admin && category === 'all' && (
+      {!admin && category === 'all' && identity.loaded && !identity.signedIn && !identity.blocked && (
         <section className="welcome-panel">
           <div>
             <span className="tiny-label">HELLO, MICOM!</span>
@@ -312,15 +461,9 @@ export default function Community({ category = 'all', admin = false }: { categor
               <span>여기서 시작됩니다.</span>
             </h2>
             <p>새로운 소식, 같은 관심사, 함께할 사람들.</p>
-            {identity.signedIn ? (
-              <button onClick={openCreate}>
-                첫 이야기를 꺼내보세요 <ArrowUpRight size={18} />
-              </button>
-            ) : (
-              <a href="/login?returnTo=/">
-                첫 이야기를 꺼내보세요 <ArrowUpRight size={18} />
-              </a>
-            )}
+            <a href="/login?returnTo=/">
+              첫 이야기를 꺼내보세요 <ArrowUpRight size={18} />
+            </a>
           </div>
           <div className="orbit-art" aria-hidden="true">
             <div className="orbit one" />
@@ -401,9 +544,6 @@ export default function Community({ category = 'all', admin = false }: { categor
                 {feedTitle}
                 <span>{loading ? '—' : `${posts.length}${nextCursor ? '+' : ''}`}</span>
               </h2>
-              <span className="sort-label">
-                최신순 <ArrowDown size={14} />
-              </span>
             </div>
             <div className="search-row">
               <Search size={18} />
@@ -413,7 +553,17 @@ export default function Community({ category = 'all', admin = false }: { categor
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="제목·본문·작성자로 검색"
               />
+              {query && (
+                <button type="button" className="search-clear" aria-label="검색어 지우기" onClick={clearSearch}>
+                  <X size={16} />
+                </button>
+              )}
             </div>
+            {search && (
+              <p className="search-result-label" role="status">
+                <b>‘{search}’</b> 결과
+              </p>
+            )}
             {category === 'clubs' && (
               <div className="filter-row" aria-label="동아리">
                 {[{ id: '', name: '전체' }, ...clubs].map((item) => (
@@ -438,9 +588,23 @@ export default function Community({ category = 'all', admin = false }: { categor
                     key={String(value)}
                     className={openOnly === value ? 'filter selected' : 'filter'}
                     aria-pressed={openOnly === value}
-                    onClick={() => setOpenOnly(value)}
+                    onClick={() => selectOpenOnly(value)}
                   >
                     {value ? '모집 중만' : '모든 글'}
+                  </button>
+                ))}
+              </div>
+            )}
+            {desk && (staff || waitingOnly) && (
+              <div className="filter-row" aria-label="답변 상태">
+                {[false, true].map((value) => (
+                  <button
+                    key={String(value)}
+                    className={waitingOnly === value ? 'filter selected' : 'filter'}
+                    aria-pressed={waitingOnly === value}
+                    onClick={() => selectWaiting(value)}
+                  >
+                    {value ? '답변 대기만' : '모든 글'}
                   </button>
                 ))}
               </div>
@@ -462,7 +626,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                 <button onClick={() => void load()}>다시 시도</button>
               </div>
             )}
-            {loading ? (
+            {loading && !posts.length ? (
               <div className="loading" role="status">
                 게시글을 불러오는 중입니다…
               </div>
@@ -497,7 +661,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                 )}
               </div>
             ) : (
-              <div className="post-list">
+              <div className={loading ? 'post-list dimmed' : 'post-list'} aria-busy={loading} onClick={persistList}>
                 {posts.map((post) => (
                   <a className="post-row" key={post.id} href={`/posts/${post.id}`}>
                     <div className={`category-symbol ${post.category}`}>
@@ -679,7 +843,15 @@ export default function Community({ category = 'all', admin = false }: { categor
                     ? '1:1 학사문의'
                     : '새로운 이야기'}
               </h2>
-              <form onSubmit={submit}>
+              <form key={formKey} onSubmit={submit} onChange={(e) => scheduleDraft(e.currentTarget)}>
+                {draft && (
+                  <p className="draft-note" role="status">
+                    저장된 임시 글을 불러왔어요
+                    <button type="button" onClick={resetDraft}>
+                      새로 쓰기
+                    </button>
+                  </p>
+                )}
                 {category !== 'all' ? (
                   <>
                     <input type="hidden" name="category" value={category} />
@@ -706,7 +878,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                   (clubs.length ? (
                     <label>
                       동아리
-                      <select name="club_id" required defaultValue={club}>
+                      <select name="club_id" required defaultValue={draft?.club_id ?? club}>
                         <option value="" disabled>
                           동아리를 선택해주세요
                         </option>
@@ -725,17 +897,34 @@ export default function Community({ category = 'all', admin = false }: { categor
                 <div className="form-grid">
                   <label>
                     별명
-                    <input name="author_name" required maxLength={20} placeholder="글에 표시될 별명" />
+                    <input
+                      name="author_name"
+                      required
+                      maxLength={20}
+                      placeholder="글에 표시될 별명"
+                      defaultValue={nick}
+                    />
                     <small className="field-hint">실명이 아니어도 돼요. 실제 계정은 관리자만 볼 수 있어요.</small>
                   </label>
                   <label>
                     머릿글 <small className="inline-optional">선택</small>
-                    <input name="prefix" maxLength={30} placeholder={prefixHints[draftCategory]} />
+                    <input
+                      name="prefix"
+                      maxLength={30}
+                      placeholder={prefixHints[draftCategory]}
+                      defaultValue={draft?.prefix}
+                    />
                   </label>
                 </div>
                 <label>
                   제목
-                  <input name="title" required maxLength={120} placeholder="어떤 이야기를 나누고 싶나요?" />
+                  <input
+                    name="title"
+                    required
+                    maxLength={120}
+                    placeholder="어떤 이야기를 나누고 싶나요?"
+                    defaultValue={draft?.title}
+                  />
                 </label>
                 <label>
                   본문
@@ -745,6 +934,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                     maxLength={20000}
                     rows={8}
                     placeholder="소식이나 모집 내용을 자유롭게 작성해주세요."
+                    defaultValue={draft?.content}
                   />
                 </label>
                 <ImagePicker value={images} onChange={setImages} onBusy={setUploading} />
@@ -754,7 +944,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                     <div className="form-grid">
                       <label>
                         모집 상태
-                        <select name="recruitment_status" defaultValue="">
+                        <select name="recruitment_status" defaultValue={draft?.recruitment_status ?? ''}>
                           <option value="">선택 안 함</option>
                           <option value="open">모집 중</option>
                           <option value="closed">마감</option>
@@ -762,21 +952,33 @@ export default function Community({ category = 'all', admin = false }: { categor
                       </label>
                       <label>
                         모집 마감일
-                        <input name="deadline" type="date" />
+                        <input name="deadline" type="date" defaultValue={draft?.deadline} />
                       </label>
                       <label>
                         모집 인원
-                        <input name="headcount" type="number" min="1" max="99" placeholder="예: 3" />
+                        <input
+                          name="headcount"
+                          type="number"
+                          min="1"
+                          max="99"
+                          placeholder="예: 3"
+                          defaultValue={draft?.headcount}
+                        />
                       </label>
                       <label>
                         필요한 역할
-                        <input name="roles" maxLength={200} placeholder="예: 기획, 디자인, 개발" />
+                        <input
+                          name="roles"
+                          maxLength={200}
+                          placeholder="예: 기획, 디자인, 개발"
+                          defaultValue={draft?.roles}
+                        />
                       </label>
                     </div>
                   </fieldset>
                 )}
                 <label>
-                  수정·삭제 비밀번호
+                  글 비밀번호
                   <input
                     name="password"
                     type="password"
@@ -786,7 +988,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                     autoComplete="new-password"
                     placeholder="8자 이상 입력해주세요"
                   />
-                  <small>내 계정에서는 없이 수정·삭제할 수 있고, 다른 계정에서 관리할 때 필요해요.</small>
+                  <small>내 계정으로 로그인하면 비밀번호 없이 고치고 삭제할 수 있어요. 다른 계정에서 관리할 때만 쓰는 글 비밀번호예요.</small>
                 </label>
                 {draftCategory === 'news' && (
                   <p className="form-note">

@@ -11,9 +11,9 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       .prepare('SELECT comments.author_id,comments.post_id,posts.category FROM comments JOIN posts ON posts.id=comments.post_id WHERE comments.id=?')
       .bind(id)
       .first<{ author_id: string; post_id: string; category: string }>();
-    if (!comment) throw new HttpError(404, '댓글을 찾을 수 없습니다.');
+    if (!comment) throw new HttpError(404, '댓글을 찾을 수 없어요. 이미 삭제됐을 수 있어요.');
     if (comment.author_id !== member.userId && !isAdmin(member))
-      throw new HttpError(403, '내가 쓴 댓글만 삭제할 수 있습니다.');
+      throw new HttpError(403, '내가 쓴 댓글만 삭제할 수 있어요.');
     const remove = db().prepare('DELETE FROM comments WHERE id=?').bind(id);
     if (!deskCategories.includes(comment.category)) {
       await remove.run();

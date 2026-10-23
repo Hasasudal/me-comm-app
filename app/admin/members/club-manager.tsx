@@ -16,6 +16,7 @@ export default function ClubManager() {
   const [clubs, setClubs] = useState<Club[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const openedOnce = useRef(false);
   const load = useCallback(async () => {
@@ -49,12 +50,18 @@ export default function ClubManager() {
       setBusy(false);
     }
   }
-  function rename(club: Club) {
-    const name = window.prompt('새 동아리 이름', club.name)?.trim();
+  function saveRename(club: Club) {
+    const name = renaming?.name.trim();
+    setRenaming(null);
     if (name && name !== club.name) void run(api(`/api/admin/clubs/${club.id}`, { name }, 'PATCH'));
   }
   function remove(club: Club) {
     const verb = club.status === 'pending' ? '거절' : '삭제';
+    const linked = club.status === 'active' && club.post_count > 0;
+    if (linked) {
+      setError(`‘${club.name}’ 동아리에 연결된 글이 ${club.post_count}개 있어요. 연결된 글이 있으면 삭제할 수 없어요.`);
+      return;
+    }
     if (window.confirm(`${club.name} 동아리를 ${verb}할까요?`))
       void run(api(`/api/admin/clubs/${club.id}`, {}, 'DELETE'));
   }
@@ -77,6 +84,31 @@ export default function ClubManager() {
         <ol className="club-list">
           {clubs.map((club) => (
             <li key={club.id}>
+              {renaming?.id === club.id ? (
+                <form
+                  className="club-rename"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    saveRename(club);
+                  }}
+                >
+                  <input
+                    aria-label="새 동아리 이름"
+                    autoFocus
+                    maxLength={30}
+                    value={renaming.name}
+                    onChange={(event) => setRenaming({ id: club.id, name: event.target.value })}
+                    onKeyDown={(event) => event.key === 'Escape' && setRenaming(null)}
+                  />
+                  <button className="restore-button" disabled={busy || !renaming.name.trim()}>
+                    저장
+                  </button>
+                  <button type="button" className="rename-button" onClick={() => setRenaming(null)}>
+                    취소
+                  </button>
+                </form>
+              ) : (
+              <>
               <span>
                 <strong>{club.name}</strong>{' '}
                 <small>
@@ -95,7 +127,7 @@ export default function ClubManager() {
                     승인
                   </button>
                 ) : (
-                  <button className="rename-button" disabled={busy} onClick={() => rename(club)}>
+                  <button className="rename-button" disabled={busy} onClick={() => setRenaming({ id: club.id, name: club.name })}>
                     이름 변경
                   </button>
                 )}
@@ -103,6 +135,8 @@ export default function ClubManager() {
                   {club.status === 'pending' ? '거절' : '삭제'}
                 </button>
               </span>
+              </>
+              )}
             </li>
           ))}
         </ol>

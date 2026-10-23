@@ -7,6 +7,6 @@ export async function api<T = Record<string, unknown>>(path: string, body?: unkn
       : { cache: 'no-store' },
   );
   const data = (await response.json().catch(() => ({}))) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.');
+  if (!response.ok) throw new Error(data.error || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.');
   return data;
 }
