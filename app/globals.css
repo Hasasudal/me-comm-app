@@ -2617,8 +2617,30 @@ label small {
   overflow-wrap: anywhere;
 }
 .newsletter-history small {
+  display: block;
   font-size: 12px;
   color: #8490a1;
+}
+.newsletter-schedule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.newsletter-schedule label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.newsletter-schedule input {
+  margin-top: 4px;
+  width: auto;
+}
+.newsletter-schedule button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .newsletter-history-actions {
   display: flex;
