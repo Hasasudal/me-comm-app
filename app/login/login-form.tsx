@@ -2,7 +2,7 @@
 
 import { sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { useSearchParams } from 'next/navigation';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import { firebaseAuth, safeReturnTo } from '../firebase-client';
 import { firebaseMessage, isSchoolEmail, MAIL_SENDER, normalizeSchoolEmail } from '../auth/firebase-errors';
 
@@ -13,6 +13,8 @@ export default function LoginForm() {
   const [notice, setNotice] = useState(params.get('verified') ? '이메일 인증을 마쳤다면 로그인해주세요.' : '');
   const [unverified, setUnverified] = useState(false);
   const [email, setEmail] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,7 +39,7 @@ export default function LoginForm() {
         body: JSON.stringify({ idToken }),
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) throw new Error(body.error || '로그인 세션을 만들지 못했습니다.');
+      if (!response.ok) throw new Error(body.error || '로그인하지 못했어요. 잠시 후 다시 시도해주세요.');
       window.location.assign(safeReturnTo(params.get('returnTo')));
     } catch (cause) {
       setError(firebaseMessage(cause));
@@ -51,13 +53,13 @@ export default function LoginForm() {
     setError('');
     try {
       const auth = await firebaseAuth();
-      if (!auth.currentUser) throw new Error('이메일과 비밀번호로 다시 로그인해주세요.');
+      if (!auth.currentUser) throw new Error('이메일과 비밀번호로 먼저 로그인한 뒤 다시 눌러주세요.');
       await sendEmailVerification(auth.currentUser, {
         url: `${window.location.origin}/login?verified=1`,
         handleCodeInApp: false,
       });
       setError('');
-      setNotice(`인증 메일을 다시 보냈습니다. 보낸사람 ${MAIL_SENDER} 메일을 스팸함·스팸 격리함에서도 찾아보세요.`);
+      setNotice(`인증 메일을 다시 보냈어요. 보낸사람 ${MAIL_SENDER} 메일을 스팸함·스팸 격리함에서도 찾아보세요.`);
     } catch (cause) {
       setError(firebaseMessage(cause));
     } finally {
@@ -68,7 +70,10 @@ export default function LoginForm() {
   async function resetPassword() {
     setError('');
     const schoolEmail = normalizeSchoolEmail(email);
-    if (!isSchoolEmail(schoolEmail)) return setError('비밀번호를 재설정할 학교 이메일을 입력해주세요.');
+    if (!isSchoolEmail(schoolEmail)) {
+      emailRef.current?.focus();
+      return setError('비밀번호를 재설정할 학교 이메일을 입력해주세요.');
+    }
     setBusy(true);
     try {
       const auth = await firebaseAuth();
@@ -76,11 +81,14 @@ export default function LoginForm() {
         url: `${window.location.origin}/login`,
         handleCodeInApp: false,
       });
-      setNotice('가입 여부와 관계없이 요청을 접수했습니다. 메일함을 확인해주세요.');
+      setNotice('가입 여부와 관계없이 요청을 접수했어요. 메일함을 확인해주세요.');
     } catch (cause) {
-      const message = firebaseMessage(cause);
-      setNotice(message.includes('설정') ? '' : '가입 여부와 관계없이 요청을 접수했습니다. 메일함을 확인해주세요.');
-      if (message.includes('설정')) setError(message);
+      // Firebase errors other than network/rate-limit look the same to the user (no account lookup);
+      // errors without a code (e.g. sign-in not configured) are shown as they are.
+      const code = typeof cause === 'object' && cause && 'code' in cause ? String(cause.code) : '';
+      if (!code || code === 'auth/network-request-failed' || code === 'auth/too-many-requests')
+        setError(firebaseMessage(cause));
+      else setNotice('가입 여부와 관계없이 요청을 접수했어요. 메일함을 확인해주세요.');
     } finally {
       setBusy(false);
     }
@@ -92,6 +100,7 @@ export default function LoginForm() {
         학교 이메일
         <div className="email-field">
           <input
+            ref={emailRef}
             name="email"
             type="email"
             autoComplete="email"
@@ -105,13 +114,24 @@ export default function LoginForm() {
       </label>
       <label>
         비밀번호
-        <input
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          placeholder="비밀번호를 입력해주세요"
-        />
+        <div className="email-field">
+          <input
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            required
+            placeholder="비밀번호를 입력해주세요"
+          />
+          <button
+            className="password-reset"
+            type="button"
+            aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+            aria-pressed={showPassword}
+            onClick={() => setShowPassword((value) => !value)}
+          >
+            {showPassword ? '숨기기' : '보기'}
+          </button>
+        </div>
       </label>
       <button className="password-reset" type="button" disabled={busy} onClick={resetPassword}>
         비밀번호 재설정

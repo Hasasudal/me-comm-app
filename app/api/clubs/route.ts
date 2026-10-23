@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       .prepare("SELECT COUNT(*) AS count FROM clubs WHERE requested_by=? AND status='pending'")
       .bind(member.userId)
       .first<{ count: number }>();
-    if ((pending?.count ?? 0) >= 3) throw new HttpError(409, '승인을 기다리는 신청은 3개까지 할 수 있습니다.');
+    if ((pending?.count ?? 0) >= 3) throw new HttpError(409, '승인을 기다리는 신청은 3개까지 할 수 있어요. 승인된 뒤에 다시 신청해주세요.');
     const id = crypto.randomUUID();
     const result = await db()
       .prepare(
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       )
       .bind(id, name, member.userId, Date.now())
       .run();
-    if (!result.meta.changes) throw new HttpError(409, '이미 있거나 신청된 동아리 이름입니다.');
+    if (!result.meta.changes) throw new HttpError(409, '이미 있거나 신청된 동아리 이름이에요. 다른 이름을 입력해주세요.');
     return json({ id }, 201);
   });
 }

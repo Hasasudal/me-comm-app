@@ -64,6 +64,7 @@ export default function MemberManager() {
   // Paging reuses the last searched filters, not whatever the inputs hold before 검색 is pressed.
   const [searched, setSearched] = useState({ query, status, role });
   const [total, setTotal] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [audit, setAudit] = useState<AuditEntry[] | null>(null);
@@ -86,6 +87,10 @@ export default function MemberManager() {
         setTotal(result.total);
         setPage(nextPage);
         setSearched(filters);
+        // Header chip: unfiltered pending total (best effort).
+        api<{ total: number }>('/api/admin/users?status=pending&limit=1')
+          .then((pending) => setPendingCount(pending.total))
+          .catch(() => {});
       } catch (cause) {
         setError((cause as Error).message);
       } finally {
@@ -205,7 +210,14 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
                 placeholder="이름 또는 학교 이메일"
               />
             </label>
-            <select aria-label="직책" value={role} onChange={(event) => setRole(event.target.value)}>
+            <select
+              aria-label="직책"
+              value={role}
+              onChange={(event) => {
+                setRole(event.target.value);
+                void load(1, { query, status, role: event.target.value });
+              }}
+            >
               <option value="all">전체 직책</option>
               {roleOrder.map((value) => (
                 <option key={value} value={value}>
@@ -213,7 +225,14 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
                 </option>
               ))}
             </select>
-            <select aria-label="회원 상태" value={status} onChange={(event) => setStatus(event.target.value)}>
+            <select
+              aria-label="회원 상태"
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                void load(1, { query, status: event.target.value, role });
+              }}
+            >
               <option value="all">전체 상태</option>
               <option value="active">이용 중</option>
               <option value="suspended">정지</option>
@@ -227,6 +246,20 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
             <p className="form-error" role="alert">
               {error}
             </p>
+          )}
+          {pendingCount > 0 && (
+            <button
+              type="button"
+              className={`status-chip pending pending-filter${status === 'pending' ? ' active' : ''}`}
+              aria-pressed={status === 'pending'}
+              disabled={busy}
+              onClick={() => {
+                setStatus('pending');
+                void load(1, { query, status: 'pending', role });
+              }}
+            >
+              승인 대기 {pendingCount}명
+            </button>
           )}
           <p className="member-count">
             총 {total}명 · 승인 대기와 직책이 있는 회원이 위에 표시됩니다. 내 직책은 다른 관리자가 바꿀 수 있어요.
@@ -290,7 +323,9 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
             <button className="secondary" disabled={busy || page <= 1} onClick={() => void load(page - 1)}>
               이전
             </button>
-            <span>{page} 페이지</span>
+            <span>
+              {page} / {Math.max(1, Math.ceil(total / 20))}
+            </span>
             <button className="secondary" disabled={busy || page * 20 >= total} onClick={() => void load(page + 1)}>
               다음
             </button>

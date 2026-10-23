@@ -8,6 +8,7 @@ import { firebaseMessage, isSchoolEmail, normalizeSchoolEmail, rememberVerifyEma
 export default function SignupForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   // Students often type their student number; mail IDs usually differ, so an all-digit ID gets a gentle check.
   const [looksLikeStudentNumber, setLooksLikeStudentNumber] = useState(false);
 
@@ -23,7 +24,7 @@ export default function SignupForm() {
     if (!isSchoolEmail(email)) return setError('경성대학교 이메일(@ks.ac.kr)을 입력해주세요.');
     if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password))
       return setError('비밀번호는 영문과 숫자를 포함해 8자 이상 입력해주세요.');
-    if (password !== confirm) return setError('비밀번호 확인이 일치하지 않습니다.');
+    if (password !== confirm) return setError('비밀번호 확인이 맞지 않아요. 같은 비밀번호를 다시 입력해주세요.');
     setBusy(true);
     try {
       const auth = await firebaseAuth();
@@ -46,7 +47,10 @@ export default function SignupForm() {
     <form className="auth-form" onSubmit={submit} noValidate>
       <label>
         이름
-        <input name="name" autoComplete="name" maxLength={40} required placeholder="실명을 입력해주세요" />
+        <input name="name" autoComplete="name" maxLength={40} required placeholder="실명을 입력해주세요" aria-describedby="name-hint" />
+        <small id="name-hint" className="field-hint">
+          운영진에게만 보이는 이름이에요. 글과 댓글에는 따로 정하는 별명이 보여요.
+        </small>
       </label>
       <label>
         학교 이메일
@@ -73,20 +77,31 @@ export default function SignupForm() {
       </label>
       <label>
         비밀번호
-        <input
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          minLength={8}
-          required
-          placeholder="영문·숫자 포함 8자 이상"
-        />
+        <div className="email-field">
+          <input
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="new-password"
+            minLength={8}
+            required
+            placeholder="영문·숫자 포함 8자 이상"
+          />
+          <button
+            className="password-reset"
+            type="button"
+            aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+            aria-pressed={showPassword}
+            onClick={() => setShowPassword((value) => !value)}
+          >
+            {showPassword ? '숨기기' : '보기'}
+          </button>
+        </div>
       </label>
       <label>
         비밀번호 확인
         <input
           name="confirm"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           autoComplete="new-password"
           minLength={8}
           required
@@ -101,7 +116,10 @@ export default function SignupForm() {
       <button className="primary full" disabled={busy}>
         {busy ? '가입 중…' : '인증 메일 받고 가입하기'}
       </button>
-      <p className="auth-help">가입 후 학교 메일함에서 인증 링크를 눌러야 로그인이 완료됩니다.</p>
+      <p className="auth-help">가입 후 학교 이메일로 온 인증 링크를 눌러야 로그인할 수 있어요.</p>
+      <p className="auth-help">
+        학과 뉴스레터는 기본으로 학교 이메일로 보내져요. 원하지 않으면 가입 후 계정 설정에서 끌 수 있어요.
+      </p>
     </form>
   );
 }

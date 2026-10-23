@@ -24,7 +24,7 @@ export default function ActionHandler({
 }) {
   const [busy, setBusy] = useState(Boolean(mode && oobCode));
   const [error, setError] = useState(
-    !mode || !oobCode ? '올바르지 않은 요청입니다. 이메일의 링크를 다시 확인해주세요.' : '',
+    !mode || !oobCode ? '링크가 올바르지 않아요. 이메일의 링크를 다시 눌러주세요.' : '',
   );
   const [done, setDone] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState('');
@@ -67,7 +67,7 @@ export default function ActionHandler({
     const confirm = String(data.get('confirm') || '');
     if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password))
       return setError('비밀번호는 영문과 숫자를 포함해 8자 이상 입력해주세요.');
-    if (password !== confirm) return setError('비밀번호 확인이 일치하지 않습니다.');
+    if (password !== confirm) return setError('비밀번호 확인이 맞지 않아요. 같은 비밀번호를 다시 입력해주세요.');
     setBusy(true);
     try {
       const auth = await firebaseAuth();
@@ -86,23 +86,23 @@ export default function ActionHandler({
         {error}
       </div>
     );
-  if (busy) return <div className="action-state">요청을 확인하고 있습니다…</div>;
+  if (busy) return <div className="action-state">요청을 확인하고 있어요…</div>;
   if (done)
     return (
       <div className="action-state success">
         <strong>
           {mode === 'verifyEmail'
-            ? '학교 이메일 인증을 마쳤습니다.'
+            ? '학교 이메일 인증을 마쳤어요.'
             : mode === 'recoverEmail'
-              ? '이메일을 복구했습니다.'
-              : '비밀번호를 변경했습니다.'}
+              ? '이메일을 복구했어요.'
+              : '비밀번호를 바꿨어요.'}
         </strong>
-        <p>이제 학교 계정으로 로그인할 수 있습니다.</p>
+        <p>이제 학교 이메일로 로그인할 수 있어요.</p>
         {mode === 'resetPassword' && (
-          <p>다른 기기에 로그인이 남아 있다면 계정 설정의 ‘모든 기기에서 로그아웃’을 눌러주세요.</p>
+          <p>다른 기기에 로그인이 남아 있다면 계정 설정에서 ‘모든 기기에서 로그아웃’을 눌러주세요.</p>
         )}
         <a className="primary full" href={destination}>
-          계속하기
+          {destination === '/login' ? '로그인하러 가기' : '계속하기'}
         </a>
       </div>
     );
@@ -141,7 +141,7 @@ export default function ActionHandler({
 
   return (
     <div className="action-state error-box" role="alert">
-      {error || '요청을 처리하지 못했습니다. 링크를 다시 확인해주세요.'}
+      {error || '요청을 처리하지 못했어요. 이메일의 링크를 다시 눌러주세요.'}
     </div>
   );
 }

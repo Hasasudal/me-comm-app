@@ -52,9 +52,11 @@ export function ImagePicker({
   // The add button is hidden while uploading, so `value` cannot change under the count below; updates are
   // functional so a photo removed mid-upload is not brought back.
   async function add(files: FileList | null) {
-    const picked = Array.from(files || []).slice(0, MAX_IMAGES - value.length);
+    const all = Array.from(files || []);
+    const room = MAX_IMAGES - value.length;
+    const picked = all.slice(0, room);
     if (!picked.length) return;
-    setError('');
+    setError(all.length > room ? `사진은 ${MAX_IMAGES}장까지 올릴 수 있어요. 앞의 ${room}장만 올렸어요.` : '');
     setUploading(picked.length);
     onBusy?.(true);
     for (const file of picked) {
@@ -83,10 +85,10 @@ export function ImagePicker({
         사진 <small>(선택 · 최대 {MAX_IMAGES}장)</small>
       </span>
       <div className="image-grid">
-        {value.map((key) => (
+        {value.map((key, index) => (
           <div className="image-thumb" key={key}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl(key)} alt="첨부한 사진" />
+            <img src={imageUrl(key)} alt={`첨부한 사진 ${index + 1}/${value.length}`} />
             <button type="button" aria-label="사진 빼기" onClick={() => remove(key)}>
               <X size={14} />
             </button>

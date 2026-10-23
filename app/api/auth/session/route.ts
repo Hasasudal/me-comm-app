@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     await limit(request, 'member-session', 120);
     const { idToken } = z.object({ idToken: z.string().min(100).max(10000) }).parse(await input(request));
     const projectId = env.FIREBASE_PROJECT_ID?.trim();
-    if (!projectId) throw new HttpError(503, '학교 계정 로그인이 아직 설정되지 않았습니다.');
+    if (!projectId) throw new HttpError(503, '로그인 기능이 아직 준비되지 않았어요. 운영진에게 알려주세요.');
     const identity = await verifyFirebaseIdToken(idToken, { projectId });
     await limit(request, 'member-session', 10, identity.userId);
     const session = await issueMemberSession(identity, request);

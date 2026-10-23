@@ -22,23 +22,23 @@ export async function handle(action: () => Promise<Response>) {
     if (e instanceof FirebaseTokenError) return json({ error: e.message }, 401);
     if (e instanceof z.ZodError) return json({ error: zodMessage(e.issues[0]) }, 400);
     console.error('Community API failed', e instanceof Error ? e.message : 'Unknown error');
-    return json({ error: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.' }, 503);
+    return json({ error: '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.' }, 503);
   }
 }
 // Only messages written in our schemas reach users; zod's English defaults (and enum lists) become one generic line.
 function zodMessage(issue: z.ZodIssue | undefined) {
-  if (!issue) return '입력값을 확인해주세요.';
+  if (!issue) return '입력한 내용을 다시 확인해주세요.';
   const fallback = z.defaultErrorMap(issue, { defaultError: 'Invalid input', data: undefined }).message;
-  return issue.message && issue.message !== fallback ? issue.message : '입력값을 확인해주세요.';
+  return issue.message && issue.message !== fallback ? issue.message : '입력한 내용을 다시 확인해주세요.';
 }
 // `maxBytes` is raised only for routes carrying large bodies (newsletter HTML).
 export async function input(request: Request, maxBytes = 100000) {
   const origin = request.headers.get('origin');
-  if (origin && origin !== new URL(request.url).origin) throw new HttpError(403, '허용되지 않은 요청입니다.');
+  if (origin && origin !== new URL(request.url).origin) throw new HttpError(403, '요청을 처리하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해주세요.');
   if (!request.headers.get('content-type')?.includes('application/json'))
-    throw new HttpError(415, 'JSON 요청이 필요합니다.');
+    throw new HttpError(415, '요청을 처리하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해주세요.');
   const reader = request.body?.getReader();
-  if (!reader) throw new HttpError(400, '입력 내용이 없습니다.');
+  if (!reader) throw new HttpError(400, '입력한 내용이 없어요. 내용을 입력한 뒤 다시 시도해주세요.');
   let size = 0;
   const chunks: Uint8Array[] = [];
   while (true) {
@@ -47,7 +47,7 @@ export async function input(request: Request, maxBytes = 100000) {
     size += value.length;
     if (size > maxBytes) {
       await reader.cancel();
-      throw new HttpError(413, '입력 내용이 너무 큽니다.');
+      throw new HttpError(413, '입력한 내용이 너무 길어요. 줄여서 다시 시도해주세요.');
     }
     chunks.push(value);
   }
@@ -60,7 +60,7 @@ export async function input(request: Request, maxBytes = 100000) {
   try {
     return JSON.parse(new TextDecoder().decode(bytes));
   } catch {
-    throw new HttpError(400, '입력 형식이 올바르지 않습니다.');
+    throw new HttpError(400, '요청을 처리하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해주세요.');
   }
 }
 // C0 controls, DEL, bidi overrides/isolates and zero-width marks: invisible, so they spoof names or hide text.
@@ -68,7 +68,7 @@ const hidden = /[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEF
 // Multi-line text keeps \t, \n and the zero-width joiner (U+200D, used inside emoji); the rest is dropped.
 const hiddenInText = /[\u0000-\u0008\u000B-\u001F\u007F\u200B\u200C\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
 /** `.refine(...visible)` rejects single-line fields (names, titles) that carry hidden characters. */
-export const visible = [(value: string) => !hidden.test(value), '보이지 않는 특수문자는 사용할 수 없습니다.'] as const;
+export const visible = [(value: string) => !hidden.test(value), '보이지 않는 특수문자는 쓸 수 없어요. 지우고 다시 입력해주세요.'] as const;
 export const stripHidden = (value: string) => value.replace(hiddenInText, '');
 // Staff may sign as their own role; admins as any of these. Compared after NFKC (fullwidth ＡＤＭＩＮ → admin),
 // keeping only letters and digits (so '[관리자]' or '관 리.자' match) and ignoring case.
@@ -88,13 +88,13 @@ const reservedKey = (name: string) =>
 export function checkAuthorName(name: string, member: Member) {
   const key = reservedKey(name);
   if (reservedNames.has(key) && !isAdmin(member) && reservedNames.get(key) !== member.role)
-    throw new HttpError(400, '운영진으로 오해될 수 있는 이름은 사용할 수 없습니다.');
+    throw new HttpError(400, '운영진으로 오해될 수 있는 이름은 쓸 수 없어요. 다른 이름을 입력해주세요.');
 }
 /** Post prefixes (머릿글): the same names, and '공지' only for admins. */
 export function checkPrefix(prefix: string | null, member: Member) {
   if (!prefix) return;
   if (reservedKey(prefix) === '공지' && !isAdmin(member))
-    throw new HttpError(400, '공지 머릿글은 관리자만 사용할 수 있습니다.');
+    throw new HttpError(400, '공지 머릿글은 운영진만 쓸 수 있어요.');
   checkAuthorName(prefix, member);
 }
 export const contentFields = {
@@ -111,8 +111,8 @@ export const contentFields = {
 };
 export const passwordField = z
   .string()
-  .min(8, '비밀번호는 8자 이상 입력해주세요.')
-  .max(128, '비밀번호는 128자 이내로 입력해주세요.');
+  .min(8, '글 비밀번호는 8자 이상 입력해주세요.')
+  .max(128, '글 비밀번호는 128자 이내로 입력해주세요.');
 export const recruitmentFields = {
   recruitment_status: z.enum(['open', 'closed']).optional().nullable(),
   deadline: z
@@ -128,7 +128,7 @@ export const recruitmentFields = {
   headcount: z
     .number()
     .int()
-    .min(1, '모집 인원은 1명 이상이어야 합니다.')
+    .min(1, '모집 인원은 1명 이상 입력해주세요.')
     .max(99, '모집 인원은 99명 이내로 입력해주세요.')
     .optional()
     .nullable(),
@@ -255,7 +255,7 @@ export function isAdmin(member: Member) {
 }
 export async function requireAdmin(request: Request) {
   const member = await requireMember(request);
-  if (!isAdmin(member)) throw new HttpError(403, '관리자 권한이 필요합니다.');
+  if (!isAdmin(member)) throw new HttpError(403, '운영진만 할 수 있어요.');
   return member;
 }
 // Counts per signed-in member when `subject` is given; IP is only a fallback because campus Wi-Fi shares one address.
@@ -276,10 +276,10 @@ export async function limit(request: Request, scope: string, max = 30, subject?:
     throw new HttpError(
       429,
       windowMs <= 60000
-        ? '요청이 너무 많습니다. 1분 후 다시 시도해주세요.'
+        ? '짧은 시간에 너무 많이 시도했어요. 1분 뒤 다시 시도해주세요.'
         : windowMs >= 86400000
-          ? '하루 이용 한도를 넘었습니다. 내일 다시 시도해주세요.'
-          : '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+          ? '오늘 이용 한도를 모두 썼어요. 내일 다시 이용해주세요.'
+          : '짧은 시간에 너무 많이 시도했어요. 잠시 후 다시 시도해주세요.',
     );
 }
 export type PostRow = {
@@ -367,19 +367,19 @@ export async function visiblePost(id: string, member: Member) {
   const staff =
     isAdmin(member) || (post && deskCategories.includes(post.category) && managesDesk(member, post.category));
   if (!post || (privateCategories.includes(post.category) && !staff && post.author_id !== member.userId))
-    throw new HttpError(404, '게시글을 찾을 수 없습니다.');
+    throw new HttpError(404, '글을 찾을 수 없어요. 삭제됐거나 주소가 잘못됐을 수 있어요.');
   return post;
 }
 export async function checkPostPassword(request: Request, post: PostRow, password: string | undefined, member: Member) {
   // Admins and the signed-in author skip it; the password lets others (e.g. co-organisers) manage a post.
   if (isAdmin(member) || (post.author_id && post.author_id === member.userId)) return;
-  if (!password) throw new HttpError(400, '게시글 비밀번호를 입력해주세요.');
+  if (!password) throw new HttpError(400, '글 비밀번호를 입력해주세요.');
   await limit(request, 'password', 10, member.userId);
   // Per post too, so many accounts cannot share the guessing; the post id stands in as the subject.
   // Trade-off: anyone can burn this post's hourly budget and lock co-editors out for an hour; the author and admins skip it.
   await limit(request, `password-post:${post.id}`, 20, post.id, 3600000);
   if (!(await verifyPassword(password, post.salt, post.password_hash)))
-    throw new HttpError(403, '비밀번호가 일치하지 않습니다.');
+    throw new HttpError(403, '글 비밀번호가 맞지 않아요.');
 }
 export function parseReview(value: string | null): Review | null {
   if (!value) return null;

@@ -29,7 +29,7 @@ export async function PATCH(request: Request) {
         .run();
     if (!idToken) return json({ ok: true, newsletter });
     const projectId = env.FIREBASE_PROJECT_ID?.trim();
-    if (!projectId) throw new HttpError(503, '학교 계정 로그인이 아직 설정되지 않았습니다.');
+    if (!projectId) throw new HttpError(503, '로그인 기능이 아직 준비되지 않았어요. 운영진에게 알려주세요.');
     const verified = await verifyFirebaseIdToken(idToken, { projectId });
     if (verified.userId !== member.userId) throw new HttpError(403, '현재 로그인한 계정과 일치하지 않습니다.');
     if (!verified.emailVerified) throw new HttpError(403, '새 학교 이메일의 인증을 먼저 마쳐주세요.');
@@ -74,7 +74,7 @@ export async function DELETE(request: Request) {
     // REAUTH_SECONDS (the account page reauthenticates right before this call).
     if (!idToken) throw new HttpError(403, REAUTH);
     const projectId = env.FIREBASE_PROJECT_ID?.trim();
-    if (!projectId) throw new HttpError(503, '학교 계정 로그인이 아직 설정되지 않았습니다.');
+    if (!projectId) throw new HttpError(503, '로그인 기능이 아직 준비되지 않았어요. 운영진에게 알려주세요.');
     const verified = await verifyFirebaseIdToken(idToken, { projectId });
     if (verified.userId !== member.userId || Date.now() / 1000 - verified.authTime > REAUTH_SECONDS)
       throw new HttpError(403, REAUTH);

@@ -17,12 +17,12 @@ export function looksLike(ext: string, bytes: Uint8Array) {
 export { stripJpegMetadata, stripMetadata } from './image-metadata';
 export const imageTypes: Record<string, string> = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' };
 export const imagesField = z
-  .array(z.string().regex(/^[0-9a-f-]{36}\.(webp|jpg|png)$/, '사진 정보가 올바르지 않습니다.'))
-  .max(MAX_IMAGES, `사진은 ${MAX_IMAGES}장까지 올릴 수 있습니다.`)
+  .array(z.string().regex(/^[0-9a-f-]{36}\.(webp|jpg|png)$/, '사진 정보가 올바르지 않아요. 사진을 다시 올려주세요.'))
+  .max(MAX_IMAGES, `사진은 ${MAX_IMAGES}장까지 올릴 수 있어요.`)
   .optional();
 
 export function bucket() {
-  if (!env.BUCKET) throw new HttpError(503, '사진 저장소에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
+  if (!env.BUCKET) throw new HttpError(503, '지금 사진을 처리할 수 없어요. 잠시 후 다시 시도해주세요.');
   return env.BUCKET;
 }
 
@@ -38,7 +38,7 @@ export async function postImages(postId: string) {
 // fails the whole request instead of leaving a post saved without its photos.
 export async function checkImages(keys: string[] | undefined, userId: string, current: string[] = []) {
   const added = (keys || []).filter((key) => !current.includes(key));
-  if (new Set(keys).size !== (keys || []).length) throw new HttpError(400, '같은 사진이 두 번 들어 있습니다.');
+  if (new Set(keys).size !== (keys || []).length) throw new HttpError(400, '같은 사진이 두 번 들어 있어요. 하나를 삭제해주세요.');
   if (added.length) {
     const owned = await db()
       .prepare(
@@ -46,7 +46,7 @@ export async function checkImages(keys: string[] | undefined, userId: string, cu
       )
       .bind(userId, ...added)
       .all<{ key: string }>();
-    if (owned.results.length !== added.length) throw new HttpError(400, '사진을 다시 올려주세요.');
+    if (owned.results.length !== added.length) throw new HttpError(400, '사진을 확인하지 못했어요. 사진을 다시 올려주세요.');
   }
 }
 
@@ -70,7 +70,7 @@ export async function attachImages(postId: string, keys: string[] | undefined, u
   const results = statements.length ? await db().batch(statements) : [];
   if (removed.length) await bucket().delete(removed);
   if (results.slice(0, keys.length).some((result) => result.meta.changes !== 1))
-    throw new HttpError(409, '사진 일부를 붙이지 못했습니다. 사진을 다시 올려주세요.');
+    throw new HttpError(409, '사진 일부를 붙이지 못했어요. 사진을 다시 올려주세요.');
 }
 
 // Uploads never attached to a post (a form left unsent) are removed after a day. Called on each upload so

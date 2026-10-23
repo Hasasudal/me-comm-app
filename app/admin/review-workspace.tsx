@@ -24,7 +24,13 @@ type Article = {
   updated_at: number;
   images?: string[];
 };
-type ReviewPage = { posts: Article[]; total: number; nextCursor: string | null };
+type ReviewPage = { posts: Article[]; total: number; counts?: Record<ReviewStatus, number>; nextCursor: string | null };
+const rejectReasons = [
+  '맞춤법·띄어쓰기를 고쳐 다시 제출해주세요.',
+  '주제가 학과 뉴스와 맞지 않아요.',
+  '사실 확인이 필요한 내용이 있어요.',
+  '사진 출처를 밝혀주세요.',
+];
 const reviewTabs: ReviewStatus[] = ['pending', 'feedback', 'rejected', 'published'];
 const formatDate = (n: number) =>
   new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit' }).format(n);
@@ -53,6 +59,13 @@ function readDraft(article: Article): Draft | null {
     return null;
   }
 }
+function hasDraft(article: Article) {
+  try {
+    return localStorage.getItem(draftKey(article)) !== null;
+  } catch {
+    return false;
+  }
+}
 function writeDraft(article: Article, draft: Draft | null) {
   try {
     if (draft) localStorage.setItem(draftKey(article), JSON.stringify(draft));
@@ -75,6 +88,9 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
   const [panel, setPanel] = useState<'review' | 'reject' | 'edit' | 'delete'>('review');
   const [reason, setReason] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [counts, setCounts] = useState<Record<ReviewStatus, number> | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [actionError, setActionError] = useState('');
@@ -107,6 +123,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
         setArticles(data.posts);
         setTotal(data.total);
         setNextCursor(data.nextCursor);
+        if (data.counts) setCounts(data.counts);
         const next = data.posts.find((article) => article.id === keepId) || data.posts[0] || null;
         setSelectedId(next?.id || null);
         reset(next);
@@ -122,6 +139,25 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  // The more menu closes on Escape (focus returns to its button) and on a click outside it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMenuOpen(false);
+      menuButtonRef.current?.focus();
+    };
+    const onDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onDown);
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     if (selected?.status === 'pending') writeDraft(selected, dirty ? { marks, note } : null);
@@ -159,7 +195,9 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
       await action();
       if (selected) writeDraft(selected, null);
       onNotice(message);
-      await load(null);
+      // Land on the article after the processed one (or the one before it when it was last).
+      const at = articles.findIndex((article) => article.id === selectedId);
+      await load((articles[at + 1] || articles[at - 1])?.id ?? null);
     } catch (e) {
       setActionError((e as Error).message);
     } finally {
@@ -250,9 +288,11 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                 onClick={() => switchTab(status)}
               >
                 {statusLabels[status]}
+                {counts && ` ${counts[status]}`}
               </button>
             ))}
           </div>
+          {!loading && articles.length > 1 && <p className="review-order-hint">최신 순</p>}
           {error && (
             <div className="error-box" role="alert">
               {error}
@@ -288,6 +328,9 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                     </strong>
                     <small>
                       {article.author_name || '이름 없음'} · {formatDate(article.updated_at)}
+                      {article.status === 'pending' && (article.id === selectedId ? dirty : hasDraft(article)) && (
+                        <span className="draft-badge">작성 중</span>
+                      )}
                     </small>
                   </button>
                 </li>
@@ -323,8 +366,9 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                     <WriterTag writer={selected.writer} />
                   </p>
                 </div>
-                <div className="more-menu">
+                <div className="more-menu" ref={menuRef}>
                   <button
+                    ref={menuButtonRef}
                     className="icon-button"
                     aria-label="더보기"
                     aria-expanded={menuOpen}
@@ -333,14 +377,14 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                     <MoreHorizontal size={20} />
                   </button>
                   {menuOpen && (
-                    <div className="more-list" role="menu">
-                      <button role="menuitem" disabled={exporting} onClick={() => void exportWord([selected])}>
+                    <div className="more-list">
+                      <button disabled={exporting} onClick={() => void exportWord([selected])}>
                         <FileDown size={15} />
                         Word로 내보내기
                       </button>
                       {selected.status === 'pending' && (
                         <button
-                          role="menuitem"
+                         
                           onClick={() => {
                             setMenuOpen(false);
                             setPanel('edit');
@@ -351,7 +395,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                         </button>
                       )}
                       <button
-                        role="menuitem"
+                       
                         className="danger-text"
                         onClick={() => {
                           setMenuOpen(false);
@@ -458,6 +502,18 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                           placeholder="작성자에게 전할 반려 사유를 적어주세요."
                         />
                       </label>
+                      <div className="reason-chips">
+                        {rejectReasons.map((text) => (
+                          <button
+                            key={text}
+                            type="button"
+                            className="reason-chip"
+                            onClick={() => setReason((value) => (value.trim() ? `${value.trim()} ${text}` : text).slice(0, 2000))}
+                          >
+                            {text}
+                          </button>
+                        ))}
+                      </div>
                       <div className="review-actions">
                         <button className="secondary" onClick={() => setPanel('review')}>
                           취소

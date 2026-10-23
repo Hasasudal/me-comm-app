@@ -107,11 +107,11 @@ export async function loadSession<T extends object>(): Promise<T & { signedIn: b
   const response = await fetch('/api/session', { cache: 'no-store' });
   const data = (await response.json().catch(() => ({}))) as T & { signedIn: boolean; error?: string };
   if (response.status === 403)
-    return { signedIn: false, blocked: data.error || '이용이 정지된 계정입니다. 관리자에게 문의해주세요.' } as T & {
+    return { signedIn: false, blocked: data.error || '이용이 정지된 계정이에요. 학과 사무실이나 운영진에게 문의해주세요.' } as T & {
       signedIn: boolean;
       blocked: string;
     };
-  if (!response.ok) throw new Error(data.error || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.');
+  if (!response.ok) throw new Error(data.error || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.');
   return data;
 }
 type Reply = {

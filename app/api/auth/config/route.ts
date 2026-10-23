@@ -11,7 +11,7 @@ export async function GET() {
     appId: env.FIREBASE_APP_ID,
   };
   if (Object.values(config).some((value) => !value)) {
-    return json({ error: '학교 계정 로그인이 아직 설정되지 않았습니다.' }, 503);
+    return json({ error: '로그인 기능이 아직 준비되지 않았어요. 운영진에게 알려주세요.' }, 503);
   }
   return json(config);
 }

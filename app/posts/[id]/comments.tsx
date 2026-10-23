@@ -15,6 +15,14 @@ type Comment = {
   role: Exclude<Role, 'member'> | null;
   writer?: Writer;
 };
+const nameKey = 'micom:author-name';
+const savedName = () => {
+  try {
+    return localStorage.getItem(nameKey) || '';
+  } catch {
+    return '';
+  }
+};
 const formatTime = (n: number) =>
   new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -29,6 +37,22 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [name, setName] = useState('');
+  const [fresh, setFresh] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setName((value) => value || savedName()), 0);
+    return () => clearTimeout(timer);
+  }, []);
+  // After posting, bring the new comment into view and focus it briefly.
+  useEffect(() => {
+    if (!fresh) return;
+    const el = document.getElementById(`comment-${fresh}`);
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el?.focus({ preventScroll: true });
+    const timer = setTimeout(() => setFresh(null), 2500);
+    return () => clearTimeout(timer);
+  }, [fresh]);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +75,12 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
         author_name: data.get('author_name'),
         content: data.get('content'),
       });
+      setFresh(comment.id);
       setComments((list) => [...(list || []), comment]);
+      setName(String(data.get('author_name') || ''));
+      try {
+        localStorage.setItem(nameKey, String(data.get('author_name') || ''));
+      } catch {}
       onChange?.();
       // Keep the name for the next comment; clear only the text.
       (form.elements.namedItem('content') as HTMLTextAreaElement).value = '';
@@ -85,7 +114,12 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
       ) : comments?.length ? (
         <ul>
           {comments.map((comment) => (
-            <li key={comment.id}>
+            <li
+              key={comment.id}
+              id={`comment-${comment.id}`}
+              tabIndex={-1}
+              className={comment.id === fresh ? 'comment-new' : undefined}
+            >
               <div className="comment-head">
                 <strong>
                   {comment.author_name}
@@ -107,7 +141,15 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
         comments && <p className="comments-empty">첫 댓글을 남겨보세요.</p>
       )}
       <form className="comment-form" onSubmit={submit}>
-        <input name="author_name" required maxLength={20} placeholder="별명" aria-label="댓글 별명" />
+        <input
+          name="author_name"
+          required
+          maxLength={20}
+          placeholder="별명"
+          aria-label="댓글 별명"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
         <textarea
           name="content"
           required
@@ -115,6 +157,12 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
           rows={3}
           placeholder="댓글을 입력해주세요."
           aria-label="댓글"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
         />
         {error && (
           <p className="form-error" role="alert">

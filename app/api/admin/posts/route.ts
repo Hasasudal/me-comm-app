@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const cursor = /^(\d+):([\w-]+)$/.exec(url.searchParams.get('cursor') || '');
     const after = cursor ? ' AND (posts.updated_at<? OR (posts.updated_at=? AND posts.id<?))' : '';
     const binds = cursor ? [status, Number(cursor[1]), Number(cursor[1]), cursor[2]] : [status];
-    const [rows, total] = await Promise.all([
+    const [rows, total, grouped] = await Promise.all([
       db()
         .prepare(
           `SELECT posts.id,title,category,content,prefix,author_name,posts.status,feedback,posts.created_at,posts.updated_at,users.display_name AS writer_name,users.email AS writer_email FROM posts LEFT JOIN users ON users.id=posts.author_id WHERE category='news' AND posts.status=?${after} ORDER BY posts.updated_at DESC, posts.id DESC LIMIT ?`,
@@ -31,7 +31,13 @@ export async function GET(request: Request) {
         .prepare("SELECT COUNT(*) AS count FROM posts WHERE category='news' AND status=?")
         .bind(status)
         .first<{ count: number }>(),
+      // Tab badges: one GROUP BY for every status.
+      db()
+        .prepare("SELECT status, COUNT(*) AS count FROM posts WHERE category='news' GROUP BY status")
+        .all<{ status: string; count: number }>(),
     ]);
+    const counts: Record<string, number> = { pending: 0, feedback: 0, rejected: 0, published: 0 };
+    for (const row of grouped.results) if (row.status in counts) counts[row.status] = row.count;
     const posts = rows.results.slice(0, PAGE_SIZE);
     const last = posts[posts.length - 1];
     // Photos of the listed articles, in order, so the review panel and Word export can show them.
@@ -52,6 +58,7 @@ export async function GET(request: Request) {
         writer: writer_email ? { name: writer_name, email: writer_email } : null,
       })),
       total: total?.count || 0,
+      counts,
       nextCursor: rows.results.length > PAGE_SIZE ? `${last.updated_at}:${last.id}` : null,
     });
   });

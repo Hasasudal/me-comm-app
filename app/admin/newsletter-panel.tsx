@@ -31,6 +31,7 @@ type SendResult = {
 };
 // UTF-8 bytes, same unit as the server's cap.
 const maxHtmlBytes = 180_000;
+const draftKey = 'micom:newsletter-draft';
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 type Progress = { sent: number; failed: number; total: number };
 
@@ -86,7 +87,10 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
   const [loadError, setLoadError] = useState('');
   const [subject, setSubject] = useState('');
   const [html, setHtml] = useState('');
-  const [mobile, setMobile] = useState(false);
+  // Narrow screens preview the mobile width by default.
+  const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 700);
+  const [draftReady, setDraftReady] = useState(false);
+  const [restored, setRestored] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState('');
@@ -107,6 +111,29 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  // Restore the composer from this browser once, then keep saving it (the HTML is skipped when over the size cap).
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(draftKey) || 'null') as { subject?: string; html?: string } | null;
+        if (saved && (saved.subject || saved.html)) {
+          setSubject(String(saved.subject || '').slice(0, 150));
+          setHtml(String(saved.html || ''));
+          setRestored(true);
+        }
+      } catch {}
+      setDraftReady(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!draftReady) return;
+    try {
+      if ((!subject && !html) || new TextEncoder().encode(html).length > maxHtmlBytes) localStorage.removeItem(draftKey);
+      else localStorage.setItem(draftKey, JSON.stringify({ subject, html }));
+    } catch {}
+  }, [draftReady, subject, html]);
 
   // Closing the tab mid-send leaves the rest pending; the browser asks first.
   useEffect(() => {
@@ -317,6 +344,21 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
         </p>
       )}
 
+      {restored && (
+        <p className="review-confirm" role="status">
+          불러온 임시 내용이에요. 이 브라우저에 자동 저장돼 있었어요.{' '}
+          <button
+            className="text-button"
+            onClick={() => {
+              setSubject('');
+              setHtml('');
+              setRestored(false);
+            }}
+          >
+            비우기
+          </button>
+        </p>
+      )}
       <div className="newsletter-compose">
         <label>
           제목
