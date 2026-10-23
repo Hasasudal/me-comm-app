@@ -119,12 +119,19 @@ function json(obj) {
 
 // [처음 한 번 실행] 비밀값을 새로 만들어 저장하고 로그에 보여줍니다.
 // 다시 실행하면 비밀값이 바뀌므로 Cloudflare 쪽 값도 새로 넣어야 합니다.
+// ALLOWED_DOMAINS가 비어 있으면 'ks.ac.kr'로 채웁니다. (이미 값이 있으면 그대로 둡니다)
 function setup() {
+  var props = PropertiesService.getScriptProperties();
   var secret = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
-  PropertiesService.getScriptProperties().setProperty('NEWSLETTER_SECRET', secret);
-  Logger.log('아래 비밀값을 복사해 Cloudflare의 NEWSLETTER_SCRIPT_SECRET에 넣으세요:');
-  Logger.log(secret);
+  props.setProperty('NEWSLETTER_SECRET', secret);
+  if (!(props.getProperty('ALLOWED_DOMAINS') || '').trim()) {
+    props.setProperty('ALLOWED_DOMAINS', 'ks.ac.kr');
+    Logger.log('ALLOWED_DOMAINS가 비어 있어 ks.ac.kr로 설정했습니다.');
+  }
+  Logger.log('받는 사람 허용 도메인(ALLOWED_DOMAINS): ' + props.getProperty('ALLOWED_DOMAINS'));
   Logger.log('오늘 남은 발송 가능 수: ' + MailApp.getRemainingDailyQuota());
+  // 비밀값은 마지막에 한 줄로만 찍습니다. 이 실행 로그는 프로젝트에 남으니 프로젝트를 공유하지 마세요.
+  Logger.log('[NEWSLETTER_SCRIPT_SECRET] ' + secret);
 }
 
 // 오늘 남은 발송 가능 수(받는 사람 수 기준)를 로그로 확인합니다.

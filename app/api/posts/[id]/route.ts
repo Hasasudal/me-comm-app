@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   checkAuthorName,
+  checkPrefix,
   checkPostPassword,
   db,
   editSchema,
@@ -47,6 +48,7 @@ export async function PATCH(request: Request, context: Context) {
     await checkPostPassword(request, post, data.password, member);
     // The editor's role decides; an unchanged name stays, so a password co-editor can still fix a staff-signed post.
     if (data.author_name !== post.author_name) checkAuthorName(data.author_name, member);
+    if (data.prefix !== post.prefix) checkPrefix(data.prefix, member);
     const news = post.category === 'news';
     if (news && post.status === 'rejected' && !admin)
       throw new HttpError(409, '반려된 기사는 수정할 수 없습니다. 새 기사로 작성해주세요.');

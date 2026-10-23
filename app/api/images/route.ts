@@ -5,7 +5,7 @@ import {
   looksLike,
   MAX_IMAGE_BYTES,
   MAX_UNATTACHED,
-  stripJpegMetadata,
+  stripMetadata,
   sweepUnattached,
 } from '../../../lib/images';
 
@@ -49,11 +49,12 @@ export async function POST(request: Request) {
     const ext = imageTypes[type];
     if (!ext) throw new HttpError(415, 'JPG, PNG, WebP 사진만 올릴 수 있습니다.');
     await limit(request, 'image', 30, member.userId);
+    await limit(request, 'image-day', 100, member.userId, 86400000);
     let body: Uint8Array | null = await readBody(request);
     if (!body.byteLength) throw new HttpError(400, '사진이 비어 있습니다.');
     if (!looksLike(ext, body.subarray(0, 12))) throw new HttpError(415, '사진 파일이 올바르지 않습니다.');
     // The app re-encodes photos, but a direct upload could still carry the camera's GPS position.
-    if (ext === 'jpg') body = stripJpegMetadata(body);
+    body = stripMetadata(ext, body);
     if (!body) throw new HttpError(415, '사진 파일이 올바르지 않습니다.');
     const pending = await db()
       .prepare('SELECT COUNT(*) AS count FROM images WHERE owner_id=? AND post_id IS NULL')

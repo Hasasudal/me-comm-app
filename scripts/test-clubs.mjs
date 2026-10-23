@@ -33,6 +33,7 @@ try {
   clubId = applied.data.id;
   assert.equal((await request('/api/clubs', { method: 'POST', body: { name } })).status, 409, 'duplicate name');
   assert.equal((await request('/api/clubs', { method: 'POST', body: { name: '' } })).status, 400, 'empty name');
+  assert.equal((await request('/api/clubs', { method: 'POST', body: { name: '관리자' } })).status, 400, 'reserved name');
   assert.ok(!(await request('/api/clubs')).data.clubs.some((c) => c.id === clubId), 'pending club is hidden');
   assert.equal((await request('/api/admin/clubs')).status, 403, 'member cannot list for review');
   const review = await request('/api/admin/clubs', { cookie: admin });

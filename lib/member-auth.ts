@@ -95,13 +95,24 @@ const PENDING_MESSAGE =
 // until an admin approves it (status 'active') or turns it down (row deleted). Verified mail skips the wait.
 // Pending rows start unsubscribed and an admin's approval keeps it that way (the address is still unverified);
 // verifying it later subscribes them like any verified sign-up. Members can always opt in from the account page.
+// Requests nobody approved within PENDING_DAYS are dropped on the next unverified sign-in, so an abandoned (or
+// squatted) address frees itself even if no admin ever looks.
+const PENDING_DAYS = 30;
 export async function issueMemberSession(identity: Identity, request?: Request) {
+  if (!identity.emailVerified)
+    await db()
+      .prepare("DELETE FROM users WHERE status='pending' AND created_at<?")
+      .bind(Date.now() - PENDING_DAYS * 24 * 60 * 60 * 1000)
+      .run();
   const existing = await db()
     .prepare('SELECT id,email,status FROM users WHERE id=? OR email=?')
     .bind(identity.userId, identity.email)
     .all<{ id: string; email: string; status: string }>();
-  const conflict = existing.results.find((row) => row.id !== identity.userId);
-  if (conflict) throw new HttpError(409, '이미 다른 계정에서 사용 중인 학교 이메일입니다.');
+  // A pending row only shows someone typed the address; a verified token proves the mailbox, so it takes the address
+  // over (otherwise anyone could sign up with a classmate's mail, delete the Firebase account and lock them out).
+  const conflicts = existing.results.filter((row) => row.id !== identity.userId);
+  const squatted = identity.emailVerified && conflicts.length > 0 && conflicts.every((row) => row.status === 'pending');
+  if (conflicts.length && !squatted) throw new HttpError(409, '이미 다른 계정에서 사용 중인 학교 이메일입니다.');
   const current = existing.results.find((row) => row.id === identity.userId);
   if (current?.status === 'suspended') throw new HttpError(403, '이용이 정지된 계정입니다. 관리자에게 문의해주세요.');
   // An unverified token must never move the stored address, or a member could claim someone else's mailbox.
@@ -125,6 +136,18 @@ export async function issueMemberSession(identity: Identity, request?: Request) 
     expiresAt = now + SESSION_SECONDS * 1000,
     previous = request && cookieValue(request, COOKIE_NAME);
   await db().batch([
+    ...(squatted
+      ? [
+          db()
+            .prepare(
+              "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email=? AND id<>? AND status='pending')",
+            )
+            .bind(identity.email, identity.userId),
+          db()
+            .prepare("DELETE FROM users WHERE email=? AND id<>? AND status='pending'")
+            .bind(identity.email, identity.userId),
+        ]
+      : []),
     // Signing in again on this browser replaces its old session instead of leaving it orphaned.
     ...(previous
       ? [

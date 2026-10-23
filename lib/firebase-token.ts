@@ -12,12 +12,23 @@ type TokenClaims = {
   sub?: unknown;
   iat?: unknown;
   exp?: unknown;
+  auth_time?: unknown;
   email?: unknown;
   email_verified?: unknown;
   name?: unknown;
 };
 
-export type FirebaseIdentity = { userId: string; email: string; displayName: string; emailVerified: boolean };
+// authTime: when the user last typed their password (seconds); refreshing the token does not move it.
+export type FirebaseIdentity = {
+  userId: string;
+  email: string;
+  displayName: string;
+  emailVerified: boolean;
+  authTime: number;
+};
+// Same set as `visible` in lib/server.ts (which imports this file, so it cannot be imported back): C0 controls, DEL,
+// bidi overrides/isolates and zero-width marks would let a name spoof or hide text.
+const HIDDEN = /[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
 
 export class FirebaseTokenError extends Error {
   constructor(message = '로그인 인증을 확인해주세요.') {
@@ -106,6 +117,8 @@ export async function verifyFirebaseIdToken(token: string, options: VerifyOption
   if (typeof claims.sub !== 'string' || !claims.sub || claims.sub.length > 128) throw new FirebaseTokenError();
   if (typeof claims.iat !== 'number' || claims.iat > now + CLOCK_SKEW_SECONDS) throw new FirebaseTokenError();
   if (typeof claims.exp !== 'number' || claims.exp <= now) throw new FirebaseTokenError();
+  if (typeof claims.auth_time !== 'number' || claims.auth_time > now + CLOCK_SKEW_SECONDS)
+    throw new FirebaseTokenError();
   if (typeof claims.email !== 'string') throw new FirebaseTokenError();
 
   // Check the raw address as ASCII first: toLowerCase() folds look-alikes such as U+212A (Kelvin sign) into 'k'.
@@ -115,7 +128,13 @@ export async function verifyFirebaseIdToken(token: string, options: VerifyOption
   const email = raw.toLowerCase();
   // Sign-up saves the name in a second step that can fail (a dropped mobile connection); fall back to the mail ID
   // rather than locking the account out. Members can change it on the account page.
-  const named = typeof claims.name === 'string' ? claims.name.trim() : '';
+  const named = typeof claims.name === 'string' ? claims.name.replace(HIDDEN, '').trim() : '';
   const displayName = (named.length >= 2 ? named : email.split('@')[0]).slice(0, 40);
-  return { userId: claims.sub, email, displayName, emailVerified: claims.email_verified === true };
+  return {
+    userId: claims.sub,
+    email,
+    displayName,
+    emailVerified: claims.email_verified === true,
+    authTime: claims.auth_time,
+  };
 }

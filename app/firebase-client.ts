@@ -32,7 +32,15 @@ export function firebaseAuth() {
   return authPromise;
 }
 
-// Only same-site paths: "//host" and "/\host" would leave the site (browsers treat "\" like "/").
+// Only same-site paths. Browsers read "\" as "/" and drop tab/CR/LF, so "/\host" and "/\t/host" would leave the site:
+// refuse control characters and backslashes outright, then let URL parsing decide whether the origin stays ours.
 export function safeReturnTo(value: string | null) {
-  return value && /^\/(?![/\\])/.test(value) ? value : '/';
+  if (!value?.startsWith('/') || /[\u0000-\u001F\u007F\\]/.test(value)) return '/';
+  const origin = typeof location === 'undefined' ? 'https://return-to.invalid' : location.origin;
+  try {
+    const url = new URL(value, origin);
+    return url.origin === origin ? url.pathname + url.search + url.hash : '/';
+  } catch {
+    return '/';
+  }
 }

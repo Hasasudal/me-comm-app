@@ -214,11 +214,12 @@ try {
   await finish(approved);
   assert.ok(!mailed('8월 소식').includes('nl-pending@ks.ac.kr'));
 
-  // Withdrawal removes the member's delivery rows (and with them the last trace of the address).
+  // Withdrawal (which also deletes the member's delivery rows) now needs a fresh Firebase ID token that can't be minted
+  // locally, so only the refusal is checked here: without one nothing is deleted.
   assert.ok(query("SELECT 1 FROM newsletter_deliveries WHERE user_id='test-member-second'").length);
   const left = await request('/api/account', { method: 'DELETE', cookie: fixture.secondCookie, body: { confirm: '회원탈퇴' } });
-  assert.equal(left.status, 200);
-  assert.equal(query("SELECT 1 FROM newsletter_deliveries WHERE user_id='test-member-second'").length, 0);
+  assert.equal(left.status, 403);
+  assert.ok(query("SELECT 1 FROM newsletter_deliveries WHERE user_id='test-member-second'").length);
 
   // Unsubscribe by token; unknown tokens get the same answer.
   assert.deepEqual((await request('/api/newsletter/unsubscribe', { method: 'POST', body: { token: 'nope' } })).data, { ok: true });

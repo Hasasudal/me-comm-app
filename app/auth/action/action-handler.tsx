@@ -7,8 +7,10 @@ import { firebaseMessage } from '../firebase-errors';
 
 export type ActionMode = 'verifyEmail' | 'resetPassword' | 'recoverEmail';
 
+// Anything safeReturnTo had to change (unsafe, or not in normal form) goes to /login, as do auth pages.
 function returnPath(value: string) {
-  return safeReturnTo(value) !== value || value.startsWith('/auth/') ? '/login' : value;
+  const path = safeReturnTo(value);
+  return path !== value || path.startsWith('/auth/') ? '/login' : path;
 }
 
 export default function ActionHandler({
@@ -96,6 +98,9 @@ export default function ActionHandler({
               : '비밀번호를 변경했습니다.'}
         </strong>
         <p>이제 학교 계정으로 로그인할 수 있습니다.</p>
+        {mode === 'resetPassword' && (
+          <p>다른 기기에 로그인이 남아 있다면 계정 설정의 ‘모든 기기에서 로그아웃’을 눌러주세요.</p>
+        )}
         <a className="primary full" href={destination}>
           계속하기
         </a>
