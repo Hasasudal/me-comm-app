@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import AuthFrame from '../auth/auth-frame';
 import LoginForm from './login-form';
 export const metadata = { title: '로그인 | 미컴 라운지' };
@@ -15,7 +16,10 @@ export default function LoginPage() {
         </>
       }
     >
-      <LoginForm />
+      {/* LoginForm reads ?returnTo with useSearchParams; vinext fails the server render without a boundary. */}
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
     </AuthFrame>
   );
 }
