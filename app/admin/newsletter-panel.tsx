@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarClock, Mail, Monitor, Send, Smartphone, Trash2, Upload } from 'lucide-react';
 import { api } from '../api-client';
+import { confirmDialog } from '../confirm-dialog';
 
+type Audience = 'all' | 'staff';
 type Newsletter = {
   id: string;
   subject: string;
@@ -14,12 +16,21 @@ type Newsletter = {
   sent_at: number | null;
   scheduled_at: number | null;
   scheduled_by_name: string | null;
+  audience: Audience;
   total: number;
   sent: number;
   failed: number;
   pending: number;
 };
-type Overview = { configured: boolean; remaining: number | null; subscribers: number; newsletters: Newsletter[] };
+type Overview = {
+  configured: boolean;
+  remaining: number | null;
+  subscribers: number;
+  audiences: Record<Audience, number>;
+  newsletters: Newsletter[];
+};
+const audienceLabel: Record<Audience, string> = { all: '전체 구독자', staff: '운영진만 (학사·학생회·관리자)' };
+const audienceShort: Record<Audience, string> = { all: '수신 회원', staff: '운영진' };
 // sent/failed count this batch only; pending is everything still left.
 type SendResult = {
   sent: number;
@@ -96,6 +107,8 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [scheduling, setScheduling] = useState<Scheduling | null>(null);
+  const [audience, setAudience] = useState<Audience>('all');
+  const [testTo, setTestTo] = useState('');
   // A ref, not state: two fast clicks both see busy=false before React re-renders.
   const running = useRef(false);
 
@@ -179,12 +192,13 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
   }
   const sendTest = () =>
     guarded(async () => {
-      const result = await api<{ ok: boolean; remaining: number | null }>('/api/admin/newsletters/test', {
+      const result = await api<{ ok: boolean; remaining: number | null; count: number }>('/api/admin/newsletters/test', {
         subject: subject.trim(),
         html,
+        to: testTo,
       });
       setOverview((current) => (current ? { ...current, remaining: result.remaining } : current));
-      onNotice('내 이메일로 테스트 메일을 보냈습니다.');
+      onNotice(result.count > 1 ? `테스트 메일을 ${result.count}명에게 보냈습니다.` : '내 이메일로 테스트 메일을 보냈습니다.');
     });
 
   // One batch per request; keeps going until everything is out or today's quota runs out.
@@ -216,9 +230,10 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
   }
   const prepare = () =>
     guarded(async () => {
-      const { id } = await api<{ id: string }>('/api/admin/newsletters', { subject: subject.trim(), html });
-      const ok = window.confirm(
-        `수신 회원 ${overview?.subscribers ?? 0}명에게 보냅니다. 오늘 남은 한도: ${limitText(overview?.remaining ?? null)}`,
+      const { id } = await api<{ id: string }>('/api/admin/newsletters', { subject: subject.trim(), html, audience });
+      const ok = await confirmDialog(
+        `${audienceShort[audience]} ${overview?.audiences[audience] ?? 0}명에게 보낼까요? 오늘 남은 한도: ${limitText(overview?.remaining ?? null)}`,
+        { ok: '보내기' },
       );
       if (!ok) {
         setInfo('발송을 멈췄습니다. 아래 기록에서 이어서 보내거나 삭제할 수 있습니다.');
@@ -241,15 +256,17 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
         throw new Error('예약 시각을 확인해주세요. 10분 뒤부터 60일 안에서 고를 수 있습니다.');
       }
       const item = overview?.newsletters.find((n) => n.id === picked.id);
-      const count = item ? item.pending : (overview?.subscribers ?? 0);
-      const ok = window.confirm(
-        `${item ? `‘${item.subject}’ ` : ''}수신 회원 ${count}명에게 ${formatKst(at)}(한국 시간)에 보내도록 예약합니다.\n` +
+      const to = item?.audience ?? audience;
+      const count = item?.started_at ? item.pending : (overview?.audiences[to] ?? 0);
+      const ok = await confirmDialog(
+        `${item ? `‘${item.subject}’ ` : ''}${audienceShort[to]} ${count}명에게 ${formatKst(at)}(한국 시간)에 보내도록 예약할까요?\n` +
           '하루 발송 한도를 다 쓰면 다음 날 자동으로 이어서 보냅니다.',
+        { ok: '예약하기' },
       );
       if (!ok) return;
       let id = picked.id;
       if (!id) {
-        id = (await api<{ id: string }>('/api/admin/newsletters', { subject: subject.trim(), html })).id;
+        id = (await api<{ id: string }>('/api/admin/newsletters', { subject: subject.trim(), html, audience })).id;
         setSubject('');
         setHtml('');
         // If scheduling fails now, the picker reopens on the new history row instead of creating a duplicate.
@@ -261,27 +278,29 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
     });
   const unschedule = (item: Newsletter) =>
     guarded(async () => {
-      if (!window.confirm(`‘${item.subject}’ 예약을 취소할까요? 뉴스레터는 기록에 남습니다.`)) return;
+      if (!(await confirmDialog(`‘${item.subject}’ 예약을 취소할까요? 뉴스레터는 기록에 남습니다.`, { ok: '예약 취소', cancel: '닫기', danger: true })))
+        return;
       await api(`/api/admin/newsletters/${item.id}/schedule`, {}, 'DELETE');
       onNotice('예약을 취소했습니다.');
     });
   const resume = (item: Newsletter) =>
     guarded(async () => {
       const limit = `오늘 남은 한도: ${limitText(overview?.remaining ?? null)}`;
-      if (
-        !window.confirm(
-          item.scheduled_at && !item.started_at
-            ? `‘${item.subject}’ 예약을 취소하고 지금 ${item.pending}명에게 보냅니다. ${limit}`
-            : `‘${item.subject}’ 남은 ${item.pending}명에게 이어서 보냅니다. ${limit}`,
-        )
-      )
-        return;
+      const count = item.started_at ? item.pending : (overview?.audiences[item.audience] ?? 0);
+      const who = `${audienceShort[item.audience]} ${count}명`;
+      const ok = await confirmDialog(
+        item.scheduled_at && !item.started_at
+          ? `‘${item.subject}’ 예약을 취소하고 지금 ${who}에게 보낼까요? ${limit}`
+          : `‘${item.subject}’ 남은 ${who}에게 이어서 보낼까요? ${limit}`,
+        { ok: '보내기' },
+      );
+      if (!ok) return;
       setScheduling(null);
       await deliver(item.id, { sent: item.sent, failed: item.failed });
     });
   const remove = (item: Newsletter) =>
     guarded(async () => {
-      if (!window.confirm(`‘${item.subject}’ 뉴스레터를 삭제할까요?`)) return;
+      if (!(await confirmDialog(`‘${item.subject}’ 뉴스레터를 삭제할까요?`, { ok: '삭제', danger: true }))) return;
       await api(`/api/admin/newsletters/${item.id}`, {}, 'DELETE');
       onNotice('뉴스레터를 삭제했습니다.');
     });
@@ -364,6 +383,16 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
           제목
           <input value={subject} maxLength={150} onChange={(event) => setSubject(event.target.value)} />
         </label>
+        <fieldset className="newsletter-audience">
+          <legend>받는 사람</legend>
+          {(Object.keys(audienceLabel) as Audience[]).map((value) => (
+            <label key={value}>
+              <input type="radio" name="newsletter-audience" checked={audience === value} onChange={() => setAudience(value)} />
+              {audienceLabel[value]}
+              {overview && <small> · {overview.audiences[value]}명</small>}
+            </label>
+          ))}
+        </fieldset>
         <label>
           HTML 코드
           <small>
@@ -449,10 +478,19 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
           {error}
         </p>
       )}
+      <label className="newsletter-test-to">
+        테스트 메일 추가 수신자 (선택)
+        <input
+          value={testTo}
+          maxLength={300}
+          placeholder="가입한 회원 이메일, 쉼표로 구분 (최대 5명)"
+          onChange={(event) => setTestTo(event.target.value)}
+        />
+      </label>
       <div className="review-actions">
         <button className="secondary" disabled={!ready} onClick={() => void sendTest()}>
           <Mail size={16} />
-          나에게 테스트 발송
+          {testTo.trim() ? '테스트 발송' : '나에게 테스트 발송'}
         </button>
         <button className="secondary" disabled={!ready} onClick={() => openPicker(null)}>
           <CalendarClock size={16} />
@@ -481,6 +519,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
                         <span className="status-badge pending">발송 중</span>
                       )}
                       {item.sent_at && <span className="status-badge published">완료</span>}
+                      {item.audience === 'staff' && <span className="status-badge">운영진만</span>}
                     </strong>
                     {waiting && (
                       <small>

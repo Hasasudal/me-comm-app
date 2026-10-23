@@ -92,6 +92,7 @@ export const comments = sqliteTable(
     author_name: text('author_name').notNull(),
     content: text('content').notNull(),
     created_at: integer('created_at').notNull(),
+    edited_at: integer('edited_at'),
   },
   (table) => [index('idx_comments_post').on(table.post_id, table.created_at)],
 );
@@ -158,6 +159,8 @@ export const newsletters = sqliteTable('newsletters', {
   scheduled_by: text('scheduled_by'),
   scheduled_by_name: text('scheduled_by_name'),
   site_origin: text('site_origin'),
+  // Who gets it: 'all' subscribers, or 'staff' (academic | council | admin) only; read when the recipients are snapshotted.
+  audience: text('audience').notNull().default('all'),
 });
 
 // One row per recipient, snapshotted on the first send call: pending -> sending (claimed) -> sent | failed.

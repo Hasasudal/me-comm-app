@@ -118,6 +118,20 @@ try {
   assert.match(mock.sent[0].html, /\/account"/, 'test footer links to the account page');
   mock.sent = [];
 
+  // Extra test recipients: registered active members only, at most 5.
+  const testMail = (to) =>
+    request('/api/admin/newsletters/test', { method: 'POST', cookie: admin, body: { subject: '추가 테스트', html: '<p>x</p>', to } });
+  let t = await testMail('nobody@example.com, suspended@ks.ac.kr');
+  assert.equal(t.status, 400);
+  assert.ok(t.data.error.includes('nobody@example.com') && t.data.error.includes('suspended@ks.ac.kr'), 'unknown/inactive listed');
+  assert.equal(mock.sent.length, 0, 'nothing is mailed when any address is unknown');
+  t = await testMail('a@ks.ac.kr,b@ks.ac.kr,c@ks.ac.kr,d@ks.ac.kr,e@ks.ac.kr,f@ks.ac.kr');
+  assert.equal(t.status, 400, 'more than 5 extras');
+  t = await testMail(' Second@KS.ac.kr, active@ks.ac.kr ');
+  assert.equal(t.status, 200);
+  assert.deepEqual(mock.sent.map((m) => m.to).sort(), ['active@ks.ac.kr', 'second@ks.ac.kr'], 'admin once, plus the member');
+  mock.sent = [];
+
   // Everyone active and subscribed at the first call; the fixture's second (off) and suspended members are not.
   const expected = query("SELECT email FROM users WHERE status='active' AND newsletter=1").map((row) => row.email);
   let result;
@@ -298,6 +312,21 @@ try {
   assert.equal(deliveries(later).length, 0, 'not-yet-due newsletters are left alone');
   assert.equal(mailed('예약 소식').length, 0);
   assert.equal((await request(`/api/admin/newsletters/${later}`, { method: 'DELETE', cookie: admin, body: {} })).status, 200, 'a scheduled draft can be deleted');
+
+  // Audience 'staff': only subscribed active academic/council/admin members, snapshotted from the newsletter row.
+  assert.equal((await request('/api/admin/newsletters', { method: 'POST', cookie: admin, body: { subject: 'x', html: 'x', audience: 'all2' } })).status, 400);
+  execute("UPDATE users SET role='council',newsletter=1 WHERE id='test-member-expired'");
+  const counts = (await request('/api/admin/newsletters', { cookie: admin })).data.audiences;
+  const staffRows = query("SELECT email FROM users WHERE status='active' AND newsletter=1 AND role IN ('academic','council','admin')");
+  assert.equal(counts.staff, staffRows.length);
+  assert.ok(counts.all > counts.staff, 'staff is a subset');
+  const staffId = await request('/api/admin/newsletters', { method: 'POST', cookie: admin, body: { subject: '운영진 소식', html: '<p>x</p>', audience: 'staff' } });
+  created.push(staffId.data.id);
+  assert.equal(row(staffId.data.id).audience, 'staff');
+  await finish(staffId.data.id);
+  assert.deepEqual(mailed('운영진 소식').sort(), staffRows.map((u) => u.email).sort(), 'only staff are mailed');
+  assert.ok(mailed('운영진 소식').includes('expired@ks.ac.kr'));
+  execute("UPDATE users SET role='member' WHERE id='test-member-expired'");
 
   // Delete only before anything is sent.
   assert.equal((await request(`/api/admin/newsletters/${id}`, { method: 'DELETE', cookie: admin, body: {} })).status, 409);

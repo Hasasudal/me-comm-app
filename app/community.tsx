@@ -30,6 +30,7 @@ import {
 import { statusLabels } from './annotated-article';
 import ReviewWorkspace from './admin/review-workspace';
 import { api } from './api-client';
+import { confirmDialog, promptDialog } from './confirm-dialog';
 import {
   AppShell,
   boardLabels,
@@ -338,7 +339,9 @@ export default function Community({ category = 'all', admin = false }: { categor
     setFormKey((n) => n + 1);
   }
   async function applyClub() {
-    const name = window.prompt('개설할 동아리 이름을 입력해주세요 (30자 이내)')?.trim();
+    const name = (
+      await promptDialog('개설할 동아리 이름을 입력해주세요 (30자 이내)', { maxLength: 30, ok: '신청' })
+    )?.trim();
     if (!name) return;
     try {
       await api('/api/clubs', { name });
@@ -358,13 +361,17 @@ export default function Community({ category = 'all', admin = false }: { categor
     setImages([]);
     setCreating(true);
   }
-  function closeCreate() {
+  async function closeCreate() {
     if (busy) return;
     // A tap outside the dialog (easy on phones), Esc or ✕ would otherwise drop a half-written post.
     const form = dialog.current?.querySelector('form');
     const field = (name: string) =>
       String((form?.elements.namedItem(name) as HTMLInputElement | null)?.value || '').trim();
-    if ((field('title') || field('content') || images.length) && !window.confirm('작성 중인 글을 버릴까요?')) return;
+    if (
+      (field('title') || field('content') || images.length) &&
+      !(await confirmDialog('작성 중인 글을 버릴까요?', { ok: '버리기', cancel: '계속 쓰기', danger: true }))
+    )
+      return;
     clearDraft();
     setCreating(false);
     setModalError('');
@@ -988,7 +995,10 @@ export default function Community({ category = 'all', admin = false }: { categor
                     autoComplete="new-password"
                     placeholder="8자 이상 입력해주세요"
                   />
-                  <small>내 계정으로 로그인하면 비밀번호 없이 고치고 삭제할 수 있어요. 다른 계정에서 관리할 때만 쓰는 글 비밀번호예요.</small>
+                  <small>
+                    내 계정으로 로그인하면 비밀번호 없이 고치고 삭제할 수 있어요. 다른 계정에서 관리할 때만 쓰는 글
+                    비밀번호예요.
+                  </small>
                 </label>
                 {draftCategory === 'news' && (
                   <p className="form-note">

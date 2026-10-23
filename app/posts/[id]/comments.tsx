@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
-import { MessageSquare, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { MessageSquare, Pencil, Trash2 } from 'lucide-react';
 import { api } from '../../api-client';
+import { confirmDialog } from '../../confirm-dialog';
 import { roleLabels, type Role } from '../../app-shell';
 import { WriterTag, type Writer } from '../../writer-tag';
 
@@ -11,10 +12,20 @@ type Comment = {
   author_name: string;
   content: string;
   created_at: number;
+  edited_at?: number | null;
   deletable: boolean;
+  editable?: boolean;
   role: Exclude<Role, 'member'> | null;
   writer?: Writer;
 };
+// Canned answers for staff on the desks (학사문의, 학생회 건의).
+const answerTemplates = [
+  '확인했어요. 처리 후 다시 안내드릴게요.',
+  '담당 부서에 확인 중이에요. 조금만 기다려 주세요.',
+  '관련 공지를 확인해 주세요: ',
+  '추가로 궁금한 점이 있으면 댓글로 남겨 주세요.',
+  '검토한 뒤 결과를 이 글에 답변드릴게요.',
+];
 const nameKey = 'micom:author-name';
 const savedName = () => {
   try {
@@ -39,6 +50,10 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState('');
   const [fresh, setFresh] = useState<string | null>(null);
+  const [templates, setTemplates] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const composer = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setName((value) => value || savedName()), 0);
@@ -48,7 +63,10 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
   useEffect(() => {
     if (!fresh) return;
     const el = document.getElementById(`comment-${fresh}`);
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el?.scrollIntoView({
+      block: 'center',
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    });
     el?.focus({ preventScroll: true });
     const timer = setTimeout(() => setFresh(null), 2500);
     return () => clearTimeout(timer);
@@ -56,8 +74,15 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
 
   useEffect(() => {
     let active = true;
-    api<{ comments: Comment[] }>(`/api/posts/${postId}/comments`)
-      .then((data) => active && setComments(data.comments))
+    api<{ comments: Comment[]; templates?: boolean }>(`/api/posts/${postId}/comments`)
+      .then((data) => {
+        if (!active) return;
+        setComments(data.comments);
+        setTemplates(!!data.templates);
+        // Deep link from the bell: /posts/{id}#comment-{commentId}.
+        const target = location.hash.match(/^#comment-(.+)$/)?.[1];
+        if (target && data.comments.some((item) => item.id === target)) setFresh(target);
+      })
       .catch((e) => active && setError((e as Error).message));
     return () => {
       active = false;
@@ -91,8 +116,40 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
     }
   }
 
+  async function save(comment: Comment) {
+    if (!editing) return;
+    setSaving(true);
+    setError('');
+    try {
+      const { comment: saved } = await api<{ comment: { content: string; edited_at: number } }>(
+        `/api/comments/${comment.id}`,
+        { content: editing.text },
+        'PATCH',
+      );
+      setComments((list) => (list || []).map((item) => (item.id === comment.id ? { ...item, ...saved } : item)));
+      setEditing(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function cancelEdit(comment: Comment) {
+    if (editing && editing.text !== comment.content && !(await confirmDialog('고친 내용을 버릴까요?', { ok: '버리기', danger: true })))
+      return;
+    setEditing(null);
+  }
+
+  async function startEdit(comment: Comment) {
+    if (editing && editing.id !== comment.id && editing.text !== comments?.find((c) => c.id === editing.id)?.content) {
+      if (!(await confirmDialog('고치던 내용을 버리고 다른 댓글을 고칠까요?', { ok: '버리기', danger: true }))) return;
+    }
+    setEditing({ id: comment.id, text: comment.content });
+  }
+
   async function remove(comment: Comment) {
-    if (!window.confirm('댓글을 삭제할까요?')) return;
+    if (!(await confirmDialog('댓글을 삭제할까요?', { ok: '삭제', danger: true }))) return;
     setError('');
     try {
       await api(`/api/comments/${comment.id}`, {}, 'DELETE');
@@ -126,14 +183,52 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
                   {comment.role && <span className={`role-badge ${comment.role}`}>{roleLabels[comment.role]}</span>}
                 </strong>
                 <WriterTag writer={comment.writer} />
-                <small>{formatTime(comment.created_at)}</small>
+                <small>
+                  {formatTime(comment.created_at)}
+                  {comment.edited_at ? ' (수정됨)' : ''}
+                </small>
+                {comment.editable && editing?.id !== comment.id && (
+                  <button aria-label="댓글 수정" onClick={() => void startEdit(comment)}>
+                    <Pencil size={14} />
+                  </button>
+                )}
                 {comment.deletable && (
                   <button aria-label="댓글 삭제" onClick={() => void remove(comment)}>
                     <Trash2 size={14} />
                   </button>
                 )}
               </div>
-              <p>{comment.content}</p>
+              {editing?.id === comment.id ? (
+                <div className="comment-edit">
+                  <textarea
+                    autoFocus
+                    maxLength={1000}
+                    rows={3}
+                    aria-label="댓글 수정"
+                    value={editing.text}
+                    onChange={(e) => setEditing({ id: comment.id, text: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') void cancelEdit(comment);
+                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void save(comment);
+                    }}
+                  />
+                  <div>
+                    <button type="button" className="secondary" onClick={() => void cancelEdit(comment)}>
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={saving || !editing.text.trim() || editing.text === comment.content}
+                      onClick={() => void save(comment)}
+                    >
+                      {saving ? '저장 중…' : '저장'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p>{comment.content}</p>
+              )}
             </li>
           ))}
         </ul>
@@ -150,7 +245,28 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
+        {templates && (
+          <select
+            className="comment-templates"
+            aria-label="자주 쓰는 답변"
+            value=""
+            onChange={(e) => {
+              const box = composer.current;
+              if (!box || !e.target.value) return;
+              box.value = box.value ? `${box.value.trimEnd()}\n${e.target.value}` : e.target.value;
+              box.focus();
+            }}
+          >
+            <option value="">자주 쓰는 답변</option>
+            {answerTemplates.map((text) => (
+              <option key={text} value={text}>
+                {text}
+              </option>
+            ))}
+          </select>
+        )}
         <textarea
+          ref={composer}
           name="content"
           required
           maxLength={1000}

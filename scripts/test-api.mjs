@@ -21,7 +21,9 @@ const suffix = Date.now();
 execute('DELETE FROM attempts'); // runs back to back would otherwise share rate-limit windows
 const ids = {};
 const testClub = `test-club-${suffix}`;
-execute(`INSERT INTO clubs (id,name,status,created_at) VALUES ('${testClub}','검증동아리${suffix}','active',${Date.now()})`);
+execute(
+  `INSERT INTO clubs (id,name,status,created_at) VALUES ('${testClub}','검증동아리${suffix}','active',${Date.now()})`,
+);
 try {
   assert.equal((await request('/api/posts', { cookie: '' })).status, 401, 'anonymous list is denied');
   assert.equal(
@@ -325,6 +327,18 @@ try {
     method: 'POST',
     body: { author_name: '작성자', content: '감사합니다. 하나 더 여쭤볼게요.' },
   });
+  const resolve = (id, resolved, cookie) =>
+    request(`/api/posts/${id}/flags`, { method: 'POST', cookie, body: { resolved } });
+  assert.equal(
+    (await resolve(ids.inquiry, true, author)).status,
+    403,
+    'the asker cannot mark their own inquiry answered',
+  );
+  assert.equal((await resolve(ids.board, true, admin)).status, 400, 'only desk posts have an answered state');
+  assert.equal((await resolve(ids.inquiry, true, admin)).status, 200, '학사 marks the inquiry answered by hand');
+  assert.ok((await request(`/api/posts/${ids.inquiry}`)).data.post.resolved_at, 'manual resolve sets resolved_at');
+  assert.equal((await resolve(ids.inquiry, false, admin)).status, 200, '학사 puts it back to waiting');
+  assert.equal((await request(`/api/posts/${ids.inquiry}`)).data.post.resolved_at, null, 'manual unresolve clears it');
   const staffBell = (await request('/api/notifications', { cookie: admin })).data.replies;
   assert.ok(
     staffBell.some((r) => r.kind === 'desk' && r.post_id === ids.inquiry),
@@ -354,7 +368,11 @@ try {
   assert.deepEqual(Object.keys((await request('/api/session', { cookie: admin })).data.waiting), ['complaint']);
   // Staff may sign as their own role; members may not.
   const sign = (author_name, cookie = admin) =>
-    request(`/api/posts/${ids.complaint}/comments`, { method: 'POST', cookie, body: { author_name, content: '검토하겠습니다.' } });
+    request(`/api/posts/${ids.complaint}/comments`, {
+      method: 'POST',
+      cookie,
+      body: { author_name, content: '검토하겠습니다.' },
+    });
   const signed = await sign('학생회');
   assert.equal(signed.status, 201, '학생회 may sign as 학생회');
   assert.equal((await sign('학사')).status, 400, '학생회 cannot sign as 학사');
@@ -750,7 +768,10 @@ try {
     [['관리자 댓글', '운영진']],
     "the author's bell lists others' comments, not their own",
   );
-  assert.ok(replies.every((r) => r.kind === 'reply'), 'comments on a public post stay plain comments');
+  assert.ok(
+    replies.every((r) => r.kind === 'reply'),
+    'comments on a public post stay plain comments',
+  );
   assert.equal(
     (await request('/api/session')).data.repliedAt,
     adminComment.data.comment.created_at,
@@ -822,7 +843,11 @@ try {
   );
   const approved = (await request(`/api/posts/${ids.news2}`)).data.post;
   assert.ok(approved.reviewed_at >= news.updated_at, 'approval stamps the review time');
-  assert.equal((await request('/api/session')).data.newsReviewedAt, approved.reviewed_at, 'the writer sees the new result');
+  assert.equal(
+    (await request('/api/session')).data.newsReviewedAt,
+    approved.reviewed_at,
+    'the writer sees the new result',
+  );
   // An admin fixing approved news changes updated_at (the review guard) but is not a new result for the writer.
   await new Promise((resolve) => setTimeout(resolve, 5));
   assert.equal(
@@ -838,7 +863,11 @@ try {
   const fixed = (await request(`/api/posts/${ids.news2}`)).data.post;
   assert.ok(fixed.updated_at > approved.updated_at, 'admin edit bumps updated_at');
   assert.equal(fixed.reviewed_at, approved.reviewed_at, 'admin edit keeps the review time');
-  assert.equal((await request('/api/session')).data.newsReviewedAt, approved.reviewed_at, 'no new result after an admin edit');
+  assert.equal(
+    (await request('/api/session')).data.newsReviewedAt,
+    approved.reviewed_at,
+    'no new result after an admin edit',
+  );
   const tabs = Object.fromEntries(
     await Promise.all(
       ['rejected', 'published'].map(async (s) => [

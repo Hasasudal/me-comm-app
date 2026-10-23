@@ -1,18 +1,86 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { api } from '../api-client';
 import { AppShell, type ShellIdentity } from '../app-shell';
 
+type Tab = 'student' | 'staff';
+const tabs: { id: Tab; label: string }[] = [
+  { id: 'student', label: '학생' },
+  { id: 'staff', label: '담당자·관리자' },
+];
+const toc: Record<Tab, [string, string][]> = {
+  student: [
+    ['start', '가입과 로그인'],
+    ['boards', '게시판 한눈에'],
+    ['write', '글쓰기'],
+    ['edit', '수정·삭제'],
+    ['comments', '댓글과 알림'],
+    ['search', '검색과 필터'],
+    ['news', '학과 뉴스 기사 제출'],
+    ['desk', '학사문의·학생회 건의'],
+    ['rental', '대여 신청'],
+    ['account', '계정 관리'],
+  ],
+  staff: [
+    ['admin-join', '직책 안내'],
+    ['admin-review', '뉴스 검토'],
+    ['admin-newsletter', '뉴스레터 보내기'],
+    ['admin-desk', '문의·건의 답변'],
+    ['admin-board', '게시판 관리'],
+    ['admin-members', '회원·직책 관리'],
+  ],
+};
+// The URL hash picks the tab (#student, #staff) or names a section inside one, so links to any section still work.
+const tabOfHash = (hash: string): Tab | null =>
+  hash === 'student' || hash === 'staff'
+    ? hash
+    : (tabs.find((tab) => toc[tab.id].some(([id]) => id === hash))?.id ?? null);
+
 // The guide is readable without signing in, so people can check how to sign up.
 export default function HelpPage() {
   const [identity, setIdentity] = useState<ShellIdentity & { admin?: boolean }>({ loaded: false, signedIn: false });
+  const [tab, setTab] = useState<Tab>('student');
   useEffect(() => {
     api<ShellIdentity>('/api/session')
       .then((session) => setIdentity({ ...session, loaded: true }))
       .catch(() => setIdentity((value) => ({ ...value, loaded: true })));
   }, []);
+  useEffect(() => {
+    const sync = () => {
+      const hash = decodeURIComponent(window.location.hash.slice(1));
+      const next = tabOfHash(hash);
+      if (!next) return;
+      setTab(next);
+      // The target may have been hidden until now, so scroll once the panel is shown.
+      setTimeout(() => document.getElementById(hash)?.scrollIntoView(), 0);
+    };
+    sync();
+    window.addEventListener('hashchange', sync);
+    return () => window.removeEventListener('hashchange', sync);
+  }, []);
+  function choose(next: Tab) {
+    setTab(next);
+    window.history.replaceState(null, '', `#${next}`);
+  }
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = tabs.length - 1;
+    const to =
+      event.key === 'ArrowRight'
+        ? (index + 1) % tabs.length
+        : event.key === 'ArrowLeft'
+          ? (index + last) % tabs.length
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? last
+              : -1;
+    if (to < 0) return;
+    event.preventDefault();
+    choose(tabs[to].id);
+    document.getElementById(tabs[to].id)?.focus();
+  }
 
   return (
     <AppShell
@@ -31,785 +99,53 @@ export default function HelpPage() {
             도움말<span className="heading-dot">.</span>
           </h1>
           <p>
-            미컴 라운지 사용법입니다. 앞부분은 모든 학생, 뒷부분은 직책(학사·학생회·관리자)을 맡은 분을 위한 안내예요.
+            미컴 라운지 사용법입니다. 빠른 시작과 자주 묻는 질문을 먼저 보고, 자세한 안내는 학생 / 담당자·관리자 탭에서
+            찾아보세요.
           </p>
         </div>
       </section>
       <div className="help-layout">
         <nav className="help-toc" aria-label="도움말 목차">
-          <p className="help-toc-label">학생</p>
+          <p className="help-toc-label">처음이라면</p>
           <ol>
             <li>
-              <a href="#start">가입과 로그인</a>
+              <a href="#quick">빠른 시작</a>
             </li>
-            <li>
-              <a href="#boards">게시판 한눈에</a>
-            </li>
-            <li>
-              <a href="#write">글쓰기</a>
-            </li>
-            <li>
-              <a href="#edit">수정·삭제</a>
-            </li>
-            <li>
-              <a href="#comments">댓글과 알림</a>
-            </li>
-            <li>
-              <a href="#search">검색과 필터</a>
-            </li>
-            <li>
-              <a href="#news">학과 뉴스 기사 제출</a>
-            </li>
-            <li>
-              <a href="#desk">학사문의·학생회 건의</a>
-            </li>
-            <li>
-              <a href="#rental">대여 신청</a>
-            </li>
-            <li>
-              <a href="#account">계정 관리</a>
-            </li>
-          </ol>
-          <p className="help-toc-label">관리자</p>
-          <ol>
-            <li>
-              <a href="#admin-join">직책 안내</a>
-            </li>
-            <li>
-              <a href="#admin-review">뉴스 검토</a>
-            </li>
-            <li>
-              <a href="#admin-newsletter">뉴스레터 보내기</a>
-            </li>
-            <li>
-              <a href="#admin-desk">문의·건의 답변</a>
-            </li>
-            <li>
-              <a href="#admin-board">게시판 관리</a>
-            </li>
-            <li>
-              <a href="#admin-members">회원·직책 관리</a>
-            </li>
-          </ol>
-          <p className="help-toc-label">도움말</p>
-          <ol>
             <li>
               <a href="#faq">자주 묻는 질문</a>
             </li>
           </ol>
+          <p className="help-toc-label">{tabs.find((item) => item.id === tab)?.label} 안내</p>
+          <ol>
+            {toc[tab].map(([id, label]) => (
+              <li key={id}>
+                <a href={`#${id}`}>{label}</a>
+              </li>
+            ))}
+          </ol>
         </nav>
         <article className="help-page">
-          <div className="part">
-            <span className="part-label">학생 안내</span>
-          </div>
-
-          <section id="start">
-            <h2>가입과 로그인</h2>
-            <p>
-              미컴 라운지는{' '}
-              <strong>
-                경성대 학교 이메일(<code>@ks.ac.kr</code>)을 인증한 학생만
-              </strong>{' '}
-              이용할 수 있습니다. 로그인하지 않으면 게시판 목록도, 글 내용도 볼 수 없습니다.
-            </p>
+          <section id="quick" className="quick-start">
+            <h2>빠른 시작</h2>
             <ol className="steps">
               <li>
-                오른쪽 위 <strong>회원가입</strong>을 누르고 이름, 학교 이메일, 비밀번호, 비밀번호 확인을 입력한 뒤{' '}
-                <strong>인증 메일 받고 가입하기</strong>를 누릅니다. 비밀번호는{' '}
-                <strong>영문과 숫자를 포함해 8자 이상</strong>이어야 합니다. 이메일 칸에는{' '}
-                <strong>@ks.ac.kr 앞의 메일 아이디만</strong> 넣으세요. 학번이 아니라 학교 메일에 로그인할 때 쓰는
-                아이디예요.
+                <strong>가입·인증</strong>: 학교 이메일(<code>@ks.ac.kr</code>)로 가입하고 인증 메일의 링크를 누른 뒤
+                로그인합니다. <a href="#start">자세히</a>
               </li>
               <li>
-                학교 메일함에 온 <strong>인증 메일</strong>의 링크를 누릅니다. 메일이 안 보이면 스팸함을 확인하세요.
+                <strong>게시판 고르기</strong>: 왼쪽 메뉴에서 필요한 게시판을 엽니다.{' '}
+                <a href="#boards">게시판 한눈에</a>
               </li>
               <li>
-                인증을 마친 뒤 <strong>로그인</strong>하면 모든 게시판을 이용할 수 있습니다.
+                <strong>글쓰기</strong>: 게시판에서 글쓰기를 눌러 제목과 내용을 쓰고 등록합니다.{' '}
+                <a href="#write">글쓰기</a>
+              </li>
+              <li>
+                <strong>알림 확인</strong>: 오른쪽 위 🔔에 뜬 숫자를 눌러 새 댓글이나 답변으로 바로 이동합니다.{' '}
+                <a href="#comments">댓글과 알림</a>
               </li>
             </ol>
-            <div className="note">
-              휴대폰, 노트북 등 <strong>기기 5대까지 동시에 로그인</strong>할 수 있고, 로그인은 <strong>14일</strong>{' '}
-              동안 유지됩니다. 6번째 기기에서 로그인하면 가장 오래된 기기가 로그아웃됩니다.
-            </div>
           </section>
-
-          <section id="boards">
-            <h2>게시판 한눈에</h2>
-            <p>
-              왼쪽 사이드바에서 게시판을 고릅니다. 게시판마다 누가 볼 수 있는지가 다릅니다. 컴퓨터에서는 화면 왼쪽 위
-              버튼으로 메뉴를 접고 펼 수 있고, 이 설정은 브라우저에 기억됩니다.
-            </p>
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>게시판</th>
-                    <th>무엇을 올리나요</th>
-                    <th>누가 보나요</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>통합 게시판</td>
-                    <td>아래 공개 게시판의 글을 최신순으로 모아 봅니다.</td>
-                    <td>
-                      <span className="pill open">모든 회원</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>자유게시판</td>
-                    <td>일상, 질문, 정보 등 자유로운 이야기</td>
-                    <td>
-                      <span className="pill open">모든 회원</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>학사문의</td>
-                    <td>장학, 휴학, 수강 등 학과 사무실에 묻는 1:1 문의</td>
-                    <td>
-                      <span className="pill lock">나와 학사·관리자</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>학생회 건의</td>
-                    <td>학생회에 건의하거나 불편을 알리는 글</td>
-                    <td>
-                      <span className="pill lock">나와 학생회·관리자</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>학과 뉴스</td>
-                    <td>학과 소식 기사 제출 (관리자가 검토)</td>
-                    <td>
-                      <span className="pill lock">나와 관리자만</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>동아리</td>
-                    <td>동아리별 칸에서 소개와 부원 모집</td>
-                    <td>
-                      <span className="pill open">모든 회원</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>공모전 모집</td>
-                    <td>공모전 팀원 모집</td>
-                    <td>
-                      <span className="pill open">모든 회원</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p>
-              비공개 게시판의 글은 통합 게시판에 나오지 않고, 다른 학생은 주소를 알아도 열 수 없습니다. 비공개 글에 올린
-              사진도 똑같이 보호됩니다.
-            </p>
-          </section>
-
-          <section id="write">
-            <h2>글쓰기</h2>
-            <p>
-              게시판 오른쪽 위(휴대폰에서는 화면 오른쪽 아래에 떠 있는) <strong>글 작성하기</strong>(학사문의는{' '}
-              <strong>문의하기</strong>, 학과 뉴스는 <strong>기사 제출하기</strong>)를 누릅니다. 통합 게시판에서 쓰면{' '}
-              <strong>게시할 공간</strong>에서 게시판을 고를 수 있습니다. 제목이나 본문을 쓰거나 사진만 올려 둔 상태에서
-              창을 닫으려 하면(창 바깥을 누를 때 포함) 버릴지 한 번 더 묻습니다.
-            </p>
-            <h3>입력 항목</h3>
-            <ul className="plain">
-              <li>
-                <strong>별명</strong>: 글마다 직접 입력하는 이름으로, 실명이 아니어도 됩니다. 다른 학생에게는 별명만
-                보이고, 실제 계정(이름·학교 이메일)은 <strong>관리자만</strong> 볼 수 있습니다. 학사문의·학생회 건의는
-                답변 담당자도 볼 수 있습니다. <code>관리자</code>, <code>운영자</code>, <code>학사</code>,{' '}
-                <code>학생회</code>, <code>admin</code>처럼 운영진으로 오해될 수 있는 이름은 쓸 수
-                없습니다(띄어쓰기·대소문자 무시). 단, 학사 직책은 <code>학사</code>, 학생회 직책은 <code>학생회</code>,
-                관리자는 이 이름들을 모두 쓸 수 있습니다.
-              </li>
-              <li>
-                <strong>머릿글</strong> (선택): 제목 앞에 <code>[신입 모집]</code>처럼 붙는 말머리입니다. 예: 동아리
-                게시판이면 “신입 모집”, 학사문의면 “장학”·“휴학”.
-              </li>
-              <li>
-                <strong>제목과 본문</strong>: 제목은 120자, 본문은 20,000자까지 쓸 수 있습니다.
-              </li>
-              <li>
-                별명, 제목, 머릿글, 필요한 역할에는 <strong>보이지 않는 특수문자</strong>를 쓸 수 없습니다. 본문과
-                댓글에 들어간 보이지 않는 특수문자는 저장할 때 자동으로 빠집니다.
-              </li>
-              <li>
-                <strong>사진</strong> (선택): 글 하나에 <strong>5장</strong>까지 올릴 수 있습니다. JPG, PNG, WebP 사진을
-                받고, 모든 사진은 긴 쪽 1600px 이하로 다시 저장됩니다(한 장에 5MB까지). 아이폰 HEIC 사진은 Safari에서만
-                올릴 수 있고, 다른 브라우저에서는 “이 사진 형식은 열 수 없습니다. JPG나 PNG로 바꿔 올려주세요.”라는
-                안내가 나옵니다. 썸네일의 ✕ 버튼으로 뺄 수 있습니다. 올려만 두고 게시하지 않은 사진은 하루 안에 자동으로
-                정리됩니다. 게시하지 않은 사진이 20장 쌓이면 먼저 글을 게시하거나 1시간 뒤 다시 시도하라는 안내가
-                나옵니다.
-              </li>
-              <li>
-                <strong>수정·삭제 비밀번호</strong>: 8자 이상. 공개 게시판 글을 다른 계정에서 관리해야 할 때 씁니다(아래
-                “수정·삭제” 참고).
-              </li>
-            </ul>
-            <h3>동아리별 칸</h3>
-            <p>
-              동아리 게시판은 동아리마다 칸이 나뉘어 있습니다. 위쪽 동아리 이름을 누르면 그 동아리 글만 보이고, 글을 쓸
-              때는 <strong>동아리</strong>를 꼭 골라야 합니다. 원하는 동아리가 없으면 <strong>동아리 개설 신청</strong>
-              버튼으로 이름을 보내 주세요. 관리자가 승인하면 칸이 생깁니다. 동아리 칸이 생기기 전에 쓴 글은{' '}
-              <strong>전체</strong> 칸에서 볼 수 있습니다.
-            </p>
-            <h3>동아리·공모전 모집 정보</h3>
-            <p>
-              동아리와 공모전 모집 글에는 <strong>모집 정보 (선택)</strong> 칸이 있습니다. 모집 상태, 마감일, 인원,
-              필요한 역할을 필요한 것만 채우면 됩니다. 모집 상태, 마감일, 인원은 목록에 표시되고, 필요한 역할은 글 상세
-              화면에서만 보입니다.
-            </p>
-            <div className="note">
-              <strong>
-                마감일이 지나면 자동으로 <span className="pill no">마감</span>으로 표시됩니다.
-              </strong>{' '}
-              “모집 중”으로 두었더라도 마감일 다음 날(한국 시간)부터는 마감으로 보입니다.
-            </div>
-            <div className="note">
-              <strong>이용 한도</strong>: 글은 하루 30개, 댓글은 하루 300개, 글 하나에 댓글 500개까지입니다. 짧은 시간에
-              많이 올리면 잠시 막히니 1분 뒤 다시 시도하세요. 하루 한도를 넘으면 “하루 이용 한도를 넘었습니다”라는
-              안내가 나오고, 다음 날부터 다시 쓸 수 있습니다.
-            </div>
-          </section>
-
-          <section id="edit">
-            <h2>수정·삭제</h2>
-            <p>
-              글 상세 화면 아래의 <strong>수정</strong>, <strong>삭제</strong> 버튼을 씁니다.
-            </p>
-            <ul className="plain">
-              <li>
-                <strong>내가 쓴 글</strong>은 같은 계정으로 로그인해 있으면 <strong>비밀번호 없이</strong> 바로
-                수정·삭제됩니다.
-              </li>
-              <li>
-                <strong>다른 계정</strong>에서 수정·삭제하려면 글을 쓸 때 정한 비밀번호가 필요합니다. 동아리 공동
-                운영진이 함께 글을 관리할 때 비밀번호를 공유하면 됩니다. 비공개 게시판 글은 다른 계정에서 열 수 없으니
-                공개 게시판 글에만 해당합니다. 비밀번호를 여러 번 틀리면 한동안 시도할 수 없습니다.
-              </li>
-              <li>
-                수정할 때 뺀 사진은 <strong>수정 저장</strong>을 누르면 지워지고, 글을 삭제하면 그 글의 사진도 함께
-                지워집니다. 수정을 취소하면 사진은 그대로 남습니다. 지운 사진은 되돌릴 수 없습니다.
-              </li>
-            </ul>
-          </section>
-
-          <section id="comments">
-            <h2>댓글과 알림</h2>
-            <p>
-              학과 뉴스를 뺀 모든 글에 댓글을 달 수 있습니다. 댓글도 별명을 매번 입력하며, 1,000자까지 쓸 수 있습니다.
-              댓글의 실제 계정도 관리자(문의·건의는 담당자)만 볼 수 있습니다.
-            </p>
-            <ul className="plain">
-              <li>내가 쓴 댓글은 휴지통 아이콘으로 지울 수 있습니다. 다른 사람 댓글은 지울 수 없습니다.</li>
-              <li>
-                글 목록에서 말풍선 아이콘 옆 숫자는 댓글 수, 사진 아이콘 옆 숫자는 사진 수입니다. 0개면 아이콘이 나오지
-                않습니다.
-              </li>
-              <li>
-                글의 사진을 누르면 화면 위에 크게 뜹니다. 좌우 버튼(컴퓨터는 ← → 키, 휴대폰은 옆으로 밀기)으로 넘기고,
-                <strong>원본 보기</strong>로 저장된 사진을 새 탭에서 더 크게 볼 수 있습니다.
-              </li>
-            </ul>
-            <h3>알림</h3>
-            <p>
-              누군가 <strong>내 글에 댓글을 달면</strong> 오른쪽 위 🔔 종 아이콘에 빨간 점이 뜹니다. 종을 누르면 최근
-              알림 20개가 보이고, 누르면 그 글로 이동합니다. 아직 안 본 알림은 파란 배경으로 표시됩니다.
-            </p>
-            <div className="note">
-              읽음 표시는 <strong>브라우저마다 따로</strong> 기억합니다. 휴대폰에서 확인했어도 노트북에는 빨간 점이 남아
-              있을 수 있습니다.
-            </div>
-          </section>
-
-          <section id="search">
-            <h2>검색과 필터</h2>
-            <ul className="plain">
-              <li>
-                게시판 위 검색창에 입력하고 잠시 멈추면 자동으로 <strong>제목, 머릿글, 본문, 별명</strong>에서 찾습니다.
-                본문에서 찾은 경우 해당 부분이 미리보기로 보입니다.
-              </li>
-              <li>
-                동아리·공모전 게시판의 <strong>모집 중만</strong> 버튼을 누르면 모집 상태가 “모집 중”이고 마감일이
-                지나지 않은 글만 봅니다.
-              </li>
-              <li>
-                목록은 30개씩 보이고, 아래 <strong>더 보기</strong>로 이어서 봅니다.
-              </li>
-              <li>
-                관리자가 <strong>고정</strong>한 공지 글은 게시판 맨 위에 <span className="pill fb">고정</span> 표시와
-                함께 나옵니다.
-              </li>
-            </ul>
-          </section>
-
-          <section id="news">
-            <h2>학과 뉴스 기사 제출</h2>
-            <p>
-              학과 뉴스는 학생 기자가 기사를 제출하고 관리자가 검토하는 공간입니다. 내가 제출한 기사는 나와 관리자만 볼
-              수 있고, <strong>승인된 기사도 사이트에 공개되지 않습니다</strong>. 승인 기사는 관리자가 Word 파일로 모아
-              학과 소식지 등에 씁니다.
-            </p>
-            <div className="flow" aria-label="기사 처리 흐름">
-              <span className="pill wait">승인 대기</span>
-              <span className="arrow">→</span>
-              <span className="pill done">승인</span>
-              <span>또는</span>
-              <span className="pill fb">피드백</span>
-              <span>또는</span>
-              <span className="pill no">반려</span>
-            </div>
-            <dl className="status">
-              <dt>
-                <span className="pill wait">승인 대기</span>
-              </dt>
-              <dd>제출 직후 상태입니다. 관리자가 검토하기 전입니다.</dd>
-              <dt>
-                <span className="pill fb">피드백</span>
-              </dt>
-              <dd>
-                고칠 부분이 있다는 뜻입니다. 기사 본문에 관리자가 남긴 형광펜, 굵게, 메모가 표시되고 전체 의견도 볼 수
-                있습니다. <strong>수정해서 다시 제출</strong>하면 다시 승인 대기로 돌아가고 이전 피드백은 지워집니다.
-              </dd>
-              <dt>
-                <span className="pill done">승인</span>
-              </dt>
-              <dd>기사가 채택되었습니다. 승인된 기사도 내가 수정하면 다시 승인 대기로 돌아가고 피드백은 지워집니다.</dd>
-              <dt>
-                <span className="pill no">반려</span>
-              </dt>
-              <dd>반려 사유가 함께 표시됩니다. 반려된 기사는 고칠 수 없으니 새 기사로 다시 작성하세요.</dd>
-            </dl>
-            <p>
-              검토 결과가 나오면 사이드바의 <strong>학과 뉴스</strong> 옆에 빨간 점이 뜨고, 뉴스 탭에서 해당 기사에{' '}
-              <strong>새 결과</strong> 표시가 붙습니다. 관리자가 오탈자 정리 등으로 기사를 다듬기만 한 경우에는 검토
-              상태가 그대로이고 새 결과 표시도 붙지 않습니다.
-            </p>
-          </section>
-
-          <section id="desk">
-            <h2>학사문의·학생회 건의</h2>
-            <p>
-              둘 다 <strong>비공개 게시판</strong>입니다. 학사문의는 <strong>학사</strong> 직책(학과 사무실)과 관리자만,
-              학생회 건의는 <strong>학생회</strong> 직책과 관리자만 볼 수 있습니다. 글을 올리면 담당자가{' '}
-              <strong>댓글로 답변</strong>합니다.
-            </p>
-            <dl className="status">
-              <dt>
-                <span className="pill wait">답변 대기</span> <span className="pill wait">처리 대기</span>
-              </dt>
-              <dd>아직 담당자가 답하지 않았습니다.</dd>
-              <dt>
-                <span className="pill done">답변 완료</span> <span className="pill done">처리 완료</span>
-              </dt>
-              <dd>담당자가 댓글로 답했습니다. 🔔 알림으로도 알려 줍니다.</dd>
-            </dl>
-            <p>
-              담당자 댓글에는 <span className="role-badge academic">학사</span>,{' '}
-              <span className="role-badge council">학생회</span>, <span className="role-badge admin">관리자</span>{' '}
-              배지가 붙어 공식 답변인지 알 수 있습니다. 더 궁금한 점이 있으면{' '}
-              <strong>그 글에 댓글로 다시 물어보세요</strong>. 자동으로 다시 대기 상태가 되어 담당자에게 알려집니다.
-            </p>
-          </section>
-
-          <section id="rental">
-            <h2>대여 신청</h2>
-            <p>
-              사이드바 아래 <strong>대여 신청</strong>에서 바로 이동합니다. 대여는 미컴 라운지 밖에서 처리됩니다.
-            </p>
-            <ul className="plain">
-              <li>
-                <strong>기자재 대여</strong>: 기자재 대여 노션 페이지가 새 탭으로 열립니다.
-              </li>
-              <li>
-                <strong>호실 대여</strong>: 카카오톡 채널 <strong>경성대 미컴봇</strong> 채팅으로 연결됩니다.
-                <ul className="plain">
-                  <li>휴대폰: 카카오톡 앱에서 채팅방이 바로 열립니다.</li>
-                  <li>
-                    PC·맥: QR코드 창이 뜹니다. 휴대폰 카메라로 찍으면 카톡에서 열리고, <strong>웹에서 채팅 열기</strong>
-                    로 브라우저에서 채팅할 수도 있습니다. PC 카카오톡에서 “경성대 미컴봇”을 검색해도 됩니다.
-                  </li>
-                </ul>
-              </li>
-            </ul>
-          </section>
-
-          <section id="account">
-            <h2>계정 관리</h2>
-            <p>
-              오른쪽 위 ⚙ 아이콘(<strong>계정 설정</strong>)에서 할 수 있는 일입니다.
-            </p>
-            <ul className="plain">
-              <li>
-                <strong>이름 변경</strong>: 오른쪽 위에 보이는 내 이름을 바꿉니다. 글에 표시되는 별명은 글마다 따로
-                입력합니다.
-              </li>
-              <li>
-                <strong>학교 이메일 변경</strong>: 새 학교 이메일로 확인 메일을 받습니다. 새 주소로 온 메일의 링크를
-                누르고 다시 로그인하면 저장된 이메일이 바뀝니다.
-              </li>
-              <li>
-                <strong>비밀번호 재설정</strong>: 재설정 메일을 받아 로그인 비밀번호를 바꿉니다.
-              </li>
-              <li>
-                <strong>모든 기기에서 로그아웃</strong>: 계정 화면의 <strong>로그인 세션</strong>에서 이 기기를 포함한
-                모든 기기를 로그아웃합니다. 비밀번호를 재설정해도 사이트 로그인은 끊기지 않으니, 비밀번호를 바꾼 뒤에는
-                이 버튼을 눌러 두세요.
-              </li>
-            </ul>
-            <h3>뉴스레터</h3>
-            <p>
-              미컴 라운지 회원은 학교 이메일로 학과 소식 뉴스레터를 <strong>기본으로 받습니다</strong>. 받고 싶지 않다면
-              둘 중 하나로 끌 수 있습니다. 단, 이메일 인증 없이 관리자 승인으로 가입한 계정은 기본으로 받지 않으니,
-              받고 싶다면 <strong>계정 설정 → 뉴스레터</strong>에서 직접 켜 주세요.
-            </p>
-            <ul className="plain">
-              <li>
-                <strong>계정 설정 → 뉴스레터</strong>에서 <strong>미컴 라운지 뉴스레터 받기</strong> 체크를 끕니다. 바로
-                저장되고, 언제든 다시 켤 수 있습니다.
-              </li>
-              <li>
-                뉴스레터 메일 아래의 <strong>뉴스레터 받지 않기</strong> 링크를 눌러 열린 화면에서{' '}
-                <strong>뉴스레터 받지 않기</strong> 버튼을 누릅니다. 로그인하지 않아도 됩니다.
-              </li>
-            </ul>
-            <h3>회원 탈퇴</h3>
-            <p>
-              확인 문구 <code>회원탈퇴</code>와 <strong>현재 비밀번호</strong>를 입력하고 <strong>계정 삭제</strong>를
-              누르면 탈퇴됩니다. 비밀번호가 틀리면 아무것도 지워지지 않습니다. 탈퇴하면:
-            </p>
-            <ul className="plain">
-              <li>계정, 관리자 권한, 로그인 세션이 삭제됩니다.</li>
-              <li>
-                공개 게시판의 글과 댓글은 남고, 작성자가 <strong>탈퇴한 회원</strong>으로 바뀝니다. 같은 이메일로 다시
-                가입해도 예전 글·댓글의 작성자가 아니게 됩니다. 글은 글 비밀번호로만 수정·삭제할 수 있고 댓글은 지울 수
-                없으니, 지우고 싶은 글과 댓글은 탈퇴 전에 지우세요.
-              </li>
-              <li>
-                학사문의, 학생회 건의, 승인되지 않은 뉴스 기사(승인 대기·피드백·반려)는 답변·사진과 함께 삭제됩니다.
-              </li>
-              <li>승인된 뉴스 기사는 학과 기록으로 남습니다.</li>
-              <li>마지막 남은 관리자는 탈퇴할 수 없습니다. 먼저 다른 회원에게 관리자 직책을 주세요.</li>
-            </ul>
-          </section>
-
-          <div className="part">
-            <span className="part-label">직책 안내</span>
-          </div>
-
-          <section id="admin-join">
-            <h2>직책 안내</h2>
-            <p>
-              회원은 <strong>일반</strong>, <strong>학사</strong>, <strong>학생회</strong>, <strong>관리자</strong> 중
-              하나의 직책을 가집니다. 처음 가입하면 일반이고, <strong>관리자가 직책을 정해 줍니다</strong>. 직책이
-              필요하면 관리자에게 요청하세요.
-            </p>
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>직책</th>
-                    <th>할 수 있는 일</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>일반</td>
-                    <td>공개 게시판 읽기·쓰기, 내 문의·건의·기사 관리</td>
-                  </tr>
-                  <tr>
-                    <td>학사</td>
-                    <td>일반 + 모든 학사문의 보기·답변</td>
-                  </tr>
-                  <tr>
-                    <td>학생회</td>
-                    <td>일반 + 모든 학생회 건의 보기·답변</td>
-                  </tr>
-                  <tr>
-                    <td>관리자</td>
-                    <td>
-                      모든 기능: 뉴스 검토, 모든 문의·건의, 상단 고정, 글·댓글 정리, 가입 승인, 동아리 승인, 회원
-                      정지·해제, 직책 관리. 마지막 남은 관리자는 직책을 내리거나 정지할 수 없고, 자기 직책은 직접 바꿀
-                      수 없습니다.
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section id="admin-review">
-            <h2>뉴스 검토</h2>
-            <p>
-              관리자에게만 보이는 사이드바의 <strong>뉴스 승인</strong> 화면은 기사 목록과 기사 본문으로(컴퓨터에서는
-              왼쪽·오른쪽, 휴대폰에서는 위·아래) 나뉩니다. 위쪽 탭(
-              <span className="pill wait">승인 대기</span> <span className="pill fb">피드백</span>{' '}
-              <span className="pill no">반려</span> <span className="pill done">승인</span>)으로 상태별 기사를 봅니다.
-              목록은 30개씩 나오고 <strong>더 보기</strong>로 이어서 봅니다.
-            </p>
-            <h3>본문에 표시 남기기</h3>
-            <p>기사 본문에서 문장을 드래그하면(휴대폰에서는 길게 눌러 선택하면) 작은 도구 막대가 뜹니다.</p>
-            <ul className="plain">
-              <li>
-                <strong>형광펜</strong>, <strong>굵게</strong>: 짚어 줄 부분을 표시합니다.
-              </li>
-              <li>
-                <strong>메모</strong>: 내용을 쓰고 Enter 또는 <strong>추가</strong>를 누르면(500자까지) 오른쪽 여백에
-                번호가 붙은 메모 카드로 남습니다. 휴대폰에서는 기사 아래에 목록으로 보입니다.
-              </li>
-              <li>
-                <strong>지우기</strong>: 선택한 범위가 기존 표시와 겹칠 때만 나오며, 겹친 표시를 통째로 없앱니다. 메모
-                하나만 지울 때는 메모 카드의 ✕를 누릅니다.
-              </li>
-            </ul>
-            <p>
-              기사 전체에 대한 의견은 <strong>전체 의견 추가</strong>로 남깁니다. 표시는 기사 하나에 200개까지 남길 수
-              있습니다.
-            </p>
-            <p>
-              남긴 표시와 의견은 이 브라우저에 임시 저장되어, 창을 닫았다 와도 이어서 할 수 있습니다. 그사이 기사가
-              수정되었다면(<strong>기사 수정</strong> 포함) 예전 임시 저장은 안내와 함께 버려집니다.
-            </p>
-            <h3>결정하기</h3>
-            <ul className="plain">
-              <li>
-                <strong>승인</strong>: 기사를 채택합니다. 남겨 둔 표시는 보내지 않으며, 표시나 의견이 남아 있으면 먼저
-                확인을 묻습니다.
-              </li>
-              <li>
-                <strong>피드백 보내기</strong>: 표시와 전체 의견을 학생에게 보냅니다. 버튼의 숫자는 남긴 표시·의견
-                수입니다. 학생이 고쳐서 다시 제출하면 승인 대기로 돌아옵니다.
-              </li>
-              <li>
-                <strong>반려</strong>: 반려 사유(2,000자까지)를 적고 <strong>반려 확정</strong>을 누릅니다. 학생에게는
-                사유만 전달되고 표시는 보내지 않습니다. 반려된 기사는 학생이 고칠 수 없어 새 기사로 다시 써야 합니다.
-              </li>
-            </ul>
-            <p>
-              처리하면 다음 기사로 자동으로 넘어갑니다. 다른 관리자가 먼저 처리했거나 그사이 학생이 기사를 고쳤다면
-              새로고침하라는 안내가 나옵니다. 탭을 다시 누르면 목록을 새로 불러옵니다.
-            </p>
-            <h3>Word로 내보내기</h3>
-            <ul className="plain">
-              <li>
-                기사 오른쪽 위 <strong>⋯ 메뉴 → Word로 내보내기</strong>: 승인된 기사 한 편을{' '}
-                <code>기사_제목.docx</code>로 받습니다.
-              </li>
-              <li>
-                승인 탭의 <strong>승인 기사 모두 Word로</strong>: 승인된 기사 전체를 한 파일(
-                <code>승인기사_날짜.docx</code>)로 받습니다.
-              </li>
-              <li>
-                기사마다 제목(머릿글 포함), 작성자·제출일, 본문 순으로 들어가고 새 페이지에서 시작합니다. 검토 표시는
-                들어가지 않습니다.
-              </li>
-              <li>기사에 붙은 사진도 본문 다음에 함께 들어갑니다(페이지 폭에 맞춰 줄어듭니다).</li>
-            </ul>
-            <p>
-              같은 ⋯ 메뉴의 <strong>기사 수정</strong>(오탈자 정리 등)은 승인 대기 기사에서만 쓸 수 있고, 검토 상태는
-              그대로 유지됩니다. <strong>기사 삭제</strong>는 모든 기사에서 쓸 수 있으며 되돌릴 수 없습니다.
-            </p>
-          </section>
-
-          <section id="admin-newsletter">
-            <h2>뉴스레터 보내기</h2>
-            <p>
-              <strong>뉴스 승인</strong> 화면 아래쪽의 <strong>뉴스레터</strong> 칸에서 회원에게 학과 소식 메일을
-              보냅니다. 위쪽에 수신 회원 수와 오늘 남은 발송 한도가 나옵니다.
-            </p>
-            <ul className="plain">
-              <li>
-                <strong>HTML 파일 불러오기</strong>: 뉴스레터 편집기에서 내보낸 <code>.html</code> 파일을 고르거나,
-                코드를 칸에 붙여넣습니다. 파일 맨 앞의 설명 줄은 자동으로 정리되고, 문서 제목이 있으면 메일 제목에
-                채워집니다. HTML은 <strong>약 180KB</strong>까지 보낼 수 있고, 넘으면 ‘뉴스레터 HTML이 너무 큽니다’가
-                나오며 발송 버튼이 꺼집니다.
-              </li>
-              <li>
-                <strong>미리보기</strong>: 받는 사람에게 보일 모습을 PC·모바일 너비로 확인합니다.
-              </li>
-              <li>
-                <strong>나에게 테스트 발송</strong>: 내 이메일로 한 통 먼저 받아 메일함에서 확인합니다.
-              </li>
-              <li>
-                <strong>발송 준비</strong>: 받는 인원과 오늘 남은 한도를 확인한 뒤 보냅니다. 보내는 동안 진행 상황이
-                나오니 창을 닫지 마세요.
-              </li>
-              <li>
-                <strong>예약 발송</strong>: 보낼 날짜와 시각을 고르면 그때 자동으로 보냅니다. 시각은 컴퓨터 설정과
-                상관없이 <strong>한국 시간</strong> 기준이고, <strong>10분 뒤부터 60일 안</strong>에서 고를 수 있습니다.
-                정한 시각부터 <strong>10분 안쪽</strong>에 발송이 시작되며, 창을 닫아도 됩니다.
-              </li>
-            </ul>
-            <p>
-              예약한 뉴스레터는 아래 기록에 <strong>예약됨</strong>과 시각, 예약한 사람이 나옵니다. 발송이 시작되기
-              전에는 <strong>예약 취소</strong>, <strong>시간 변경</strong>, <strong>지금 보내기</strong>를 할 수
-              있습니다. 예약 발송 중 하루 한도를 다 쓰면 <strong>다음 날 자동으로 이어서</strong> 보내므로 따로 누를
-              필요가 없습니다.
-            </p>
-            <p>
-              하루에 보낼 수 있는 메일은 <strong>약 100명</strong>입니다. 한도를 넘으면 남은 인원은 기다렸다가, 다음 날
-              아래 기록에서 <strong>이어서 보내기</strong>를 누르면 됩니다. 아직 한 통도 보내지 않은 뉴스레터는 기록에서
-              삭제할 수 있습니다. 기록에는 누가 언제 발송을 시작했는지(<strong>발송 시작</strong>)도 나옵니다.
-            </p>
-            <p>
-              ‘메일 발송 결과를 확인하지 못했습니다’가 나오면 발송이 멈춥니다. 그때 보내던 받는 사람은{' '}
-              <strong>실패</strong>로 기록되고, 이미 받았을 수도 있어 <strong>자동으로 다시 보내지 않습니다</strong>.
-              먼저 관리자 Gmail의 <strong>보낸편지함</strong>에서 실제로 나갔는지 확인하세요.
-            </p>
-            <p>
-              메일은 <strong>관리자 Gmail 계정 명의</strong>로 나갑니다. 처음 한 번은 발송 설정이 필요하니, 개발 문서(
-              <code>docs</code>)의 뉴스레터 안내를 따라 설정해 주세요. 설정 전에는 ‘발송 설정이 필요합니다’ 안내가
-              나오고 보낼 수 없습니다.
-            </p>
-          </section>
-
-          <section id="admin-desk">
-            <h2>문의·건의 답변</h2>
-            <p>
-              학사 직책은 <strong>학사문의</strong>, 학생회 직책은 <strong>학생회 건의</strong> 게시판에서 모든 학생의
-              글을 봅니다. 관리자는 둘 다 봅니다. 답변이 필요한 글 수가 사이드바에 빨간 숫자로 표시됩니다.
-            </p>
-            <ol className="steps">
-              <li>
-                대기 상태(<span className="pill wait">답변 대기</span> / <span className="pill wait">처리 대기</span>)
-                글을 엽니다.
-              </li>
-              <li>
-                아래 댓글 칸에 이름과 답변을 쓰고 등록합니다. 이름은 <code>학과사무실</code>처럼 자유롭게 쓰거나, 내
-                직책 이름(학사 직책은 <code>학사</code>, 학생회 직책은 <code>학생회</code>)을 그대로 쓸 수 있습니다.
-              </li>
-              <li>
-                자동으로 <span className="pill done">답변 완료</span> / <span className="pill done">처리 완료</span>가
-                되고, 학생에게 🔔 알림이 갑니다. 댓글에는 직책 배지가 붙어 공식 답변임을 알 수 있습니다.
-              </li>
-            </ol>
-            <p>학생이 추가 질문을 댓글로 달면 다시 대기 상태로 돌아와 숫자가 올라갑니다.</p>
-            <p>
-              담당 게시판에 <strong>새 글</strong>이 올라오거나 학생이 <strong>추가 문의</strong>를 남기면 🔔 알림에도
-              표시됩니다.
-            </p>
-          </section>
-
-          <section id="admin-board">
-            <h2>게시판 관리</h2>
-            <ul className="plain">
-              <li>
-                <strong>상단 고정</strong>: 공개 게시판 글 상세 화면의 <strong>상단 고정</strong> 버튼으로 그 게시판 맨
-                위에 고정합니다. 공지나 자주 묻는 안내에 씁니다. 고정 글은 최근에 고정한 순서로 10개까지 보입니다.{' '}
-                <strong>고정 해제</strong>로 원래 순서로 돌려놓습니다. 비공개 글(뉴스·문의·건의)은 고정할 수 없습니다.
-              </li>
-              <li>
-                <strong>글·댓글 정리</strong>: 관리자는 비밀번호 없이 모든 글을 수정·삭제하고, 모든 댓글을 지울 수
-                있습니다. 부적절한 글을 정리할 때 씁니다.
-              </li>
-            </ul>
-          </section>
-
-          <section id="admin-members">
-            <h2>회원·직책 관리</h2>
-            <p>
-              관리자는 <strong>뉴스 승인</strong> 화면 오른쪽 위의 <strong>회원·직책 관리</strong> 버튼으로 들어갑니다.
-            </p>
-            <h3>회원 찾기</h3>
-            <ul className="plain">
-              <li>
-                검색창에 이름이나 학교 이메일 일부를 입력하고 <strong>검색</strong>을 누릅니다.
-              </li>
-              <li>
-                <strong>직책</strong> 필터(일반·학사·학생회·관리자)와 <strong>상태</strong> 필터(이용 중·정지·승인
-                대기)로 골라 볼 수 있습니다.
-              </li>
-              <li>
-                승인 대기 회원, 직책이 있는 회원, 최근 가입한 회원 순으로 나오고, 한 번에 20명씩 보이며{' '}
-                <strong>이전</strong>·<strong>다음</strong>으로 넘깁니다.
-              </li>
-            </ul>
-            <h3>목록 보는 법</h3>
-            <p>
-              회원마다 한 줄에 <strong>회원 정보 · 직책 선택 · 정지 버튼</strong>이 나옵니다. 승인 대기 회원은 정지 대신{' '}
-              <strong>승인</strong>·<strong>거절</strong> 버튼이 나옵니다. 휴대폰에서는 직책 선택과 버튼이 회원 정보
-              아래에 나옵니다.
-            </p>
-            <ul className="plain">
-              <li>
-                이름 옆 배지로 직책을 알 수 있습니다: <span className="role-badge academic">학사</span>{' '}
-                <span className="role-badge council">학생회</span> <span className="role-badge admin">관리자</span>.
-                일반 회원은 배지가 없습니다.
-              </li>
-              <li>
-                정지된 회원은 흐리게 보이고 이름 옆에 <strong>이용 정지</strong> 표시가 붙습니다.
-              </li>
-              <li>내 계정 줄의 직책 선택과 정지 버튼은 눌리지 않습니다.</li>
-            </ul>
-            <h3>가입 승인</h3>
-            <p>
-              학교 메일 서버가 인증 메일을 막아 인증을 못 한 학생은 로그인하면 목록에{' '}
-              <strong>메일 미인증 · 승인 대기</strong>로 등록됩니다. 대기 인원은 뉴스 승인 화면의{' '}
-              <strong>회원·직책 관리</strong> 버튼 옆 숫자와 🔔 알림으로 알려 줍니다.
-            </p>
-            <ol className="steps">
-              <li>
-                <strong>상태</strong> 필터에서 <strong>승인 대기</strong>를 고르거나, 목록 맨 위의 승인 대기 회원을
-                찾습니다.
-              </li>
-              <li>
-                <strong>학번이나 연락처로 본인인지 꼭 확인</strong>한 뒤 <strong>승인</strong>을 누릅니다. 이메일 인증이
-                없으니 이 확인이 본인 인증을 대신합니다. 승인을 누르면 “이메일 인증을 하지 않은 계정입니다. 본인 확인 후
-                승인하세요.”라는 확인 창이 한 번 더 뜹니다.
-              </li>
-              <li>
-                본인이 아니거나 알 수 없는 요청은 <strong>거절</strong>합니다. 거절은 정지가 아니라 가입 요청을 지우는
-                것입니다. 인증 없이 다시 로그인하면 새 요청이 접수되고, 실제 주인은 인증 메일 링크로 정상 가입할 수
-                있습니다.
-              </li>
-            </ol>
-            <p>
-              승인·거절도 변경 기록에 남습니다. 나중에 인증 메일 링크를 누른 학생은 승인 없이 바로 이용할 수 있습니다.
-            </p>
-            <h3>직책 바꾸기</h3>
-            <ol className="steps">
-              <li>회원 줄의 직책 선택 상자에서 일반·학사·학생회·관리자 중 하나를 고릅니다.</li>
-              <li>
-                확인 창에 새 직책이 할 수 있는 일이 나옵니다. <strong>확인</strong>을 누르면 바로 적용됩니다.
-              </li>
-            </ol>
-            <p>
-              임기가 끝난 학생회나 학사 담당자는 <strong>일반</strong>으로 돌려놓으세요. 관리자도 여기서 다른 회원에게
-              줄 수 있습니다.
-            </p>
-            <h3>정지와 복구</h3>
-            <ul className="plain">
-              <li>
-                <strong>정지</strong>: 그 회원은 모든 기기에서 즉시 로그아웃되고 다시 로그인할 수 없습니다.
-              </li>
-              <li>
-                <strong>복구</strong>: 정지된 회원 줄의 버튼으로 다시 이용할 수 있게 합니다.
-              </li>
-            </ul>
-            <h3>변경 기록</h3>
-            <p>
-              화면 아래 <strong>변경 기록</strong>을 펼치면 최근 50건의 직책·상태 변경이 보입니다. 누가, 언제, 누구의
-              직책(또는 상태)을 무엇에서 무엇으로 바꿨는지 남고, 기록은 수정하거나 지울 수 없습니다.
-            </p>
-            <div className="note">
-              내 직책은 다른 관리자만 바꿀 수 있고, 마지막 남은 관리자는 직책 변경·정지·탈퇴가 모두 막힙니다. 인수인계
-              때는 <strong>새 관리자에게 먼저 관리자 직책을 준 뒤</strong> 본인 직책을 넘기세요.
-            </div>
-            <h3>동아리 관리</h3>
-            <p>
-              회원이 보낸 동아리 개설 신청은 같은 화면 맨 아래 <strong>동아리 관리</strong>에 모입니다. 대기 중인 신청이
-              있으면 저절로 펼쳐집니다. <strong>승인</strong>하면 동아리 게시판에 칸이 생기고, <strong>거절</strong>하면
-              신청이 지워집니다. 승인된 동아리는 <strong>이름 변경</strong>과 <strong>삭제</strong>를 할 수 있는데, 글이
-              남아 있는 동아리는 삭제할 수 없습니다.
-            </p>
-          </section>
-
-          <div className="part">
-            <span className="part-label">도움말</span>
-          </div>
 
           <section id="faq">
             <h2>자주 묻는 질문</h2>
@@ -926,6 +262,772 @@ export default function HelpPage() {
               </div>
             </details>
           </section>
+
+          <div className="help-tabs" role="tablist" aria-label="도움말 종류">
+            {tabs.map((item, index) => (
+              <button
+                key={item.id}
+                id={item.id}
+                role="tab"
+                type="button"
+                aria-selected={tab === item.id}
+                aria-controls={`panel-${item.id}`}
+                tabIndex={tab === item.id ? 0 : -1}
+                className={tab === item.id ? 'active' : ''}
+                onClick={() => choose(item.id)}
+                onKeyDown={(event) => onKeyDown(event, index)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <div id="panel-student" role="tabpanel" aria-labelledby="student" hidden={tab !== 'student'}>
+            <section id="start">
+              <h2>가입과 로그인</h2>
+              <p>
+                미컴 라운지는{' '}
+                <strong>
+                  경성대 학교 이메일(<code>@ks.ac.kr</code>)을 인증한 학생만
+                </strong>{' '}
+                이용할 수 있습니다. 로그인하지 않으면 게시판 목록도, 글 내용도 볼 수 없습니다.
+              </p>
+              <ol className="steps">
+                <li>
+                  오른쪽 위 <strong>회원가입</strong>을 누르고 이름, 학교 이메일, 비밀번호, 비밀번호 확인을 입력한 뒤{' '}
+                  <strong>인증 메일 받고 가입하기</strong>를 누릅니다. 비밀번호는{' '}
+                  <strong>영문과 숫자를 포함해 8자 이상</strong>이어야 합니다. 이메일 칸에는{' '}
+                  <strong>@ks.ac.kr 앞의 메일 아이디만</strong> 넣으세요. 학번이 아니라 학교 메일에 로그인할 때 쓰는
+                  아이디예요.
+                </li>
+                <li>
+                  학교 메일함에 온 <strong>인증 메일</strong>의 링크를 누릅니다. 메일이 안 보이면 스팸함을 확인하세요.
+                </li>
+                <li>
+                  인증을 마친 뒤 <strong>로그인</strong>하면 모든 게시판을 이용할 수 있습니다.
+                </li>
+              </ol>
+              <div className="note">
+                휴대폰, 노트북 등 <strong>기기 5대까지 동시에 로그인</strong>할 수 있고, 로그인은 <strong>14일</strong>{' '}
+                동안 유지됩니다. 6번째 기기에서 로그인하면 가장 오래된 기기가 로그아웃됩니다.
+              </div>
+            </section>
+
+            <section id="boards">
+              <h2>게시판 한눈에</h2>
+              <p>
+                왼쪽 사이드바에서 게시판을 고릅니다. 게시판마다 누가 볼 수 있는지가 다릅니다. 컴퓨터에서는 화면 왼쪽 위
+                버튼으로 메뉴를 접고 펼 수 있고, 이 설정은 브라우저에 기억됩니다.
+              </p>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>게시판</th>
+                      <th>무엇을 올리나요</th>
+                      <th>누가 보나요</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>통합 게시판</td>
+                      <td>아래 공개 게시판의 글을 최신순으로 모아 봅니다.</td>
+                      <td>
+                        <span className="pill open">모든 회원</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>자유게시판</td>
+                      <td>일상, 질문, 정보 등 자유로운 이야기</td>
+                      <td>
+                        <span className="pill open">모든 회원</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>학사문의</td>
+                      <td>장학, 휴학, 수강 등 학과 사무실에 묻는 1:1 문의</td>
+                      <td>
+                        <span className="pill lock">나와 학사·관리자</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>학생회 건의</td>
+                      <td>학생회에 건의하거나 불편을 알리는 글</td>
+                      <td>
+                        <span className="pill lock">나와 학생회·관리자</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>학과 뉴스</td>
+                      <td>학과 소식 기사 제출 (관리자가 검토)</td>
+                      <td>
+                        <span className="pill lock">나와 관리자만</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>동아리</td>
+                      <td>동아리별 칸에서 소개와 부원 모집</td>
+                      <td>
+                        <span className="pill open">모든 회원</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>공모전 모집</td>
+                      <td>공모전 팀원 모집</td>
+                      <td>
+                        <span className="pill open">모든 회원</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>
+                비공개 게시판의 글은 통합 게시판에 나오지 않고, 다른 학생은 주소를 알아도 열 수 없습니다. 비공개 글에
+                올린 사진도 똑같이 보호됩니다.
+              </p>
+            </section>
+
+            <section id="write">
+              <h2>글쓰기</h2>
+              <p>
+                게시판 오른쪽 위(휴대폰에서는 화면 오른쪽 아래에 떠 있는) <strong>글 작성하기</strong>(학사문의는{' '}
+                <strong>문의하기</strong>, 학과 뉴스는 <strong>기사 제출하기</strong>)를 누릅니다. 통합 게시판에서 쓰면{' '}
+                <strong>게시할 공간</strong>에서 게시판을 고를 수 있습니다. 제목이나 본문을 쓰거나 사진만 올려 둔
+                상태에서 창을 닫으려 하면(창 바깥을 누를 때 포함) 버릴지 한 번 더 묻습니다.
+              </p>
+              <h3>입력 항목</h3>
+              <ul className="plain">
+                <li>
+                  <strong>별명</strong>: 글마다 직접 입력하는 이름으로, 실명이 아니어도 됩니다. 다른 학생에게는 별명만
+                  보이고, 실제 계정(이름·학교 이메일)은 <strong>관리자만</strong> 볼 수 있습니다. 학사문의·학생회 건의는
+                  답변 담당자도 볼 수 있습니다. <code>관리자</code>, <code>운영자</code>, <code>학사</code>,{' '}
+                  <code>학생회</code>, <code>admin</code>처럼 운영진으로 오해될 수 있는 이름은 쓸 수
+                  없습니다(띄어쓰기·대소문자 무시). 단, 학사 직책은 <code>학사</code>, 학생회 직책은 <code>학생회</code>
+                  , 관리자는 이 이름들을 모두 쓸 수 있습니다.
+                </li>
+                <li>
+                  <strong>머릿글</strong> (선택): 제목 앞에 <code>[신입 모집]</code>처럼 붙는 말머리입니다. 예: 동아리
+                  게시판이면 “신입 모집”, 학사문의면 “장학”·“휴학”.
+                </li>
+                <li>
+                  <strong>제목과 본문</strong>: 제목은 120자, 본문은 20,000자까지 쓸 수 있습니다.
+                </li>
+                <li>
+                  별명, 제목, 머릿글, 필요한 역할에는 <strong>보이지 않는 특수문자</strong>를 쓸 수 없습니다. 본문과
+                  댓글에 들어간 보이지 않는 특수문자는 저장할 때 자동으로 빠집니다.
+                </li>
+                <li>
+                  <strong>사진</strong> (선택): 글 하나에 <strong>5장</strong>까지 올릴 수 있습니다. JPG, PNG, WebP
+                  사진을 받고, 모든 사진은 긴 쪽 1600px 이하로 다시 저장됩니다(한 장에 5MB까지). 아이폰 HEIC 사진은
+                  Safari에서만 올릴 수 있고, 다른 브라우저에서는 “이 사진 형식은 열 수 없습니다. JPG나 PNG로 바꿔
+                  올려주세요.”라는 안내가 나옵니다. 썸네일의 ✕ 버튼으로 뺄 수 있습니다. 올려만 두고 게시하지 않은 사진은
+                  하루 안에 자동으로 정리됩니다. 게시하지 않은 사진이 20장 쌓이면 먼저 글을 게시하거나 1시간 뒤 다시
+                  시도하라는 안내가 나옵니다.
+                </li>
+                <li>
+                  <strong>수정·삭제 비밀번호</strong>: 8자 이상. 공개 게시판 글을 다른 계정에서 관리해야 할 때
+                  씁니다(아래 “수정·삭제” 참고).
+                </li>
+              </ul>
+              <h3>동아리별 칸</h3>
+              <p>
+                동아리 게시판은 동아리마다 칸이 나뉘어 있습니다. 위쪽 동아리 이름을 누르면 그 동아리 글만 보이고, 글을
+                쓸 때는 <strong>동아리</strong>를 꼭 골라야 합니다. 원하는 동아리가 없으면{' '}
+                <strong>동아리 개설 신청</strong>
+                버튼으로 이름을 보내 주세요. 관리자가 승인하면 칸이 생깁니다. 동아리 칸이 생기기 전에 쓴 글은{' '}
+                <strong>전체</strong> 칸에서 볼 수 있습니다.
+              </p>
+              <h3>동아리·공모전 모집 정보</h3>
+              <p>
+                동아리와 공모전 모집 글에는 <strong>모집 정보 (선택)</strong> 칸이 있습니다. 모집 상태, 마감일, 인원,
+                필요한 역할을 필요한 것만 채우면 됩니다. 모집 상태, 마감일, 인원은 목록에 표시되고, 필요한 역할은 글
+                상세 화면에서만 보입니다.
+              </p>
+              <div className="note">
+                <strong>
+                  마감일이 지나면 자동으로 <span className="pill no">마감</span>으로 표시됩니다.
+                </strong>{' '}
+                “모집 중”으로 두었더라도 마감일 다음 날(한국 시간)부터는 마감으로 보입니다.
+              </div>
+              <div className="note">
+                <strong>이용 한도</strong>: 글은 하루 30개, 댓글은 하루 300개, 글 하나에 댓글 500개까지입니다. 짧은
+                시간에 많이 올리면 잠시 막히니 1분 뒤 다시 시도하세요. 하루 한도를 넘으면 “하루 이용 한도를
+                넘었습니다”라는 안내가 나오고, 다음 날부터 다시 쓸 수 있습니다.
+              </div>
+            </section>
+
+            <section id="edit">
+              <h2>수정·삭제</h2>
+              <p>
+                글 상세 화면 아래의 <strong>수정</strong>, <strong>삭제</strong> 버튼을 씁니다.
+              </p>
+              <ul className="plain">
+                <li>
+                  <strong>내가 쓴 글</strong>은 같은 계정으로 로그인해 있으면 <strong>비밀번호 없이</strong> 바로
+                  수정·삭제됩니다.
+                </li>
+                <li>
+                  <strong>다른 계정</strong>에서 수정·삭제하려면 글을 쓸 때 정한 비밀번호가 필요합니다. 동아리 공동
+                  운영진이 함께 글을 관리할 때 비밀번호를 공유하면 됩니다. 비공개 게시판 글은 다른 계정에서 열 수 없으니
+                  공개 게시판 글에만 해당합니다. 비밀번호를 여러 번 틀리면 한동안 시도할 수 없습니다.
+                </li>
+                <li>
+                  수정할 때 뺀 사진은 <strong>수정 저장</strong>을 누르면 지워지고, 글을 삭제하면 그 글의 사진도 함께
+                  지워집니다. 수정을 취소하면 사진은 그대로 남습니다. 지운 사진은 되돌릴 수 없습니다.
+                </li>
+              </ul>
+            </section>
+
+            <section id="comments">
+              <h2>댓글과 알림</h2>
+              <p>
+                학과 뉴스를 뺀 모든 글에 댓글을 달 수 있습니다. 댓글도 별명을 매번 입력하며, 1,000자까지 쓸 수 있습니다.
+                댓글의 실제 계정도 관리자(문의·건의는 담당자)만 볼 수 있습니다.
+              </p>
+              <ul className="plain">
+                <li>내가 쓴 댓글은 휴지통 아이콘으로 지울 수 있습니다. 다른 사람 댓글은 지울 수 없습니다.</li>
+                <li>
+                  내가 쓴 댓글은 <strong>수정</strong>할 수도 있습니다(작성자만). 고친 댓글에는 <strong>수정됨</strong>{' '}
+                  표시가 붙습니다.
+                </li>
+                <li>
+                  글 목록에서 말풍선 아이콘 옆 숫자는 댓글 수, 사진 아이콘 옆 숫자는 사진 수입니다. 0개면 아이콘이
+                  나오지 않습니다.
+                </li>
+                <li>
+                  글의 사진을 누르면 화면 위에 크게 뜹니다. 좌우 버튼(컴퓨터는 ← → 키, 휴대폰은 옆으로 밀기)으로 넘기고,
+                  <strong>원본 보기</strong>로 저장된 사진을 새 탭에서 더 크게 볼 수 있습니다.
+                </li>
+              </ul>
+              <h3>알림</h3>
+              <p>
+                누군가 <strong>내 글에 댓글을 달면</strong> 오른쪽 위 🔔 종 아이콘에 안 본 알림 수가{' '}
+                <strong>숫자</strong>로 뜹니다. 종을 누르면 최근 알림 20개가 보이고, 알림을 누르면 글의{' '}
+                <strong>해당 댓글로 바로</strong> 이동합니다. 아직 안 본 알림은 파란 배경으로 표시됩니다.
+              </p>
+              <div className="note">
+                읽음 표시는 <strong>브라우저마다 따로</strong> 기억합니다. 휴대폰에서 확인했어도 노트북에는 빨간 점이
+                남아 있을 수 있습니다.
+              </div>
+            </section>
+
+            <section id="search">
+              <h2>검색과 필터</h2>
+              <ul className="plain">
+                <li>
+                  게시판 위 검색창에 입력하고 잠시 멈추면 자동으로 <strong>제목, 머릿글, 본문, 별명</strong>에서
+                  찾습니다. 본문에서 찾은 경우 해당 부분이 미리보기로 보입니다.
+                </li>
+                <li>
+                  동아리·공모전 게시판의 <strong>모집 중만</strong> 버튼을 누르면 모집 상태가 “모집 중”이고 마감일이
+                  지나지 않은 글만 봅니다.
+                </li>
+                <li>
+                  목록은 30개씩 보이고, 아래 <strong>더 보기</strong>로 이어서 봅니다.
+                </li>
+                <li>
+                  관리자가 <strong>고정</strong>한 공지 글은 게시판 맨 위에 <span className="pill fb">고정</span> 표시와
+                  함께 나옵니다.
+                </li>
+              </ul>
+            </section>
+
+            <section id="news">
+              <h2>학과 뉴스 기사 제출</h2>
+              <p>
+                학과 뉴스는 학생 기자가 기사를 제출하고 관리자가 검토하는 공간입니다. 내가 제출한 기사는 나와 관리자만
+                볼 수 있고, <strong>승인된 기사도 사이트에 공개되지 않습니다</strong>. 승인 기사는 관리자가 Word 파일로
+                모아 학과 소식지 등에 씁니다.
+              </p>
+              <div className="flow" aria-label="기사 처리 흐름">
+                <span className="pill wait">승인 대기</span>
+                <span className="arrow">→</span>
+                <span className="pill done">승인</span>
+                <span>또는</span>
+                <span className="pill fb">피드백</span>
+                <span>또는</span>
+                <span className="pill no">반려</span>
+              </div>
+              <dl className="status">
+                <dt>
+                  <span className="pill wait">승인 대기</span>
+                </dt>
+                <dd>제출 직후 상태입니다. 관리자가 검토하기 전입니다.</dd>
+                <dt>
+                  <span className="pill fb">피드백</span>
+                </dt>
+                <dd>
+                  고칠 부분이 있다는 뜻입니다. 기사 본문에 관리자가 남긴 형광펜, 굵게, 메모가 표시되고 전체 의견도 볼 수
+                  있습니다. <strong>수정해서 다시 제출</strong>하면 다시 승인 대기로 돌아가고 이전 피드백은 지워집니다.
+                </dd>
+                <dt>
+                  <span className="pill done">승인</span>
+                </dt>
+                <dd>
+                  기사가 채택되었습니다. 승인된 기사도 내가 수정하면 다시 승인 대기로 돌아가고 피드백은 지워집니다.
+                </dd>
+                <dt>
+                  <span className="pill no">반려</span>
+                </dt>
+                <dd>반려 사유가 함께 표시됩니다. 반려된 기사는 고칠 수 없으니 새 기사로 다시 작성하세요.</dd>
+              </dl>
+              <p>
+                검토 결과가 나오면 사이드바의 <strong>학과 뉴스</strong> 옆에 빨간 점이 뜨고, 뉴스 탭에서 해당 기사에{' '}
+                <strong>새 결과</strong> 표시가 붙습니다. 관리자가 오탈자 정리 등으로 기사를 다듬기만 한 경우에는 검토
+                상태가 그대로이고 새 결과 표시도 붙지 않습니다.
+              </p>
+            </section>
+
+            <section id="desk">
+              <h2>학사문의·학생회 건의</h2>
+              <p>
+                둘 다 <strong>비공개 게시판</strong>입니다. 학사문의는 <strong>학사</strong> 직책(학과 사무실)과
+                관리자만, 학생회 건의는 <strong>학생회</strong> 직책과 관리자만 볼 수 있습니다. 글을 올리면 담당자가{' '}
+                <strong>댓글로 답변</strong>합니다.
+              </p>
+              <dl className="status">
+                <dt>
+                  <span className="pill wait">답변 대기</span> <span className="pill wait">처리 대기</span>
+                </dt>
+                <dd>아직 담당자가 답하지 않았습니다.</dd>
+                <dt>
+                  <span className="pill done">답변 완료</span> <span className="pill done">처리 완료</span>
+                </dt>
+                <dd>담당자가 댓글로 답했습니다. 🔔 알림으로도 알려 줍니다.</dd>
+              </dl>
+              <p>
+                담당자 댓글에는 <span className="role-badge academic">학사</span>,{' '}
+                <span className="role-badge council">학생회</span>, <span className="role-badge admin">관리자</span>{' '}
+                배지가 붙어 공식 답변인지 알 수 있습니다. 더 궁금한 점이 있으면{' '}
+                <strong>그 글에 댓글로 다시 물어보세요</strong>. 자동으로 다시 대기 상태가 되어 담당자에게 알려집니다.
+              </p>
+              <p>
+                담당자가 댓글 없이 <strong>답변 완료로 표시</strong>해 두는 경우도 있습니다. 답이 더 필요하면 댓글로
+                다시 물어보세요.
+              </p>
+            </section>
+
+            <section id="rental">
+              <h2>대여 신청</h2>
+              <p>
+                사이드바 아래 <strong>대여 신청</strong>에서 바로 이동합니다. 대여는 미컴 라운지 밖에서 처리됩니다.
+              </p>
+              <ul className="plain">
+                <li>
+                  <strong>기자재 대여</strong>: 기자재 대여 노션 페이지가 새 탭으로 열립니다.
+                </li>
+                <li>
+                  <strong>호실 대여</strong>: 카카오톡 채널 <strong>경성대 미컴봇</strong> 채팅으로 연결됩니다.
+                  <ul className="plain">
+                    <li>휴대폰: 카카오톡 앱에서 채팅방이 바로 열립니다.</li>
+                    <li>
+                      PC·맥: QR코드 창이 뜹니다. 휴대폰 카메라로 찍으면 카톡에서 열리고,{' '}
+                      <strong>웹에서 채팅 열기</strong>로 브라우저에서 채팅할 수도 있습니다. PC 카카오톡에서 “경성대
+                      미컴봇”을 검색해도 됩니다.
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </section>
+
+            <section id="account">
+              <h2>계정 관리</h2>
+              <p>
+                오른쪽 위 ⚙ 아이콘(<strong>계정 설정</strong>)에서 할 수 있는 일입니다.
+              </p>
+              <ul className="plain">
+                <li>
+                  <strong>이름 변경</strong>: 오른쪽 위에 보이는 내 이름을 바꿉니다. 글에 표시되는 별명은 글마다 따로
+                  입력합니다.
+                </li>
+                <li>
+                  <strong>학교 이메일 변경</strong>: 새 학교 이메일로 확인 메일을 받습니다. 새 주소로 온 메일의 링크를
+                  누르고 다시 로그인하면 저장된 이메일이 바뀝니다.
+                </li>
+                <li>
+                  <strong>비밀번호 재설정</strong>: 재설정 메일을 받아 로그인 비밀번호를 바꿉니다.
+                </li>
+                <li>
+                  <strong>모든 기기에서 로그아웃</strong>: 계정 화면의 <strong>로그인 세션</strong>에서 이 기기를 포함한
+                  모든 기기를 로그아웃합니다. 비밀번호를 재설정해도 사이트 로그인은 끊기지 않으니, 비밀번호를 바꾼
+                  뒤에는 이 버튼을 눌러 두세요.
+                </li>
+                <li>
+                  <strong>다크 모드</strong>: 기기의 화면 설정(다크/라이트)을 따라 자동으로 바뀝니다. 따로 고르는 버튼은
+                  없습니다.
+                </li>
+              </ul>
+              <h3>뉴스레터</h3>
+              <p>
+                미컴 라운지 회원은 학교 이메일로 학과 소식 뉴스레터를 <strong>기본으로 받습니다</strong>. 받고 싶지
+                않다면 둘 중 하나로 끌 수 있습니다. 단, 이메일 인증 없이 관리자 승인으로 가입한 계정은 기본으로 받지
+                않으니, 받고 싶다면 <strong>계정 설정 → 뉴스레터</strong>에서 직접 켜 주세요.
+              </p>
+              <ul className="plain">
+                <li>
+                  <strong>계정 설정 → 뉴스레터</strong>에서 <strong>미컴 라운지 뉴스레터 받기</strong> 체크를 끕니다.
+                  바로 저장되고, 언제든 다시 켤 수 있습니다.
+                </li>
+                <li>
+                  뉴스레터 메일 아래의 <strong>뉴스레터 받지 않기</strong> 링크를 눌러 열린 화면에서{' '}
+                  <strong>뉴스레터 받지 않기</strong> 버튼을 누릅니다. 로그인하지 않아도 됩니다.
+                </li>
+              </ul>
+              <h3>회원 탈퇴</h3>
+              <p>
+                확인 문구 <code>회원탈퇴</code>와 <strong>현재 비밀번호</strong>를 입력하고 <strong>계정 삭제</strong>를
+                누르면 탈퇴됩니다. 비밀번호가 틀리면 아무것도 지워지지 않습니다. 탈퇴하면:
+              </p>
+              <ul className="plain">
+                <li>계정, 관리자 권한, 로그인 세션이 삭제됩니다.</li>
+                <li>
+                  공개 게시판의 글과 댓글은 남고, 작성자가 <strong>탈퇴한 회원</strong>으로 바뀝니다. 같은 이메일로 다시
+                  가입해도 예전 글·댓글의 작성자가 아니게 됩니다. 글은 글 비밀번호로만 수정·삭제할 수 있고 댓글은 지울
+                  수 없으니, 지우고 싶은 글과 댓글은 탈퇴 전에 지우세요.
+                </li>
+                <li>
+                  학사문의, 학생회 건의, 승인되지 않은 뉴스 기사(승인 대기·피드백·반려)는 답변·사진과 함께 삭제됩니다.
+                </li>
+                <li>승인된 뉴스 기사는 학과 기록으로 남습니다.</li>
+                <li>마지막 남은 관리자는 탈퇴할 수 없습니다. 먼저 다른 회원에게 관리자 직책을 주세요.</li>
+              </ul>
+            </section>
+          </div>
+
+          <div id="panel-staff" role="tabpanel" aria-labelledby="staff" hidden={tab !== 'staff'}>
+            <section id="admin-join">
+              <h2>직책 안내</h2>
+              <p>
+                회원은 <strong>일반</strong>, <strong>학사</strong>, <strong>학생회</strong>, <strong>관리자</strong> 중
+                하나의 직책을 가집니다. 처음 가입하면 일반이고, <strong>관리자가 직책을 정해 줍니다</strong>. 직책이
+                필요하면 관리자에게 요청하세요.
+              </p>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>직책</th>
+                      <th>할 수 있는 일</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>일반</td>
+                      <td>공개 게시판 읽기·쓰기, 내 문의·건의·기사 관리</td>
+                    </tr>
+                    <tr>
+                      <td>학사</td>
+                      <td>일반 + 모든 학사문의 보기·답변</td>
+                    </tr>
+                    <tr>
+                      <td>학생회</td>
+                      <td>일반 + 모든 학생회 건의 보기·답변</td>
+                    </tr>
+                    <tr>
+                      <td>관리자</td>
+                      <td>
+                        모든 기능: 뉴스 검토, 모든 문의·건의, 상단 고정, 글·댓글 정리, 가입 승인, 동아리 승인, 회원
+                        정지·해제, 직책 관리. 마지막 남은 관리자는 직책을 내리거나 정지할 수 없고, 자기 직책은 직접 바꿀
+                        수 없습니다.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <div className="note">
+              관리자 화면 맨 위의 <strong>오늘 처리할 일</strong>에서 승인 대기 기사·가입 요청·답변 대기 글처럼 지금
+              처리할 일을 한눈에 볼 수 있습니다.
+            </div>
+
+            <section id="admin-review">
+              <h2>뉴스 검토</h2>
+              <p>
+                관리자에게만 보이는 사이드바의 <strong>뉴스 승인</strong> 화면은 기사 목록과 기사 본문으로(컴퓨터에서는
+                왼쪽·오른쪽, 휴대폰에서는 위·아래) 나뉩니다. 위쪽 탭(
+                <span className="pill wait">승인 대기</span> <span className="pill fb">피드백</span>{' '}
+                <span className="pill no">반려</span> <span className="pill done">승인</span>)으로 상태별 기사를 봅니다.
+                목록은 30개씩 나오고 <strong>더 보기</strong>로 이어서 봅니다.
+              </p>
+              <h3>단축키</h3>
+              <p>
+                기사 목록에서 <kbd>j</kbd> / <kbd>k</kbd>로 다음·이전 기사로 넘어가고, <kbd>?</kbd>를 누르면 쓸 수 있는
+                단축키 목록이 나옵니다.
+              </p>
+              <h3>본문에 표시 남기기</h3>
+              <p>기사 본문에서 문장을 드래그하면(휴대폰에서는 길게 눌러 선택하면) 작은 도구 막대가 뜹니다.</p>
+              <ul className="plain">
+                <li>
+                  <strong>형광펜</strong>, <strong>굵게</strong>: 짚어 줄 부분을 표시합니다.
+                </li>
+                <li>
+                  <strong>메모</strong>: 내용을 쓰고 Enter 또는 <strong>추가</strong>를 누르면(500자까지) 오른쪽 여백에
+                  번호가 붙은 메모 카드로 남습니다. 휴대폰에서는 기사 아래에 목록으로 보입니다.
+                </li>
+                <li>
+                  <strong>지우기</strong>: 선택한 범위가 기존 표시와 겹칠 때만 나오며, 겹친 표시를 통째로 없앱니다. 메모
+                  하나만 지울 때는 메모 카드의 ✕를 누릅니다.
+                </li>
+              </ul>
+              <p>
+                기사 전체에 대한 의견은 <strong>전체 의견 추가</strong>로 남깁니다. 표시는 기사 하나에 200개까지 남길 수
+                있습니다.
+              </p>
+              <p>
+                남긴 표시와 의견은 이 브라우저에 임시 저장되어, 창을 닫았다 와도 이어서 할 수 있습니다. 그사이 기사가
+                수정되었다면(<strong>기사 수정</strong> 포함) 예전 임시 저장은 안내와 함께 버려집니다.
+              </p>
+              <h3>결정하기</h3>
+              <ul className="plain">
+                <li>
+                  <strong>승인</strong>: 기사를 채택합니다. 남겨 둔 표시는 보내지 않으며, 표시나 의견이 남아 있으면 먼저
+                  확인을 묻습니다.
+                </li>
+                <li>
+                  <strong>피드백 보내기</strong>: 표시와 전체 의견을 학생에게 보냅니다. 버튼의 숫자는 남긴 표시·의견
+                  수입니다. 학생이 고쳐서 다시 제출하면 승인 대기로 돌아옵니다.
+                </li>
+                <li>
+                  <strong>반려</strong>: 반려 사유(2,000자까지)를 적고 <strong>반려 확정</strong>을 누릅니다. 학생에게는
+                  사유만 전달되고 표시는 보내지 않습니다. 반려된 기사는 학생이 고칠 수 없어 새 기사로 다시 써야 합니다.
+                </li>
+              </ul>
+              <p>
+                처리하면 다음 기사로 자동으로 넘어갑니다. 다른 관리자가 먼저 처리했거나 그사이 학생이 기사를 고쳤다면
+                새로고침하라는 안내가 나옵니다. 탭을 다시 누르면 목록을 새로 불러옵니다.
+              </p>
+              <h3>Word로 내보내기</h3>
+              <ul className="plain">
+                <li>
+                  기사 오른쪽 위 <strong>⋯ 메뉴 → Word로 내보내기</strong>: 승인된 기사 한 편을{' '}
+                  <code>기사_제목.docx</code>로 받습니다.
+                </li>
+                <li>
+                  승인 탭의 <strong>승인 기사 모두 Word로</strong>: 승인된 기사 전체를 한 파일(
+                  <code>승인기사_날짜.docx</code>)로 받습니다.
+                </li>
+                <li>
+                  기사마다 제목(머릿글 포함), 작성자·제출일, 본문 순으로 들어가고 새 페이지에서 시작합니다. 검토 표시는
+                  들어가지 않습니다.
+                </li>
+                <li>기사에 붙은 사진도 본문 다음에 함께 들어갑니다(페이지 폭에 맞춰 줄어듭니다).</li>
+              </ul>
+              <p>
+                같은 ⋯ 메뉴의 <strong>기사 수정</strong>(오탈자 정리 등)은 승인 대기 기사에서만 쓸 수 있고, 검토 상태는
+                그대로 유지됩니다. <strong>기사 삭제</strong>는 모든 기사에서 쓸 수 있으며 되돌릴 수 없습니다.
+              </p>
+            </section>
+
+            <section id="admin-newsletter">
+              <h2>뉴스레터 보내기</h2>
+              <p>
+                <strong>뉴스 승인</strong> 화면 아래쪽의 <strong>뉴스레터</strong> 칸에서 회원에게 학과 소식 메일을
+                보냅니다. 위쪽에 수신 회원 수와 오늘 남은 발송 한도가 나옵니다.
+              </p>
+              <ul className="plain">
+                <li>
+                  <strong>HTML 파일 불러오기</strong>: 뉴스레터 편집기에서 내보낸 <code>.html</code> 파일을 고르거나,
+                  코드를 칸에 붙여넣습니다. 파일 맨 앞의 설명 줄은 자동으로 정리되고, 문서 제목이 있으면 메일 제목에
+                  채워집니다. HTML은 <strong>약 180KB</strong>까지 보낼 수 있고, 넘으면 ‘뉴스레터 HTML이 너무 큽니다’가
+                  나오며 발송 버튼이 꺼집니다.
+                </li>
+                <li>
+                  <strong>미리보기</strong>: 받는 사람에게 보일 모습을 PC·모바일 너비로 확인합니다.
+                </li>
+                <li>
+                  <strong>나에게 테스트 발송</strong>: 내 이메일로 한 통 먼저 받아 메일함에서 확인합니다.
+                </li>
+                <li>
+                  <strong>발송 준비</strong>: 받는 인원과 오늘 남은 한도를 확인한 뒤 보냅니다. 보내는 동안 진행 상황이
+                  나오니 창을 닫지 마세요.
+                </li>
+                <li>
+                  <strong>예약 발송</strong>: 보낼 날짜와 시각을 고르면 그때 자동으로 보냅니다. 시각은 컴퓨터 설정과
+                  상관없이 <strong>한국 시간</strong> 기준이고, <strong>10분 뒤부터 60일 안</strong>에서 고를 수
+                  있습니다. 정한 시각부터 <strong>10분 안쪽</strong>에 발송이 시작되며, 창을 닫아도 됩니다.
+                </li>
+              </ul>
+              <p>
+                예약한 뉴스레터는 아래 기록에 <strong>예약됨</strong>과 시각, 예약한 사람이 나옵니다. 발송이 시작되기
+                전에는 <strong>예약 취소</strong>, <strong>시간 변경</strong>, <strong>지금 보내기</strong>를 할 수
+                있습니다. 예약 발송 중 하루 한도를 다 쓰면 <strong>다음 날 자동으로 이어서</strong> 보내므로 따로 누를
+                필요가 없습니다.
+              </p>
+              <p>
+                하루에 보낼 수 있는 메일은 <strong>약 100명</strong>입니다. 한도를 넘으면 남은 인원은 기다렸다가, 다음
+                날 아래 기록에서 <strong>이어서 보내기</strong>를 누르면 됩니다. 아직 한 통도 보내지 않은 뉴스레터는
+                기록에서 삭제할 수 있습니다. 기록에는 누가 언제 발송을 시작했는지(<strong>발송 시작</strong>)도
+                나옵니다.
+              </p>
+              <p>
+                ‘메일 발송 결과를 확인하지 못했습니다’가 나오면 발송이 멈춥니다. 그때 보내던 받는 사람은{' '}
+                <strong>실패</strong>로 기록되고, 이미 받았을 수도 있어 <strong>자동으로 다시 보내지 않습니다</strong>.
+                먼저 관리자 Gmail의 <strong>보낸편지함</strong>에서 실제로 나갔는지 확인하세요.
+              </p>
+              <p>
+                메일은 <strong>관리자 Gmail 계정 명의</strong>로 나갑니다. 처음 한 번은 발송 설정이 필요하니, 개발 문서(
+                <code>docs</code>)의 뉴스레터 안내를 따라 설정해 주세요. 설정 전에는 ‘발송 설정이 필요합니다’ 안내가
+                나오고 보낼 수 없습니다.
+              </p>
+            </section>
+
+            <section id="admin-desk">
+              <h2>문의·건의 답변</h2>
+              <p>
+                학사 직책은 <strong>학사문의</strong>, 학생회 직책은 <strong>학생회 건의</strong> 게시판에서 모든 학생의
+                글을 봅니다. 관리자는 둘 다 봅니다. 답변이 필요한 글 수가 사이드바에 빨간 숫자로 표시됩니다.
+              </p>
+              <ol className="steps">
+                <li>
+                  대기 상태(<span className="pill wait">답변 대기</span> / <span className="pill wait">처리 대기</span>)
+                  글을 엽니다.
+                </li>
+                <li>
+                  아래 댓글 칸에 이름과 답변을 쓰고 등록합니다. 이름은 <code>학과사무실</code>처럼 자유롭게 쓰거나, 내
+                  직책 이름(학사 직책은 <code>학사</code>, 학생회 직책은 <code>학생회</code>)을 그대로 쓸 수 있습니다.
+                </li>
+                <li>
+                  자동으로 <span className="pill done">답변 완료</span> / <span className="pill done">처리 완료</span>가
+                  되고, 학생에게 🔔 알림이 갑니다. 댓글에는 직책 배지가 붙어 공식 답변임을 알 수 있습니다.
+                </li>
+              </ol>
+              <p>학생이 추가 질문을 댓글로 달면 다시 대기 상태로 돌아와 숫자가 올라갑니다.</p>
+              <ul className="plain">
+                <li>
+                  댓글 칸의 <strong>자주 쓰는 답변</strong>에서 미리 저장해 둔 문구를 골라 넣고 고쳐 쓸 수 있습니다.
+                </li>
+                <li>
+                  댓글 없이 처리를 마쳤다면 글 아래의 <strong>답변 완료로 표시</strong> 버튼을 누르세요. 잘못 눌렀거나
+                  다시 확인이 필요하면 <strong>다시 답변 대기로</strong>를 누릅니다. 이후 학생이나 담당자의 댓글이
+                  달리면 상태가 다시 계산될 수 있습니다.
+                </li>
+              </ul>
+              <p>
+                담당 게시판에 <strong>새 글</strong>이 올라오거나 학생이 <strong>추가 문의</strong>를 남기면 🔔 알림에도
+                표시됩니다.
+              </p>
+            </section>
+
+            <section id="admin-board">
+              <h2>게시판 관리</h2>
+              <ul className="plain">
+                <li>
+                  <strong>상단 고정</strong>: 공개 게시판 글 상세 화면의 <strong>상단 고정</strong> 버튼으로 그 게시판
+                  맨 위에 고정합니다. 공지나 자주 묻는 안내에 씁니다. 고정 글은 최근에 고정한 순서로 10개까지 보입니다.{' '}
+                  <strong>고정 해제</strong>로 원래 순서로 돌려놓습니다. 비공개 글(뉴스·문의·건의)은 고정할 수 없습니다.
+                </li>
+                <li>
+                  <strong>글·댓글 정리</strong>: 관리자는 비밀번호 없이 모든 글을 수정·삭제하고, 모든 댓글을 지울 수
+                  있습니다. 부적절한 글을 정리할 때 씁니다.
+                </li>
+              </ul>
+            </section>
+
+            <section id="admin-members">
+              <h2>회원·직책 관리</h2>
+              <p>
+                관리자는 <strong>뉴스 승인</strong> 화면 오른쪽 위의 <strong>회원·직책 관리</strong> 버튼으로
+                들어갑니다.
+              </p>
+              <h3>회원 찾기</h3>
+              <ul className="plain">
+                <li>
+                  검색창에 이름이나 학교 이메일 일부를 입력하고 <strong>검색</strong>을 누릅니다.
+                </li>
+                <li>
+                  <strong>직책</strong> 필터(일반·학사·학생회·관리자)와 <strong>상태</strong> 필터(이용 중·정지·승인
+                  대기)로 골라 볼 수 있습니다.
+                </li>
+                <li>
+                  승인 대기 회원, 직책이 있는 회원, 최근 가입한 회원 순으로 나오고, 한 번에 20명씩 보이며{' '}
+                  <strong>이전</strong>·<strong>다음</strong>으로 넘깁니다.
+                </li>
+              </ul>
+              <h3>목록 보는 법</h3>
+              <p>
+                회원마다 한 줄에 <strong>회원 정보 · 직책 선택 · 정지 버튼</strong>이 나옵니다. 승인 대기 회원은 정지
+                대신 <strong>승인</strong>·<strong>거절</strong> 버튼이 나옵니다. 휴대폰에서는 직책 선택과 버튼이 회원
+                정보 아래에 나옵니다.
+              </p>
+              <ul className="plain">
+                <li>
+                  이름 옆 배지로 직책을 알 수 있습니다: <span className="role-badge academic">학사</span>{' '}
+                  <span className="role-badge council">학생회</span> <span className="role-badge admin">관리자</span>.
+                  일반 회원은 배지가 없습니다.
+                </li>
+                <li>
+                  정지된 회원은 흐리게 보이고 이름 옆에 <strong>이용 정지</strong> 표시가 붙습니다.
+                </li>
+                <li>내 계정 줄의 직책 선택과 정지 버튼은 눌리지 않습니다.</li>
+              </ul>
+              <h3>가입 승인</h3>
+              <p>
+                학교 메일 서버가 인증 메일을 막아 인증을 못 한 학생은 로그인하면 목록에{' '}
+                <strong>메일 미인증 · 승인 대기</strong>로 등록됩니다. 대기 인원은 뉴스 승인 화면의{' '}
+                <strong>회원·직책 관리</strong> 버튼 옆 숫자와 🔔 알림으로 알려 줍니다.
+              </p>
+              <ol className="steps">
+                <li>
+                  <strong>상태</strong> 필터에서 <strong>승인 대기</strong>를 고르거나, 목록 맨 위의 승인 대기 회원을
+                  찾습니다.
+                </li>
+                <li>
+                  <strong>학번이나 연락처로 본인인지 꼭 확인</strong>한 뒤 <strong>승인</strong>을 누릅니다. 이메일
+                  인증이 없으니 이 확인이 본인 인증을 대신합니다. 승인을 누르면 “이메일 인증을 하지 않은 계정입니다.
+                  본인 확인 후 승인하세요.”라는 확인 창이 한 번 더 뜹니다.
+                </li>
+                <li>
+                  본인이 아니거나 알 수 없는 요청은 <strong>거절</strong>합니다. 거절은 정지가 아니라 가입 요청을 지우는
+                  것입니다. 인증 없이 다시 로그인하면 새 요청이 접수되고, 실제 주인은 인증 메일 링크로 정상 가입할 수
+                  있습니다.
+                </li>
+              </ol>
+              <p>
+                승인·거절도 변경 기록에 남습니다. 나중에 인증 메일 링크를 누른 학생은 승인 없이 바로 이용할 수 있습니다.
+              </p>
+              <p>
+                대기 회원이 여럿이면 목록에서 여러 명을 골라 <strong>일괄 승인</strong>할 수 있습니다. 한 명씩 본인
+                확인을 마친 뒤에만 쓰세요.
+              </p>
+              <h3>직책 바꾸기</h3>
+              <ol className="steps">
+                <li>회원 줄의 직책 선택 상자에서 일반·학사·학생회·관리자 중 하나를 고릅니다.</li>
+                <li>
+                  확인 창에 새 직책이 할 수 있는 일이 나옵니다. <strong>확인</strong>을 누르면 바로 적용됩니다.
+                </li>
+              </ol>
+              <p>
+                임기가 끝난 학생회나 학사 담당자는 <strong>일반</strong>으로 돌려놓으세요. 관리자도 여기서 다른 회원에게
+                줄 수 있습니다.
+              </p>
+              <h3>정지와 복구</h3>
+              <ul className="plain">
+                <li>
+                  <strong>정지</strong>: 그 회원은 모든 기기에서 즉시 로그아웃되고 다시 로그인할 수 없습니다.
+                </li>
+                <li>
+                  <strong>복구</strong>: 정지된 회원 줄의 버튼으로 다시 이용할 수 있게 합니다.
+                </li>
+              </ul>
+              <h3>변경 기록</h3>
+              <p>
+                화면 아래 <strong>변경 기록</strong>을 펼치면 최근 50건의 직책·상태 변경이 보입니다. 누가, 언제, 누구의
+                직책(또는 상태)을 무엇에서 무엇으로 바꿨는지 남고, 기록은 수정하거나 지울 수 없습니다.
+              </p>
+              <div className="note">
+                내 직책은 다른 관리자만 바꿀 수 있고, 마지막 남은 관리자는 직책 변경·정지·탈퇴가 모두 막힙니다. 인수인계
+                때는 <strong>새 관리자에게 먼저 관리자 직책을 준 뒤</strong> 본인 직책을 넘기세요.
+              </div>
+              <h3>동아리 관리</h3>
+              <p>
+                회원이 보낸 동아리 개설 신청은 같은 화면 맨 아래 <strong>동아리 관리</strong>에 모입니다. 대기 중인
+                신청이 있으면 저절로 펼쳐집니다. <strong>승인</strong>하면 동아리 게시판에 칸이 생기고,{' '}
+                <strong>거절</strong>하면 신청이 지워집니다. 승인된 동아리는 <strong>이름 변경</strong>과{' '}
+                <strong>삭제</strong>를 할 수 있는데, 글이 남아 있는 동아리는 삭제할 수 없습니다.
+              </p>
+            </section>
+          </div>
         </article>
       </div>
     </AppShell>

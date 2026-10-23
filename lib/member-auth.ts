@@ -70,7 +70,10 @@ export async function optionalMember(request: Request): Promise<Member | null> {
   }
   if (row.status === 'suspended') {
     await db().prepare('DELETE FROM sessions WHERE user_id=?').bind(row.user_id).run();
-    throw new HttpError(403, '이용이 정지된 계정이에요. 학과 사무실이나 운영진에게 문의해주세요.');
+    throw new HttpError(
+      403,
+      '이용이 정지된 계정이에요. 학과 사무실이나 미컴봇(카카오톡 ‘경성대 미컴봇’)으로 문의해주세요.',
+    );
   }
   return {
     userId: row.user_id,
@@ -112,9 +115,14 @@ export async function issueMemberSession(identity: Identity, request?: Request) 
   // over (otherwise anyone could sign up with a classmate's mail, delete the Firebase account and lock them out).
   const conflicts = existing.results.filter((row) => row.id !== identity.userId);
   const squatted = identity.emailVerified && conflicts.length > 0 && conflicts.every((row) => row.status === 'pending');
-  if (conflicts.length && !squatted) throw new HttpError(409, '이미 다른 계정에서 쓰고 있는 학교 이메일이에요. 다른 이메일을 입력해주세요.');
+  if (conflicts.length && !squatted)
+    throw new HttpError(409, '이미 다른 계정에서 쓰고 있는 학교 이메일이에요. 다른 이메일을 입력해주세요.');
   const current = existing.results.find((row) => row.id === identity.userId);
-  if (current?.status === 'suspended') throw new HttpError(403, '이용이 정지된 계정이에요. 학과 사무실이나 운영진에게 문의해주세요.');
+  if (current?.status === 'suspended')
+    throw new HttpError(
+      403,
+      '이용이 정지된 계정이에요. 학과 사무실이나 미컴봇(카카오톡 ‘경성대 미컴봇’)으로 문의해주세요.',
+    );
   // An unverified token must never move the stored address, or a member could claim someone else's mailbox.
   if (!identity.emailVerified && current && current.email !== identity.email)
     throw new HttpError(403, '변경한 학교 이메일의 인증이 필요해요. 인증 메일의 링크를 누른 뒤 다시 로그인해주세요.');

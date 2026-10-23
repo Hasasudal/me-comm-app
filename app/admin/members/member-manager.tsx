@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ChevronRight, RotateCcw, Search, ShieldCheck, UserCheck, UserX } from 'lucide-react';
 import { api } from '../../api-client';
+import { confirmDialog } from '../../confirm-dialog';
 import { AppShell, roleLabels, type Role, type ShellIdentity } from '../../app-shell';
 import ClubManager from './club-manager';
 
@@ -66,7 +67,9 @@ export default function MemberManager() {
   const [total, setTotal] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [audit, setAudit] = useState<AuditEntry[] | null>(null);
   const loadAudit = useCallback(async () => {
     try {
@@ -84,6 +87,7 @@ export default function MemberManager() {
           `/api/admin/users?q=${encodeURIComponent(filters.query)}&status=${filters.status}&role=${filters.role}&page=${nextPage}`,
         );
         setUsers(result.users);
+        setPicked([]);
         setTotal(result.total);
         setPage(nextPage);
         setSearched(filters);
@@ -116,7 +120,7 @@ export default function MemberManager() {
     await load(1, { query, status, role });
   }
   async function update(user: User, change: { status?: User['status']; role?: Role }, question: string) {
-    if (!window.confirm(question)) return;
+    if (!(await confirmDialog(question))) return;
     setBusy(true);
     setError('');
     try {
@@ -146,14 +150,39 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
     );
   async function decline(user: User) {
     if (
-      !window.confirm(`${user.display_name}(${user.email}) 회원의 가입을 거절할까요?
-가입 요청이 삭제됩니다.`)
+      !(await confirmDialog(`${user.display_name}(${user.email}) 회원의 가입을 거절할까요?
+가입 요청이 삭제됩니다.`, {
+        ok: '거절',
+        danger: true,
+      }))
     )
       return;
     setBusy(true);
     setError('');
     try {
       await api(`/api/admin/users/${encodeURIComponent(user.id)}`, {}, 'DELETE');
+      await Promise.all([load(page), loadAudit()]);
+    } catch (cause) {
+      setError((cause as Error).message);
+      setBusy(false);
+    }
+  }
+  const pendingHere = users.filter((user) => user.status === 'pending').map((user) => user.id);
+  const allPicked = pendingHere.length > 0 && pendingHere.every((id) => picked.includes(id));
+  async function approvePicked() {
+    if (
+      !picked.length ||
+      !(await confirmDialog(`이메일 인증을 하지 않은 계정입니다. 본인 확인 후 승인하세요.
+선택한 ${picked.length}명의 가입을 승인할까요?`, {
+        ok: '승인',
+      }))
+    )
+      return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api<{ approved: number }>('/api/admin/users/approve', { userIds: picked }, 'POST');
+      setNotice(`${result.approved}명을 승인했어요.`);
       await Promise.all([load(page), loadAudit()]);
     } catch (cause) {
       setError((cause as Error).message);
@@ -247,6 +276,27 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
               {error}
             </p>
           )}
+          {notice && (
+            <p className="member-count" role="status">
+              {notice}
+            </p>
+          )}
+          {pendingHere.length > 0 && (
+            <div className="bulk-bar">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={allPicked}
+                  onChange={() => setPicked(allPicked ? [] : pendingHere)}
+                />
+                이 페이지 승인 대기 전체 선택
+              </label>
+              <button className="restore-button" disabled={busy || !picked.length} onClick={() => void approvePicked()}>
+                <UserCheck size={16} />
+                선택한 {picked.length}명 승인
+              </button>
+            </div>
+          )}
           {pendingCount > 0 && (
             <button
               type="button"
@@ -267,6 +317,17 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
           <ul className="managed-list">
             {users.map((user) => (
               <li key={user.id} className={user.status}>
+                {user.status === 'pending' && (
+                  <input
+                    type="checkbox"
+                    className="pick"
+                    aria-label={`${user.display_name} 선택`}
+                    checked={picked.includes(user.id)}
+                    onChange={() =>
+                      setPicked((list) => (list.includes(user.id) ? list.filter((id) => id !== user.id) : [...list, user.id]))
+                    }
+                  />
+                )}
                 <div className="member-info">
                   <strong>
                     {user.display_name}
