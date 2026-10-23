@@ -70,6 +70,18 @@ export async function sendMail(messages: Message[]) {
   return { results: result.results, remaining: result.remaining };
 }
 
+export const audienceSchema = z.enum(['all', 'staff']);
+export type Audience = z.infer<typeof audienceSchema>;
+/** Subscribed active members per audience ('staff' = academic, council and admin roles). */
+export async function audienceCounts() {
+  const row = await db()
+    .prepare(
+      "SELECT COUNT(*) AS \"all\",COALESCE(SUM(role IN ('academic','council','admin')),0) AS staff FROM users WHERE status='active' AND newsletter=1",
+    )
+    .first<{ all: number; staff: number }>();
+  return { all: row?.all ?? 0, staff: row?.staff ?? 0 };
+}
+
 export const newsletterFields = {
   subject: z
     .string()
@@ -151,7 +163,7 @@ export async function sendNextBatch(id: string, actor: Actor, origin: string, du
     // The first call snapshots the subscribers; later calls add nobody, so nobody can get it twice.
     db()
       .prepare(
-        `INSERT OR IGNORE INTO newsletter_deliveries (newsletter_id,user_id,status) SELECT ?1,id,'pending' FROM users WHERE status='active' AND newsletter=1 AND NOT EXISTS (SELECT 1 FROM newsletter_deliveries WHERE newsletter_id=?1) AND EXISTS (SELECT 1 FROM newsletters WHERE id=?1 AND sent_at IS NULL) AND ${scheduled(2)}`,
+        `INSERT OR IGNORE INTO newsletter_deliveries (newsletter_id,user_id,status) SELECT ?1,id,'pending' FROM users WHERE status='active' AND newsletter=1 AND NOT EXISTS (SELECT 1 FROM newsletter_deliveries WHERE newsletter_id=?1) AND EXISTS (SELECT 1 FROM newsletters WHERE id=?1 AND sent_at IS NULL AND (audience='all' OR users.role IN ('academic','council','admin'))) AND ${scheduled(2)}`,
       )
       .bind(id, due),
     // A worker that died mid-batch leaves 'sending' rows behind; the mail may have gone out, so they become failed.

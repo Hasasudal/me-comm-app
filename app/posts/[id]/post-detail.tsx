@@ -17,6 +17,7 @@ import {
 import { AnnotatedArticle, statusLabels } from '../../annotated-article';
 import type { Review } from '../../../lib/annotations';
 import { api } from '../../api-client';
+import { confirmDialog } from '../../confirm-dialog';
 import { AppShell, boardLabels, boardPaths, deskStatus, loadSession, type ShellIdentity } from '../../app-shell';
 import Comments from './comments';
 import { WriterTag, type Writer } from '../../writer-tag';
@@ -46,7 +47,8 @@ type Post = {
   club_id?: string | null;
   club_name?: string | null;
 };
-type Identity = ShellIdentity & { admin?: boolean };
+type Identity = ShellIdentity & { admin?: boolean; role?: string };
+const deskStaff: Record<string, string> = { inquiry: 'academic', complaint: 'council' };
 const formatDate = (n: number) =>
   new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' }).format(
     n,
@@ -184,6 +186,20 @@ export default function PostDetail({ id }: { id: string }) {
       setBusy(false);
     }
   }
+  async function setResolved(value: boolean) {
+    if (!post) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api(`/api/posts/${id}/flags`, { resolved: value });
+      setPost({ ...post, resolved_at: value ? Date.now() : null });
+      setNotice(value ? '답변 완료로 표시했어요.' : '다시 답변 대기로 바꿨어요.');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -196,6 +212,7 @@ export default function PostDetail({ id }: { id: string }) {
   const news = category === 'news';
   const admin = !!identity.admin;
   const reviewing = news && admin && !!post && !post.mine;
+  const canResolve = !!post && !!deskStatus[post.category] && (admin || deskStaff[post.category] === identity.role);
   const canEdit = !!post && (admin || !(news && post.status === 'rejected'));
   const passwordField = !admin && !post?.mine && (
     <label>
@@ -391,6 +408,11 @@ export default function PostDetail({ id }: { id: string }) {
                       {post.pinned_at ? '고정 해제' : '상단 고정'}
                     </button>
                   )}
+                  {canResolve && (
+                    <button className="secondary" disabled={busy} onClick={() => void setResolved(!post.resolved_at)}>
+                      {post.resolved_at ? '다시 답변 대기로' : '답변 완료로 표시'}
+                    </button>
+                  )}
                   {canEdit && (
                     <button
                       className="secondary"
@@ -502,7 +524,7 @@ export default function PostDetail({ id }: { id: string }) {
                   <button
                     type="button"
                     className="secondary"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       const form = e.currentTarget.form;
                       const field = (name: string) =>
                         String((form?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '');
@@ -511,7 +533,15 @@ export default function PostDetail({ id }: { id: string }) {
                         field('content') !== post.content ||
                         field('prefix') !== (post.prefix || '') ||
                         images.join() !== (post.images || []).join();
-                      if (changed && !window.confirm('고친 내용이 사라져요. 수정을 취소할까요?')) return;
+                      if (
+                        changed &&
+                        !(await confirmDialog('고친 내용이 사라져요. 수정을 취소할까요?', {
+                          ok: '수정 취소',
+                          cancel: '계속 수정',
+                          danger: true,
+                        }))
+                      )
+                        return;
                       setMode('view');
                     }}
                   >

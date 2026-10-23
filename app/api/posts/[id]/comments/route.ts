@@ -22,6 +22,7 @@ type CommentRow = {
   author_name: string;
   content: string;
   created_at: number;
+  edited_at: number | null;
   role: string | null;
   writer_name: string | null;
   writer_email: string | null;
@@ -47,16 +48,19 @@ export async function GET(request: Request, context: Context) {
     const { member, admin, post } = await commentablePost(request, context);
     const rows = await db()
       .prepare(
-        'SELECT comments.id,comments.author_id,comments.author_name,comments.content,comments.created_at,users.role,users.display_name AS writer_name,users.email AS writer_email FROM comments LEFT JOIN users ON users.id=comments.author_id WHERE comments.post_id=? ORDER BY comments.created_at ASC, comments.id ASC LIMIT ?',
+        'SELECT comments.id,comments.author_id,comments.author_name,comments.content,comments.created_at,comments.edited_at,users.role,users.display_name AS writer_name,users.email AS writer_email FROM comments LEFT JOIN users ON users.id=comments.author_id WHERE comments.post_id=? ORDER BY comments.created_at ASC, comments.id ASC LIMIT ?',
       )
       .bind(post.id, MAX_COMMENTS)
       .all<CommentRow>();
     const writers = seesWriters(member, post.category);
     return json({
+      // Staff of this desk get canned answers above the comment box.
+      templates: deskCategories.includes(post.category) && managesDesk(member, post.category),
       comments: rows.results.map(({ author_id, role, writer_name, writer_email, ...comment }) => ({
         ...comment,
         role: badge(role),
         deletable: admin || author_id === member.userId,
+        editable: author_id === member.userId,
         ...(writers ? { writer: writer_email ? { name: writer_name, email: writer_email } : null } : {}),
       })),
     });
@@ -102,6 +106,6 @@ export async function POST(request: Request, context: Context) {
           .bind(asker ? null : comment.created_at, post.id)
           .run();
     }
-    return json({ comment: { ...comment, role: badge(member.role), deletable: true } }, 201);
+    return json({ comment: { ...comment, role: badge(member.role), deletable: true, editable: true, edited_at: null } }, 201);
   });
 }

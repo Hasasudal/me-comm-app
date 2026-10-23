@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api-client';
+import { confirmDialog } from '../../confirm-dialog';
 
 type Club = {
   id: string;
@@ -55,14 +56,14 @@ export default function ClubManager() {
     setRenaming(null);
     if (name && name !== club.name) void run(api(`/api/admin/clubs/${club.id}`, { name }, 'PATCH'));
   }
-  function remove(club: Club) {
+  async function remove(club: Club) {
     const verb = club.status === 'pending' ? '거절' : '삭제';
     const linked = club.status === 'active' && club.post_count > 0;
     if (linked) {
       setError(`‘${club.name}’ 동아리에 연결된 글이 ${club.post_count}개 있어요. 연결된 글이 있으면 삭제할 수 없어요.`);
       return;
     }
-    if (window.confirm(`${club.name} 동아리를 ${verb}할까요?`))
+    if (await confirmDialog(`${club.name} 동아리를 ${verb}할까요?`, { ok: verb, danger: true }))
       void run(api(`/api/admin/clubs/${club.id}`, {}, 'DELETE'));
   }
   const pending = clubs?.filter((club) => club.status === 'pending').length ?? 0;

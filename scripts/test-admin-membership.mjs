@@ -104,6 +104,30 @@ try {
       ['status', 'pending', 'active'],
       'approval is logged',
     );
+    // Bulk approval only touches pending sign-ups and logs each one like a single approval.
+    execute(
+      `INSERT INTO users (id,email,display_name,status,role,created_at,updated_at) VALUES ('test-pending-4','pending4@ks.ac.kr','대기사','pending','member',${now},${now}),('test-pending-5','pending5@ks.ac.kr','대기오','pending','member',${now},${now})`,
+    );
+    const bulk = {
+      method: 'POST',
+      body: { userIds: ['test-pending-4', 'test-pending-5', 'test-pending-1', 'test-member-second'] },
+    };
+    assert.equal(
+      (await request('/api/admin/users/approve', { ...bulk, cookie: other })).status,
+      403,
+      'members cannot bulk approve',
+    );
+    const done = await request('/api/admin/users/approve', bulk);
+    assert.equal(done.status, 200);
+    assert.equal(done.data.approved, 2, 'already-active users are skipped');
+    assert.equal((await request('/api/admin/users/approve', { method: 'POST', body: { userIds: [] } })).status, 400);
+    const bulkLog = (await request('/api/admin/audit')).data.entries.filter((e) =>
+      /^pending[45]@/.test(e.target_email),
+    );
+    assert.equal(bulkLog.length, 2, 'bulk approval is logged per member');
+    assert.deepEqual([bulkLog[0].before, bulkLog[0].after], ['pending', 'active']);
+    assert.equal((await request('/api/admin/summary')).data.members >= 0, true, 'summary is admin readable');
+    assert.equal((await request('/api/admin/summary', { cookie: other })).status, 403);
   } finally {
     execute(
       "DELETE FROM member_audit WHERE target_id LIKE 'test-pending-%'; DELETE FROM users WHERE id LIKE 'test-pending-%'",

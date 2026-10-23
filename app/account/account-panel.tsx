@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api-client';
+import { confirmDialog } from '../confirm-dialog';
 import { firebaseAuth } from '../firebase-client';
 import { firebaseMessage, isSchoolEmail } from '../auth/firebase-errors';
 
@@ -109,7 +110,13 @@ export default function AccountPanel() {
   }
   // Firebase password resets do not end D1 sessions, so members can end every device's session themselves.
   async function signOutEverywhere() {
-    if (!window.confirm('이 기기를 포함한 모든 기기에서 로그아웃돼요. 계속할까요?')) return;
+    if (
+      !(await confirmDialog('이 기기를 포함한 모든 기기에서 로그아웃돼요. 계속할까요?', {
+        ok: '모두 로그아웃',
+        danger: true,
+      }))
+    )
+      return;
     setBusy(true);
     setError('');
     setNotice('');
@@ -231,8 +238,8 @@ export default function AccountPanel() {
       <form className="account-section danger-zone" onSubmit={remove}>
         <h2>회원 탈퇴</h2>
         <p>
-          글과 댓글은 ‘탈퇴한 회원’ 이름으로 남고, 학사문의·학생회 건의와 검토 중인 뉴스 기사는 삭제돼요. 계정과
-          운영 권한, 로그인 정보도 삭제돼요. 본인 확인을 위해 현재 비밀번호가 필요해요.
+          글과 댓글은 ‘탈퇴한 회원’ 이름으로 남고, 학사문의·학생회 건의와 검토 중인 뉴스 기사는 삭제돼요. 계정과 운영
+          권한, 로그인 정보도 삭제돼요. 본인 확인을 위해 현재 비밀번호가 필요해요.
         </p>
         <label>
           현재 비밀번호

@@ -162,6 +162,19 @@ function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number |
   const [replies, setReplies] = useState<Reply[] | null>(null);
   const [error, setError] = useState('');
   const fresh = (repliedAt || 0) > seenBefore;
+  // How many items are newer than the last visit; null until counted (the dot stands in meanwhile, and if the fetch fails).
+  const [unread, setUnread] = useState<number | null>(null);
+  useEffect(() => {
+    if (!fresh) return;
+    let live = true;
+    api<{ replies: Reply[] }>('/api/notifications')
+      .then((data) => live && setUnread(data.replies.filter((reply) => reply.created_at > seenBefore).length))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [fresh, seenBefore]);
+  const count = fresh && unread ? unread : 0;
   const root = useRef<HTMLDivElement>(null),
     bell = useRef<HTMLButtonElement>(null),
     panel = useRef<HTMLDivElement>(null);
@@ -208,9 +221,20 @@ function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number |
 
   return (
     <div className="reply-bell" ref={root}>
-      <button ref={bell} aria-label={fresh ? '새 알림' : '알림'} aria-expanded={open} onClick={() => void toggle()}>
+      <button
+        ref={bell}
+        aria-label={count ? `새 알림 ${count}개` : fresh ? '새 알림' : '알림'}
+        aria-expanded={open}
+        onClick={() => void toggle()}
+      >
         <Bell size={18} />
-        {fresh && <span className="nav-alert" />}
+        {count ? (
+          <span className="bell-count" aria-hidden="true">
+            {count > 9 ? '9+' : count}
+          </span>
+        ) : (
+          fresh && <span className="nav-alert" />
+        )}
       </button>
       {open && (
         <div className="reply-panel" role="dialog" aria-label="알림" tabIndex={-1} ref={panel}>
@@ -225,7 +249,13 @@ function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number |
             <ul>
               {replies.map((reply) => (
                 <li key={reply.id} className={reply.created_at > seenBefore ? 'unread' : undefined}>
-                  <a href={reply.kind === 'signup' ? '/admin/members?status=pending' : `/posts/${reply.post_id}`}>
+                  <a
+                    href={
+                      reply.kind === 'signup'
+                        ? '/admin/members?status=pending'
+                        : `/posts/${reply.post_id}${reply.kind === 'desk' ? '' : `#comment-${reply.id}`}`
+                    }
+                  >
                     <small>
                       {replyKinds[reply.kind]} · {reply.author_name} · {formatWhen(reply.created_at)}
                     </small>
@@ -334,24 +364,29 @@ export function AppShell({
         <p className="nav-caption">커뮤니티</p>
         <nav aria-label="주요 메뉴">
           {boards.map((board) => (
-            <a
-              key={board.id}
-              href={board.href}
-              aria-current={active === board.id ? 'page' : undefined}
-              className={active === board.id ? 'nav-item active' : 'nav-item'}
-            >
-              <board.icon size={20} />
-              {board.label}
-              {active === board.id && <span className="nav-dot" />}
+            <div key={board.id} className="nav-row">
+              <a
+                href={board.href}
+                aria-current={active === board.id ? 'page' : undefined}
+                className={active === board.id ? 'nav-item active' : 'nav-item'}
+              >
+                <board.icon size={20} />
+                {board.label}
+                {active === board.id && <span className="nav-dot" />}
+                {board.id === 'news' && newsUpdated && (
+                  <span className="nav-alert" role="status" aria-label="새 검토 결과" />
+                )}
+              </a>
               {!!identity.waiting?.[board.id] && (
-                <span className="nav-count" aria-label={`${deskStatus[board.id]?.[0]} ${identity.waiting[board.id]}건`}>
+                <a
+                  className="nav-count"
+                  href={`${board.href}?waiting=1`}
+                  aria-label={`${deskStatus[board.id]?.[0]} ${identity.waiting[board.id]}건 보기`}
+                >
                   {identity.waiting[board.id]}
-                </span>
+                </a>
               )}
-              {board.id === 'news' && newsUpdated && (
-                <span className="nav-alert" role="status" aria-label="새 검토 결과" />
-              )}
-            </a>
+            </div>
           ))}
         </nav>
         <p className="nav-caption">대여 신청</p>

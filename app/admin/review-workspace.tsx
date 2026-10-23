@@ -8,7 +8,9 @@ import { api } from '../api-client';
 import { exportFileName, newsDocx } from '../../lib/news-docx';
 import { ImageGallery, photoForWord } from '../image-picker';
 import { WriterTag, type Writer } from '../writer-tag';
+import { confirmDialog } from '../confirm-dialog';
 import NewsletterPanel from './newsletter-panel';
+import TodayPanel from './today-panel';
 
 type ReviewStatus = 'pending' | 'feedback' | 'rejected' | 'published';
 type Article = {
@@ -159,6 +161,29 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
     };
   }, [menuOpen]);
 
+  // j/k and the arrow keys step through the list; never bound to approve/reject/delete.
+  const [helpOpen, setHelpOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])')) return;
+      if (document.querySelector('dialog[open]')) return;
+      if (event.key === '?') return setHelpOpen((open) => !open);
+      const step =
+        event.key === 'j' || event.key === 'ArrowDown' ? 1 : event.key === 'k' || event.key === 'ArrowUp' ? -1 : 0;
+      if (!step || event.shiftKey || !articles.length) return;
+      event.preventDefault();
+      const next = articles[articles.findIndex((article) => article.id === selectedId) + step];
+      if (next) {
+        choose(next);
+        document.querySelector('.review-item.selected')?.scrollIntoView({ block: 'nearest' });
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  });
+
   useEffect(() => {
     if (selected?.status === 'pending') writeDraft(selected, dirty ? { marks, note } : null);
   }, [selected, dirty, marks, note]);
@@ -206,8 +231,8 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
   }
   const patch = (body: Record<string, unknown>) =>
     api(`/api/admin/posts/${selected!.id}`, { ...body, updated_at: selected!.updated_at }, 'PATCH');
-  const approve = () => {
-    if (!dirty || window.confirm('남긴 표시와 의견은 보내지 않고 승인할까요?'))
+  const approve = async () => {
+    if (!dirty || (await confirmDialog('남긴 표시와 의견은 보내지 않고 승인할까요?', { ok: '승인' })))
       void run(() => patch({ action: 'approve' }), '기사를 승인했습니다.');
   };
   const sendFeedback = () => run(() => patch({ action: 'feedback', note: note.trim(), marks }), '피드백을 보냈습니다.');
@@ -276,6 +301,12 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
   const feedbackCount = marks.length + (note.trim() ? 1 : 0);
   return (
     <>
+      <TodayPanel onReview={() => switchTab('pending')} refreshKey={counts?.pending} />
+      {helpOpen && (
+        <p className="shortcut-help" role="note">
+          <kbd>j</kbd>/<kbd>↓</kbd> 다음 기사 · <kbd>k</kbd>/<kbd>↑</kbd> 이전 기사 · <kbd>?</kbd> 닫기
+        </p>
+      )}
       <div className="review-workspace">
         <section className="review-list" aria-label="기사 목록">
           <div className="review-tabs" role="tablist" aria-label="검토 상태">
