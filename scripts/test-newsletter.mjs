@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { createMemberFixture, execute, query, setRole } from './test-member-fixture.mjs';
 
-const base = 'http://localhost:5173';
+const base = process.env.BASE_URL || 'http://localhost:5173';
 // mode (one send call): 'html' mails the batch then answers with an HTML page (outcome unknown to the Worker);
 // 'reject' refuses the call before mailing anyone, like a bad secret or request.
 const mock = { remaining: 100, sent: [], mode: null };
@@ -42,11 +42,11 @@ const server = createServer((req, res) => {
 });
 await new Promise((resolve) => server.listen(5199, '127.0.0.1', resolve));
 
-async function request(path, { method = 'GET', body, cookie } = {}) {
+async function request(path, { method = 'GET', body, cookie, origin = base } = {}) {
   const response = await fetch(base + path, {
     method,
     headers: {
-      ...(body ? { 'Content-Type': 'application/json', Origin: base } : {}),
+      ...(body ? { 'Content-Type': 'application/json', Origin: origin } : {}),
       ...(cookie ? { Cookie: cookie } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -225,6 +225,79 @@ try {
   assert.deepEqual((await request('/api/newsletter/unsubscribe', { method: 'POST', body: { token: 'nope' } })).data, { ok: true });
   assert.equal((await request('/api/newsletter/unsubscribe', { method: 'POST', body: { token } })).status, 200);
   assert.equal(query("SELECT newsletter FROM users WHERE id='test-member-expired'")[0].newsletter, 0, 'token turns it off');
+
+  // Scheduling: admins only, same origin, 5 minutes to 60 days ahead, and only before sending starts.
+  const schedule = (nid, at, options = {}) =>
+    request(`/api/admin/newsletters/${nid}/schedule`, { method: 'POST', cookie: admin, body: { at }, ...options });
+  const unschedule = (nid) => request(`/api/admin/newsletters/${nid}/schedule`, { method: 'DELETE', cookie: admin, body: {} });
+  const row = (nid) => query(`SELECT * FROM newsletters WHERE id='${nid}'`)[0];
+  const hour = Date.now() + 3600000;
+  const later = await create('예약 소식');
+  assert.equal((await schedule(later, hour, { cookie: fixture.secondCookie })).status, 403, 'members cannot schedule');
+  assert.equal((await schedule(later, hour, { origin: 'https://evil.example' })).status, 403, 'cross-origin is refused');
+  for (const at of [Date.now() + 60000, Date.now() + 61 * 86400000, String(hour), null]) {
+    const r = await schedule(later, at);
+    assert.equal(r.status, 400, `bad time ${at}`);
+    assert.equal(r.data.error, '예약 시각을 확인해주세요.');
+  }
+  assert.equal((await schedule(later, hour)).status, 200);
+  let stored2 = row(later);
+  assert.equal(stored2.scheduled_at, hour);
+  assert.equal(stored2.scheduled_by, 'test-member-active');
+  assert.equal(stored2.site_origin, base, 'the scheduling request’s origin is kept for the footer');
+  const item = (await request('/api/admin/newsletters', { cookie: admin })).data.newsletters.find((n) => n.id === later);
+  assert.equal(item.scheduled_at, hour);
+  assert.equal(item.scheduled_by_name, '활성회원');
+  assert.equal((await unschedule(later)).status, 200, 'cancel');
+  assert.equal(row(later).scheduled_at, null);
+  assert.equal((await schedule(id, hour)).status, 409, 'a sent newsletter cannot be scheduled');
+  assert.equal((await unschedule(id)).status, 409);
+  assert.equal((await schedule('missing', hour)).status, 404);
+
+  // Sending by hand turns a scheduled newsletter into a manual send.
+  const manual = await create('수동 전환');
+  assert.equal((await schedule(manual, hour)).status, 200);
+  assert.equal((await send(manual)).status, 200);
+  assert.equal(row(manual).scheduled_at, null, 'manual send clears the schedule');
+  assert.equal((await unschedule(manual)).status, 409, 'and it can no longer be cancelled');
+  await finish(manual);
+
+  // Cron (GET /cdn-cgi/handler/scheduled runs the Worker's scheduled handler; its waitUntil may outlive the reply).
+  const until = async (check, what) => {
+    for (let i = 0; i < 60; i++) {
+      if (check()) return;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    assert.fail(`timed out: ${what}`);
+  };
+  const cron = async () => assert.equal((await fetch(`${base}/cdn-cgi/handler/scheduled?cron=*/10+*+*+*+*`)).status, 200);
+  const due = await create('크론 소식');
+  assert.equal((await schedule(due, hour)).status, 200);
+  assert.equal((await schedule(later, hour)).status, 200, 'rescheduling works');
+  execute(`UPDATE newsletters SET scheduled_at=${Date.now() - 1000},site_origin='https://lounge.example' WHERE id='${due}'`);
+  const audience = query("SELECT COUNT(*) AS count FROM users WHERE status='active' AND newsletter=1")[0].count;
+  assert.ok(audience >= 2);
+  mock.remaining = 1;
+  await cron();
+  await until(() => mailed('크론 소식').length === 1 && mock.remaining === 0, 'first cron run');
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  stored2 = row(due);
+  assert.equal(mailed('크론 소식').length, 1, 'quota stops the run');
+  assert.equal(stored2.sent_at, null);
+  assert.equal(stored2.started_by, 'test-member-active', 'the scheduler is recorded as the sender');
+  assert.ok(stored2.scheduled_at, 'the schedule stays so later runs continue');
+  assert.equal(deliveries(due).filter((d) => d.status === 'pending').length, audience - 1);
+  mock.remaining = 100;
+  await cron();
+  await until(() => row(due).sent_at, 'second cron run');
+  const cronMail = mock.sent.filter((m) => m.subject === '크론 소식');
+  assert.equal(cronMail.length, audience);
+  assert.equal(new Set(cronMail.map((m) => m.to)).size, audience, 'nobody twice');
+  assert.ok(cronMail.every((m) => m.html.includes('href="https://lounge.example/newsletter/unsubscribe?token=')), 'footer uses site_origin');
+  assert.ok(deliveries(due).every((d) => d.status === 'sent'));
+  assert.equal(deliveries(later).length, 0, 'not-yet-due newsletters are left alone');
+  assert.equal(mailed('예약 소식').length, 0);
+  assert.equal((await request(`/api/admin/newsletters/${later}`, { method: 'DELETE', cookie: admin, body: {} })).status, 200, 'a scheduled draft can be deleted');
 
   // Delete only before anything is sent.
   assert.equal((await request(`/api/admin/newsletters/${id}`, { method: 'DELETE', cookie: admin, body: {} })).status, 409);

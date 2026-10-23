@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Mail, Monitor, Send, Smartphone, Trash2, Upload } from 'lucide-react';
+import { CalendarClock, Mail, Monitor, Send, Smartphone, Trash2, Upload } from 'lucide-react';
 import { api } from '../api-client';
 
 type Newsletter = {
@@ -12,6 +12,8 @@ type Newsletter = {
   started_by_name: string | null;
   started_at: number | null;
   sent_at: number | null;
+  scheduled_at: number | null;
+  scheduled_by_name: string | null;
   total: number;
   sent: number;
   failed: number;
@@ -41,6 +43,23 @@ const formatDate = (n: number) =>
     hour: '2-digit',
     minute: '2-digit',
   }).format(n);
+// datetime-local has no timezone; the picker always means Korea time (UTC+9, no DST), whatever the browser's zone.
+const minute = 60_000;
+const hour = 60 * minute;
+const kstOffset = 9 * hour;
+const toKstInput = (ms: number) => new Date(ms + kstOffset).toISOString().slice(0, 16);
+const fromKstInput = (value: string) => Date.parse(`${value}Z`) - kstOffset;
+const formatKst = (n: number) =>
+  new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(n);
+// Picker for a new newsletter (id null) or for rescheduling a history item.
+type Scheduling = { id: string | null; value: string };
 const limitText = (remaining: number | null) => (remaining === null ? '확인 불가' : `${remaining}명`);
 const limitHit = '오늘 발송 한도를 다 썼습니다. 내일 이어서 보내세요.';
 
@@ -72,6 +91,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
+  const [scheduling, setScheduling] = useState<Scheduling | null>(null);
   // A ref, not state: two fast clicks both see busy=false before React re-renders.
   const running = useRef(false);
 
@@ -181,14 +201,55 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
       setHtml('');
       await deliver(id);
     });
+  const openPicker = (id: string | null, at?: number | null) => {
+    const now = Date.now();
+    // Default: the whole hour after next, e.g. 14:20 → 16:00.
+    setScheduling({ id, value: toKstInput(at && at > now ? at : Math.floor(now / hour) * hour + 2 * hour) });
+  };
+  const schedule = (picked: Scheduling) =>
+    guarded(async () => {
+      const at = fromKstInput(picked.value);
+      const now = Date.now();
+      if (!Number.isFinite(at) || at < now + 10 * minute || at > now + 60 * 24 * hour) {
+        throw new Error('예약 시각을 확인해주세요. 10분 뒤부터 60일 안에서 고를 수 있습니다.');
+      }
+      const item = overview?.newsletters.find((n) => n.id === picked.id);
+      const count = item ? item.pending : (overview?.subscribers ?? 0);
+      const ok = window.confirm(
+        `${item ? `‘${item.subject}’ ` : ''}수신 회원 ${count}명에게 ${formatKst(at)}(한국 시간)에 보내도록 예약합니다.\n` +
+          '하루 발송 한도를 다 쓰면 다음 날 자동으로 이어서 보냅니다.',
+      );
+      if (!ok) return;
+      let id = picked.id;
+      if (!id) {
+        id = (await api<{ id: string }>('/api/admin/newsletters', { subject: subject.trim(), html })).id;
+        setSubject('');
+        setHtml('');
+        // If scheduling fails now, the picker reopens on the new history row instead of creating a duplicate.
+        setScheduling({ id, value: picked.value });
+      }
+      await api(`/api/admin/newsletters/${id}/schedule`, { at });
+      setScheduling(null);
+      onNotice(`${formatKst(at)}에 보내도록 예약했습니다.`);
+    });
+  const unschedule = (item: Newsletter) =>
+    guarded(async () => {
+      if (!window.confirm(`‘${item.subject}’ 예약을 취소할까요? 뉴스레터는 기록에 남습니다.`)) return;
+      await api(`/api/admin/newsletters/${item.id}/schedule`, {}, 'DELETE');
+      onNotice('예약을 취소했습니다.');
+    });
   const resume = (item: Newsletter) =>
     guarded(async () => {
+      const limit = `오늘 남은 한도: ${limitText(overview?.remaining ?? null)}`;
       if (
         !window.confirm(
-          `‘${item.subject}’ 남은 ${item.pending}명에게 이어서 보냅니다. 오늘 남은 한도: ${limitText(overview?.remaining ?? null)}`,
+          item.scheduled_at && !item.started_at
+            ? `‘${item.subject}’ 예약을 취소하고 지금 ${item.pending}명에게 보냅니다. ${limit}`
+            : `‘${item.subject}’ 남은 ${item.pending}명에게 이어서 보냅니다. ${limit}`,
         )
       )
         return;
+      setScheduling(null);
       await deliver(item.id, { sent: item.sent, failed: item.failed });
     });
   const remove = (item: Newsletter) =>
@@ -202,6 +263,34 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
   const htmlBytes = new TextEncoder().encode(html).length;
   const tooLarge = htmlBytes > maxHtmlBytes;
   const ready = configured && !!subject.trim() && !!html.trim() && !tooLarge && !busy;
+  const picker = (picked: Scheduling) => {
+    const now = Date.now();
+    return (
+      <div className="newsletter-schedule">
+        <label>
+          예약 시각 (한국 시간)
+          <input
+            type="datetime-local"
+            value={picked.value}
+            min={toKstInput(now + 10 * minute)}
+            max={toKstInput(now + 60 * 24 * hour)}
+            onChange={(event) => setScheduling({ ...picked, value: event.target.value })}
+          />
+        </label>
+        <button
+          className="primary"
+          disabled={busy || !configured || !picked.value || (!picked.id && !ready)}
+          onClick={() => void schedule(picked)}
+        >
+          <CalendarClock size={16} />
+          예약하기
+        </button>
+        <button className="secondary" disabled={busy} onClick={() => setScheduling(null)}>
+          닫기
+        </button>
+      </div>
+    );
+  };
   return (
     <section className="newsletter-panel" aria-labelledby="newsletter-title">
       <header className="newsletter-head">
@@ -323,47 +412,87 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
           <Mail size={16} />
           나에게 테스트 발송
         </button>
+        <button className="secondary" disabled={!ready} onClick={() => openPicker(null)}>
+          <CalendarClock size={16} />
+          예약 발송
+        </button>
         <button className="primary" disabled={!ready} onClick={() => void prepare()}>
           <Send size={16} />
           {busy && progress ? '보내는 중…' : '발송 준비'}
         </button>
       </div>
+      {scheduling && !scheduling.id && picker(scheduling)}
 
       {overview && overview.newsletters.length > 0 && (
         <>
           <h3 className="newsletter-history-title">보낸 뉴스레터</h3>
           <ul className="newsletter-history">
-            {overview.newsletters.map((item) => (
-              <li key={item.id}>
-                <div>
-                  <strong>{item.subject}</strong>
-                  <small>
-                    {formatDate(item.sent_at || item.created_at)} · {item.created_by_name || '이름 없음'} · 보냄{' '}
-                    {item.sent} / 전체 {item.total}
-                    {item.failed > 0 && ` · 실패 ${item.failed}`}
-                    {item.pending > 0 && ` · 남음 ${item.pending}`}
-                  </small>
-                  {item.started_at && (
+            {overview.newsletters.map((item) => {
+              const waiting = !!item.scheduled_at && !item.started_at;
+              return (
+                <li key={item.id}>
+                  <div>
+                    <strong>
+                      {item.subject}
+                      {waiting && <span className="status-badge feedback">예약됨</span>}
+                      {item.started_at && !item.sent_at && item.pending > 0 && (
+                        <span className="status-badge pending">발송 중</span>
+                      )}
+                      {item.sent_at && <span className="status-badge published">완료</span>}
+                    </strong>
+                    {waiting && (
+                      <small>
+                        예약: {formatKst(item.scheduled_at ?? 0)} (한국 시간) · {item.scheduled_by_name || '이름 없음'}
+                      </small>
+                    )}
                     <small>
-                      발송 시작: {item.started_by_name || '이름 없음'} · {formatDate(item.started_at)}
+                      {formatDate(item.sent_at || item.created_at)} · {item.created_by_name || '이름 없음'} · 보냄{' '}
+                      {item.sent} / 전체 {item.total}
+                      {item.failed > 0 && ` · 실패 ${item.failed}`}
+                      {item.pending > 0 && ` · 남음 ${item.pending}`}
                     </small>
-                  )}
-                </div>
-                <div className="newsletter-history-actions">
-                  {item.pending > 0 && (
-                    <button className="secondary" disabled={busy || !configured} onClick={() => void resume(item)}>
-                      이어서 보내기
-                    </button>
-                  )}
-                  {item.sent === 0 && (
-                    <button className="danger-text" disabled={busy} onClick={() => void remove(item)}>
-                      <Trash2 size={15} />
-                      삭제
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
+                    {item.started_at && (
+                      <small>
+                        발송 시작: {item.started_by_name || '이름 없음'} · {formatDate(item.started_at)}
+                      </small>
+                    )}
+                    {item.started_at && item.scheduled_at && item.pending > 0 && (
+                      <small>한도에 걸리면 다음 날 자동으로 이어서 보냅니다.</small>
+                    )}
+                    {scheduling?.id === item.id && picker(scheduling)}
+                  </div>
+                  <div className="newsletter-history-actions">
+                    {waiting && (
+                      <button className="secondary" disabled={busy} onClick={() => void unschedule(item)}>
+                        예약 취소
+                      </button>
+                    )}
+                    {/* Unsent drafts can be scheduled too, e.g. when scheduling failed right after creating one. */}
+                    {/* Recipients are snapshotted on the first send, so an unstarted newsletter has no pending rows yet. */}
+                    {!item.started_at && !item.sent_at && (
+                      <button
+                        className="secondary"
+                        disabled={busy || !configured}
+                        onClick={() => openPicker(item.id, item.scheduled_at)}
+                      >
+                        {waiting ? '시간 변경' : '예약 발송'}
+                      </button>
+                    )}
+                    {(item.pending > 0 || (!item.started_at && !item.sent_at)) && (
+                      <button className="secondary" disabled={busy || !configured} onClick={() => void resume(item)}>
+                        {waiting ? '지금 보내기' : '이어서 보내기'}
+                      </button>
+                    )}
+                    {item.sent === 0 && (
+                      <button className="danger-text" disabled={busy} onClick={() => void remove(item)}>
+                        <Trash2 size={15} />
+                        삭제
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </>
       )}

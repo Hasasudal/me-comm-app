@@ -637,7 +637,18 @@ export default function HelpPage() {
                 <strong>발송 준비</strong>: 받는 인원과 오늘 남은 한도를 확인한 뒤 보냅니다. 보내는 동안 진행 상황이
                 나오니 창을 닫지 마세요.
               </li>
+              <li>
+                <strong>예약 발송</strong>: 보낼 날짜와 시각을 고르면 그때 자동으로 보냅니다. 시각은 컴퓨터 설정과
+                상관없이 <strong>한국 시간</strong> 기준이고, <strong>10분 뒤부터 60일 안</strong>에서 고를 수 있습니다.
+                정한 시각부터 <strong>10분 안쪽</strong>에 발송이 시작되며, 창을 닫아도 됩니다.
+              </li>
             </ul>
+            <p>
+              예약한 뉴스레터는 아래 기록에 <strong>예약됨</strong>과 시각, 예약한 사람이 나옵니다. 발송이 시작되기
+              전에는 <strong>예약 취소</strong>, <strong>시간 변경</strong>, <strong>지금 보내기</strong>를 할 수
+              있습니다. 예약 발송 중 하루 한도를 다 쓰면 <strong>다음 날 자동으로 이어서</strong> 보내므로 따로 누를
+              필요가 없습니다.
+            </p>
             <p>
               하루에 보낼 수 있는 메일은 <strong>약 100명</strong>입니다. 한도를 넘으면 남은 인원은 기다렸다가, 다음 날
               아래 기록에서 <strong>이어서 보내기</strong>를 누르면 됩니다. 아직 한 통도 보내지 않은 뉴스레터는 기록에서
@@ -893,6 +904,15 @@ export default function HelpPage() {
                 <p>
                   <strong>계정 설정 → 뉴스레터</strong>에서 체크를 끄거나, 받은 뉴스레터 아래의{' '}
                   <strong>뉴스레터 받지 않기</strong> 링크를 누르세요. 다시 받고 싶으면 계정 설정에서 켜면 됩니다.
+                </p>
+              </div>
+            </details>
+            <details className="faq">
+              <summary>예약한 뉴스레터가 정한 시각에 바로 오지 않아요.</summary>
+              <div>
+                <p>
+                  예약 발송은 10분마다 확인해서 보내기 때문에, 정한 시각보다 <strong>최대 10분쯤 늦게</strong> 시작될 수
+                  있습니다. 받는 사람이 많으면 순서대로 나가고, 하루 한도를 넘은 인원은 다음 날 자동으로 받습니다.
                 </p>
               </div>
             </details>

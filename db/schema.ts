@@ -153,6 +153,11 @@ export const newsletters = sqliteTable('newsletters', {
   started_by_name: text('started_by_name'),
   started_at: integer('started_at'),
   sent_at: integer('sent_at'),
+  // Scheduled send (UTC ms), picked up by the cron in worker/index.ts. site_origin builds the unsubscribe links there.
+  scheduled_at: integer('scheduled_at'),
+  scheduled_by: text('scheduled_by'),
+  scheduled_by_name: text('scheduled_by_name'),
+  site_origin: text('site_origin'),
 });
 
 // One row per recipient, snapshotted on the first send call: pending -> sending (claimed) -> sent | failed.

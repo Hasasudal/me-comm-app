@@ -4,7 +4,7 @@ import { db, handle, input, json, limit, requireAdmin } from '../../../../lib/se
 
 export const dynamic = 'force-dynamic';
 
-// The 20 latest newsletters with who started sending, delivery counts ('sending' is counted as pending), today's
+// The 20 latest newsletters with their schedule, who started sending, delivery counts ('sending' is counted as pending), today's
 // quota and subscribers.
 export async function GET(request: Request) {
   return handle(async () => {
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const [rows, subscribers, remaining] = await Promise.all([
       db()
         .prepare(
-          `SELECT id,subject,created_at,created_by_name,started_at,started_by_name,sent_at,(SELECT COUNT(*) FROM newsletter_deliveries d WHERE d.newsletter_id=n.id) AS total,${count("'sent'")} AS sent,${count("'failed'")} AS failed,${count("'pending','sending'")} AS pending FROM newsletters n ORDER BY created_at DESC, id DESC LIMIT 20`,
+          `SELECT id,subject,created_at,created_by_name,started_at,started_by_name,sent_at,scheduled_at,scheduled_by_name,(SELECT COUNT(*) FROM newsletter_deliveries d WHERE d.newsletter_id=n.id) AS total,${count("'sent'")} AS sent,${count("'failed'")} AS failed,${count("'pending','sending'")} AS pending FROM newsletters n ORDER BY created_at DESC, id DESC LIMIT 20`,
         )
         .all(),
       db()

@@ -2,10 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "micom",
   "account_id": "c6585635ced99c193cb7a7fdadb6b927",
-  "main": "vinext/server/fetch-handler",
+  "main": "./worker/index.ts",
   "compatibility_date": "2026-05-15",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  // Scheduled newsletters (worker/index.ts); a send starts up to 10 minutes after its time.
+  "triggers": { "crons": ["*/10 * * * *"] },
   // Old versions must not stay reachable at <version>-micom.*.workers.dev with production bindings.
   "preview_urls": false,
   "d1_databases": [
