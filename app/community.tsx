@@ -139,6 +139,7 @@ export default function Community({ category = 'all', admin = false }: { categor
     signedIn: false,
     loaded: false,
   });
+  const [sessionError, setSessionError] = useState('');
   const [posts, setPosts] = useState<Post[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -213,7 +214,10 @@ export default function Community({ category = 'all', admin = false }: { categor
   useEffect(() => {
     loadSession<Omit<Identity, 'loaded'>>()
       .then((data) => setIdentity({ ...data, loaded: true }))
-      .catch(() => setIdentity((value) => ({ ...value, loaded: true })));
+      .catch((e) => {
+        setSessionError((e as Error).message);
+        setIdentity((value) => ({ ...value, loaded: true }));
+      });
   }, []);
   useEffect(() => {
     if (!identity.signedIn || (category !== 'clubs' && category !== 'all')) return;
@@ -458,7 +462,7 @@ export default function Community({ category = 'all', admin = false }: { categor
           </button>
         )}
       </section>
-      {!admin && category === 'all' && identity.loaded && !identity.signedIn && !identity.blocked && (
+      {!admin && category === 'all' && identity.loaded && !identity.signedIn && !identity.blocked && !sessionError && (
         <section className="welcome-panel">
           <div>
             <span className="tiny-label">HELLO, MICOM!</span>
@@ -524,6 +528,14 @@ export default function Community({ category = 'all', admin = false }: { categor
           </div>
           <h2>이용할 수 없는 계정입니다</h2>
           <p>{identity.blocked}</p>
+        </section>
+      ) : !identity.signedIn && sessionError ? (
+        <section className="detail-card detail-error" role="alert">
+          <h1>계정 정보를 불러오지 못했어요</h1>
+          <p>{sessionError}</p>
+          <button className="primary" type="button" onClick={() => window.location.reload()}>
+            다시 시도
+          </button>
         </section>
       ) : !identity.signedIn ? (
         <section className="member-gate">

@@ -87,13 +87,18 @@ export async function sweepUnattached(ownerId?: string, age = 0) {
           .bind(Date.now() - 24 * 60 * 60 * 1000)
   ).all<{ key: string }>();
   const keys = rows.results.map((row) => row.key);
-  if (!keys.length) return 0;
-  await db()
-    .prepare(`DELETE FROM images WHERE key IN (${keys.map(() => '?').join(',')})`)
-    .bind(...keys)
-    .run();
-  await bucket().delete(keys);
-  return keys.length;
+  let removed = 0;
+  for (let i = 0; i < keys.length; i += 90) {
+    // post_id is re-checked so a photo attached since the SELECT survives.
+    const part = keys.slice(i, i + 90);
+    const gone = await db()
+      .prepare(`DELETE FROM images WHERE key IN (${part.map(() => '?').join(',')}) AND post_id IS NULL RETURNING key`)
+      .bind(...part)
+      .all<{ key: string }>();
+    if (gone.results.length) await bucket().delete(gone.results.map((row) => row.key));
+    removed += gone.results.length;
+  }
+  return removed;
 }
 
 // Deletes the photos of the given posts, both rows and stored files.

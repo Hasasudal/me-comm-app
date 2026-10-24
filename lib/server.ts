@@ -6,6 +6,7 @@ import { optionalMember, requireMember, type Member, type Role } from './member-
 import { verifyPassword } from './password';
 import type { Review } from './annotations';
 import { imagesField } from './images';
+import { hidden, hiddenInText, isReservedName, reservedKey } from './author-names';
 
 export { db, HttpError, requireMember };
 export function json(value: unknown, status = 200, headers?: HeadersInit) {
@@ -63,31 +64,12 @@ export async function input(request: Request, maxBytes = 100000) {
     throw new HttpError(400, '요청을 처리하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해주세요.');
   }
 }
-// C0 controls, DEL, bidi overrides/isolates and zero-width marks: invisible, so they spoof names or hide text.
-const hidden = /[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/;
-// Multi-line text keeps \t, \n and the zero-width joiner (U+200D, used inside emoji); the rest is dropped.
-const hiddenInText = /[\u0000-\u0008\u000B-\u001F\u007F\u200B\u200C\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
 /** `.refine(...visible)` rejects single-line fields (names, titles) that carry hidden characters. */
 export const visible = [(value: string) => !hidden.test(value), '보이지 않는 특수문자는 쓸 수 없어요. 지우고 다시 입력해주세요.'] as const;
 export const stripHidden = (value: string) => value.replace(hiddenInText, '');
-// Staff may sign as their own role; admins as any of these. Compared after NFKC (fullwidth ＡＤＭＩＮ → admin),
-// keeping only letters and digits (so '[관리자]' or '관 리.자' match) and ignoring case.
-const reservedNames = new Map<string, Role | null>([
-  ['관리자', null],
-  ['운영자', null],
-  ['admin', null],
-  ['학사', 'academic'],
-  ['학생회', 'council'],
-]);
-const reservedKey = (name: string) =>
-  name
-    .normalize('NFKC')
-    .replace(/[^\p{L}\p{N}]/gu, '')
-    .toLowerCase();
 /** Author, comment and club names. */
 export function checkAuthorName(name: string, member: Member) {
-  const key = reservedKey(name);
-  if (reservedNames.has(key) && !isAdmin(member) && reservedNames.get(key) !== member.role)
+  if (!isAdmin(member) && isReservedName(name, member.role))
     throw new HttpError(400, '운영진으로 오해될 수 있는 이름은 쓸 수 없어요. 다른 이름을 입력해주세요.');
 }
 /** Post prefixes (머릿글): the same names, and '공지' only for admins. */

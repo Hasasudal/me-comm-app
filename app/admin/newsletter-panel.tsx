@@ -278,7 +278,10 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
     });
   const unschedule = (item: Newsletter) =>
     guarded(async () => {
-      if (!(await confirmDialog(`‘${item.subject}’ 예약을 취소할까요? 뉴스레터는 기록에 남습니다.`, { ok: '예약 취소', cancel: '닫기', danger: true })))
+      const msg = item.started_at
+        ? `‘${item.subject}’ 예약을 취소할까요? 이미 보낸 메일은 그대로이고, 남은 ${item.pending}명은 ‘이어서 보내기’를 누를 때까지 기다립니다.`
+        : `‘${item.subject}’ 예약을 취소할까요? 뉴스레터는 기록에 남습니다.`;
+      if (!(await confirmDialog(msg, { ok: '예약 취소', cancel: '닫기', danger: true })))
         return;
       await api(`/api/admin/newsletters/${item.id}/schedule`, {}, 'DELETE');
       onNotice('예약을 취소했습니다.');
@@ -516,7 +519,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
                       {item.subject}
                       {waiting && <span className="status-badge feedback">예약됨</span>}
                       {item.started_at && !item.sent_at && item.pending > 0 && (
-                        <span className="status-badge pending">발송 중</span>
+                        <span className="status-badge pending">{item.scheduled_at ? '발송 중' : '중단됨'}</span>
                       )}
                       {item.sent_at && <span className="status-badge published">완료</span>}
                       {item.audience === 'staff' && <span className="status-badge">운영진만</span>}
@@ -543,7 +546,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
                     {scheduling?.id === item.id && picker(scheduling)}
                   </div>
                   <div className="newsletter-history-actions">
-                    {waiting && (
+                    {item.scheduled_at && !item.sent_at && (
                       <button className="secondary" disabled={busy} onClick={() => void unschedule(item)}>
                         예약 취소
                       </button>

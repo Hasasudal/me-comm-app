@@ -158,7 +158,19 @@ export default function AccountPanel() {
       setBusy(false);
     }
   }
-  if (!session) return <p className="join-state">계정 정보를 확인하고 있어요…</p>;
+  if (!session)
+    return error ? (
+      <div className="join-action">
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+        <button className="secondary full" type="button" onClick={() => window.location.reload()}>
+          다시 시도
+        </button>
+      </div>
+    ) : (
+      <p className="join-state">계정 정보를 확인하고 있어요…</p>
+    );
   if (!session.signedIn)
     return (
       <div className="join-action">

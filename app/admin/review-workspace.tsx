@@ -161,18 +161,17 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
     };
   }, [menuOpen]);
 
-  // j/k and the arrow keys step through the list; never bound to approve/reject/delete.
+  // j/k step through the list (only in the plain review panel); never bound to approve/reject/delete.
   const [helpOpen, setHelpOpen] = useState(false);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])')) return;
-      if (document.querySelector('dialog[open]')) return;
+      if (document.querySelector('dialog[open]') || target?.closest('.newsletter-panel')) return;
       if (event.key === '?') return setHelpOpen((open) => !open);
-      const step =
-        event.key === 'j' || event.key === 'ArrowDown' ? 1 : event.key === 'k' || event.key === 'ArrowUp' ? -1 : 0;
-      if (!step || event.shiftKey || !articles.length) return;
+      const step = event.key === 'j' ? 1 : event.key === 'k' ? -1 : 0;
+      if (!step || event.shiftKey || !articles.length || panel !== 'review') return;
       event.preventDefault();
       const next = articles[articles.findIndex((article) => article.id === selectedId) + step];
       if (next) {
@@ -304,7 +303,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
       <TodayPanel onReview={() => switchTab('pending')} refreshKey={counts?.pending} />
       {helpOpen && (
         <p className="shortcut-help" role="note">
-          <kbd>j</kbd>/<kbd>↓</kbd> 다음 기사 · <kbd>k</kbd>/<kbd>↑</kbd> 이전 기사 · <kbd>?</kbd> 닫기
+          <kbd>j</kbd> 다음 기사 · <kbd>k</kbd> 이전 기사 · <kbd>?</kbd> 닫기
         </p>
       )}
       <div className="review-workspace">

@@ -27,6 +27,11 @@ export function firebaseMessage(error: unknown) {
     'auth/weak-password': '비밀번호는 영문과 숫자를 포함해 8자 이상 입력해주세요.',
     'auth/too-many-requests': '짧은 시간에 너무 많이 시도했어요. 잠시 후 다시 시도해주세요.',
     'auth/network-request-failed': '인터넷 연결이 불안정해요. 연결을 확인한 뒤 다시 시도해주세요.',
+    'auth/invalid-action-code':
+      '이미 사용했거나 만료된 링크예요. 이미 인증했다면 바로 로그인해 보세요. 아니면 로그인 화면에서 인증 메일을, 비밀번호 찾기에서 재설정 메일을 다시 받아주세요.',
+    'auth/expired-action-code':
+      '이미 사용했거나 만료된 링크예요. 이미 인증했다면 바로 로그인해 보세요. 아니면 로그인 화면에서 인증 메일을, 비밀번호 찾기에서 재설정 메일을 다시 받아주세요.',
+    'auth/user-not-found': '가입된 계정을 찾지 못했어요. 이메일을 다시 확인해주세요.',
     'auth/requires-recent-login': '보안을 위해 다시 로그인이 필요해요. 로그아웃한 뒤 다시 로그인해주세요.',
   };
   if (messages[code]) return messages[code];

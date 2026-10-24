@@ -262,6 +262,14 @@ export default function PostDetail({ id }: { id: string }) {
           <h2>이용할 수 없는 계정입니다</h2>
           <p>{identity.blocked}</p>
         </section>
+      ) : !identity.signedIn && error ? (
+        <section className="detail-card detail-error" role="alert">
+          <h1>계정 정보를 불러오지 못했어요</h1>
+          <p>{error}</p>
+          <button className="primary" type="button" onClick={() => window.location.reload()}>
+            다시 시도
+          </button>
+        </section>
       ) : !identity.signedIn ? (
         <section className="member-gate">
           <div className="member-gate-icon">

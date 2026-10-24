@@ -43,8 +43,12 @@ async function call(body: { action: string; [key: string]: unknown }) {
       body: JSON.stringify({ secret: env.NEWSLETTER_SCRIPT_SECRET!.trim(), ...body }),
       signal: AbortSignal.timeout(TIMEOUT),
     });
+    // A 404 on the first hop (no redirect) is Google refusing the deployment itself (deleted/disabled): the script never ran.
+    // After the 302 the script has already run, so a 404 there stays unknown.
+    if (response.status === 404 && !response.redirected) throw new HttpError(502, UNREACHABLE);
     data = await response.json();
   } catch (e) {
+    if (e instanceof HttpError) throw e;
     console.error('Newsletter script failed', e instanceof Error ? e.message : 'Unknown error');
     throw unknown();
   }
@@ -316,6 +320,15 @@ export async function runScheduledNewsletters() {
     } catch (e) {
       // Unknown outcome: those rows are already failed. Refusal: they are pending again for the next run.
       console.error('Scheduled newsletter failed', e instanceof Error ? e.message : 'Unknown error');
+      // Likely an outage: pause (manual 이어서 보내기) instead of failing 10 more recipients every run.
+      if (e instanceof Unconfirmed) {
+        console.error('Scheduled newsletter paused', letter.id);
+        await db()
+          .prepare('UPDATE newsletters SET scheduled_at=NULL,scheduled_by=NULL,scheduled_by_name=NULL WHERE id=?')
+          .bind(letter.id)
+          .run()
+          .catch(() => {});
+      }
     }
     if (spent()) return;
   }
