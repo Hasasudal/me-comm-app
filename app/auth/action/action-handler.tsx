@@ -28,6 +28,7 @@ export default function ActionHandler({
   );
   const [done, setDone] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [codeOk, setCodeOk] = useState(false);
   const destination = returnPath(continueUrl);
 
   useEffect(() => {
@@ -35,7 +36,10 @@ export default function ActionHandler({
     if (mode === 'resetPassword') {
       firebaseAuth()
         .then((auth) => verifyPasswordResetCode(auth, oobCode))
-        .then(setVerifiedEmail)
+        .then((email) => {
+          setVerifiedEmail(email);
+          setCodeOk(true);
+        })
         .catch((cause) => setError(firebaseMessage(cause)))
         .finally(() => setBusy(false));
       return;
@@ -86,7 +90,7 @@ export default function ActionHandler({
         {error}
       </div>
     );
-  if (busy) return <div className="action-state">요청을 확인하고 있어요…</div>;
+  if (busy && !codeOk) return <div className="action-state">요청을 확인하고 있어요…</div>;
   if (done)
     return (
       <div className="action-state success">
@@ -107,9 +111,14 @@ export default function ActionHandler({
       </div>
     );
 
-  if (mode === 'resetPassword' && !error)
+  if (mode === 'resetPassword' && codeOk)
     return (
       <form className="auth-form" onSubmit={reset}>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
         {verifiedEmail && <p className="action-email">{verifiedEmail}</p>}
         <label>
           새 비밀번호

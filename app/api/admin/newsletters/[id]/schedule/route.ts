@@ -8,10 +8,12 @@ export const dynamic = 'force-dynamic';
 // Only before sending started: no delivery rows yet and not marked sent (a newsletter with no subscribers is).
 const unstarted =
   'id=?1 AND sent_at IS NULL AND started_at IS NULL AND NOT EXISTS (SELECT 1 FROM newsletter_deliveries WHERE newsletter_id=?1)';
+// Cancelling also works after the cron started: sent mails stay sent, the rest waits for a manual resume.
+const cancellable = 'id=?1 AND sent_at IS NULL AND scheduled_at IS NOT NULL';
 async function refuse(id: string) {
   const exists = await db().prepare('SELECT 1 FROM newsletters WHERE id=?').bind(id).first();
   return exists
-    ? new HttpError(409, '이미 발송을 시작한 뉴스레터는 예약을 바꿀 수 없습니다.')
+    ? new HttpError(409, '예약을 바꿀 수 없는 뉴스레터입니다. (이미 발송했거나 예약이 없어요)')
     : new HttpError(404, '뉴스레터를 찾을 수 없습니다.');
 }
 
@@ -41,7 +43,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     await input(request);
     await limit(request, 'newsletter-schedule', 30, admin.userId);
     const result = await db()
-      .prepare(`UPDATE newsletters SET scheduled_at=NULL,scheduled_by=NULL,scheduled_by_name=NULL WHERE ${unstarted}`)
+      .prepare(`UPDATE newsletters SET scheduled_at=NULL,scheduled_by=NULL,scheduled_by_name=NULL WHERE ${cancellable}`)
       .bind(id)
       .run();
     if (!result.meta.changes) throw await refuse(id);

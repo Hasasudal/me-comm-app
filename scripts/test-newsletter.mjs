@@ -311,6 +311,33 @@ try {
   assert.ok(deliveries(due).every((d) => d.status === 'sent'));
   assert.equal(deliveries(later).length, 0, 'not-yet-due newsletters are left alone');
   assert.equal(mailed('예약 소식').length, 0);
+  // A started scheduled send can still be cancelled; mails already sent stay sent.
+  const halted = await create('중단 소식');
+  assert.equal((await schedule(halted, hour)).status, 200);
+  execute(`UPDATE newsletters SET scheduled_at=${Date.now() - 1000} WHERE id='${halted}'`);
+  mock.remaining = 1;
+  await cron();
+  await until(() => mailed('중단 소식').length === 1 && mock.remaining === 0, 'cron start');
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  assert.ok(row(halted).started_at && row(halted).scheduled_at);
+  assert.equal((await unschedule(halted)).status, 200, 'a started schedule can be cancelled');
+  assert.equal(row(halted).scheduled_at, null);
+  assert.ok(row(halted).started_at, 'history stays');
+  assert.equal((await unschedule(halted)).status, 409, 'nothing left to cancel');
+  mock.remaining = 100;
+  await finish(halted);
+  // An unreadable reply (outage) pauses the schedule instead of failing more recipients every run.
+  const outage = await create('장애 소식');
+  assert.equal((await schedule(outage, hour)).status, 200);
+  execute(`UPDATE newsletters SET scheduled_at=${Date.now() - 1000} WHERE id='${outage}'`);
+  mock.mode = 'html';
+  await cron();
+  await until(() => row(outage).scheduled_at === null && row(outage).started_at, 'paused after unconfirmed');
+  const failedNow = deliveries(outage).filter((d) => d.status === 'failed').length;
+  assert.ok(failedNow > 0 && failedNow <= 10);
+  await cron();
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  assert.equal(deliveries(outage).filter((d) => d.status === 'failed').length, failedNow, 'a paused newsletter is not touched again');
   assert.equal((await request(`/api/admin/newsletters/${later}`, { method: 'DELETE', cookie: admin, body: {} })).status, 200, 'a scheduled draft can be deleted');
 
   // Audience 'staff': only subscribed active academic/council/admin members, snapshotted from the newsletter row.

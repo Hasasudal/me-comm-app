@@ -38,15 +38,21 @@ export async function POST(request: Request, context: Context) {
       if (!admin) throw new HttpError(403, '관리자만 글을 고정할 수 있습니다.');
       if (privateCategories.includes(post.category)) throw new HttpError(400, '비공개 글은 고정할 수 없습니다.');
     }
+    // Pin first: a full board refuses before `resolved` is written. The cap is checked in the same statement
+    // as the write (posts/route.ts lists at most 10 pins).
+    if (flags.pinned) {
+      const pin = await db()
+        .prepare(
+          'UPDATE posts SET pinned_at=? WHERE id=? AND (pinned_at IS NOT NULL OR (SELECT COUNT(*) FROM posts WHERE pinned_at IS NOT NULL) < 10)',
+        )
+        .bind(Date.now(), id)
+        .run();
+      if (!pin.meta.changes) throw new HttpError(409, '고정 글은 10개까지예요. 다른 글의 고정을 먼저 풀어주세요.');
+    } else if (flags.pinned === false) await db().prepare('UPDATE posts SET pinned_at=NULL WHERE id=?').bind(id).run();
     if (flags.resolved !== undefined)
       await db()
         .prepare('UPDATE posts SET resolved_at=? WHERE id=?')
         .bind(flags.resolved ? Date.now() : null, id)
-        .run();
-    if (flags.pinned !== undefined)
-      await db()
-        .prepare('UPDATE posts SET pinned_at=? WHERE id=?')
-        .bind(flags.pinned ? Date.now() : null, id)
         .run();
     return json({ ok: true });
   });
