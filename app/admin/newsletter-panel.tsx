@@ -486,7 +486,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
         <input
           value={testTo}
           maxLength={300}
-          placeholder="가입한 회원 이메일, 쉼표로 구분 (최대 5명)"
+          placeholder="뉴스레터를 받는 회원 이메일, 쉼표로 구분 (최대 5명)"
           onChange={(event) => setTestTo(event.target.value)}
         />
       </label>

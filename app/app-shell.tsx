@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from './api-client';
+import { confirmDialog } from './confirm-dialog';
 import SiteNotice from './site-notice';
 
 export type BoardId = 'all' | 'board' | 'inquiry' | 'complaint' | 'news' | 'clubs' | 'contests';
@@ -107,7 +108,10 @@ export async function loadSession<T extends object>(): Promise<T & { signedIn: b
   const response = await fetch('/api/session', { cache: 'no-store' });
   const data = (await response.json().catch(() => ({}))) as T & { signedIn: boolean; error?: string };
   if (response.status === 403)
-    return { signedIn: false, blocked: data.error || '이용이 정지된 계정이에요. 학과 사무실이나 운영진에게 문의해주세요.' } as T & {
+    return {
+      signedIn: false,
+      blocked: data.error || '이용이 정지된 계정이에요. 학과 사무실이나 운영진에게 문의해주세요.',
+    } as T & {
       signedIn: boolean;
       blocked: string;
     };
@@ -333,13 +337,23 @@ export function AppShell({
     setLeaving(true);
     try {
       await api('/api/auth/session', {}, 'DELETE');
-    } finally {
-      // Loaded on demand so every page's shell doesn't ship the Firebase SDK; a failure must not block leaving.
-      await Promise.all([import('firebase/auth'), import('./firebase-client')])
-        .then(async ([{ signOut }, { firebaseAuth }]) => signOut(await firebaseAuth()))
-        .catch(() => {});
-      window.location.assign('/');
+    } catch {
+      // The session cookie is still valid, so don't pretend to have left (matters on shared computers).
+      setLeaving(false);
+      if (
+        await confirmDialog('로그아웃하지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해주세요.', {
+          ok: '다시 시도',
+          cancel: '닫기',
+        })
+      )
+        void logout();
+      return;
     }
+    // Loaded on demand so every page's shell doesn't ship the Firebase SDK; a failure must not block leaving.
+    await Promise.all([import('firebase/auth'), import('./firebase-client')])
+      .then(async ([{ signOut }, { firebaseAuth }]) => signOut(await firebaseAuth()))
+      .catch(() => {});
+    window.location.assign('/');
   }
 
   return (

@@ -1,4 +1,4 @@
-import { requireConfigured, sendNextBatch } from '../../../../../../lib/newsletter';
+import { requireConfigured, sendNextBatch, siteOrigin } from '../../../../../../lib/newsletter';
 import { db, handle, input, json, limit, requireAdmin } from '../../../../../../lib/server';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +13,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     requireConfigured();
     await limit(request, 'newsletter-send', 30, admin.userId);
     await db().prepare('UPDATE newsletters SET scheduled_at=NULL WHERE id=? AND scheduled_at IS NOT NULL').bind(id).run();
-    return json(await sendNextBatch(id, { id: admin.userId, name: admin.displayName }, new URL(request.url).origin));
+    return json(await sendNextBatch(id, { id: admin.userId, name: admin.displayName }, siteOrigin(request)));
   });
 }

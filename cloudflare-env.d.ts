@@ -8,5 +8,6 @@ declare namespace Cloudflare {
     BUCKET?: R2Bucket;
     NEWSLETTER_SCRIPT_URL?: string;
     NEWSLETTER_SCRIPT_SECRET?: string;
+    SITE_URL?: string;
   }
 }

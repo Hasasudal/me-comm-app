@@ -122,6 +122,8 @@ export function sanitize(html: string) {
 
 const escape = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+// Links in mail use the configured public address, so scheduling from localhost or an old host can't bake in dead links.
+export const siteOrigin = (request: Request) => env.SITE_URL?.trim().replace(/\/+$/, '') || new URL(request.url).origin;
 export const unsubscribeUrl = (origin: string, token: string) =>
   `${origin}/newsletter/unsubscribe?token=${encodeURIComponent(token)}`;
 /** Puts the opt-out footer before </body>, or at the end when there is none. */

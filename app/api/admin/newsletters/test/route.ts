@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { newsletterFields, requireConfigured, sendMail, withFooter } from '../../../../../lib/newsletter';
+import { newsletterFields, siteOrigin, requireConfigured, sendMail, withFooter } from '../../../../../lib/newsletter';
 import { db, handle, HttpError, input, json, limit, requireAdmin } from '../../../../../lib/server';
 
 export const dynamic = 'force-dynamic';
@@ -27,16 +27,16 @@ export async function POST(request: Request) {
       ? (
           await db()
             .prepare(
-              `SELECT email FROM users WHERE status='active' AND lower(email) IN (${wanted.map(() => '?').join(',')})`,
+              `SELECT email FROM users WHERE status='active' AND newsletter=1 AND lower(email) IN (${wanted.map(() => '?').join(',')})`,
             )
             .bind(...wanted)
             .all<{ email: string }>()
         ).results.map((row) => row.email)
       : [];
     const unknown = wanted.filter((v) => !found.some((email) => email.toLowerCase() === v));
-    if (unknown.length) throw new HttpError(400, `가입한 회원 이메일이 아니에요: ${unknown.join(', ')}`);
+    if (unknown.length) throw new HttpError(400, `뉴스레터를 받는 회원 이메일이 아니에요: ${unknown.join(', ')}`);
     requireConfigured();
-    const origin = new URL(request.url).origin;
+    const origin = siteOrigin(request);
     const { results, remaining } = await sendMail(
       [admin.email, ...found].map((email) => ({
         to: email,

@@ -40,7 +40,7 @@
 
 1. `npx wrangler login`으로 Cloudflare 계정에 로그인합니다.
 2. `npx wrangler d1 create micom-lounge`를 실행하고 출력된 `database_id`를 `wrangler.jsonc`에 넣습니다.
-3. `npm run db:migrate:remote`로 `drizzle/0000`~`0004`를 운영 D1에 적용합니다.
+3. `main` 푸시 시 CI가 `drizzle/`의 모든 마이그레이션을 운영 D1에 적용합니다(수동은 `npm run db:migrate:remote`).
 4. `npx wrangler secret put <이름>`으로 `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID`를 등록합니다.
 5. `npm run deploy`로 빌드와 배포를 진행합니다. 기본 주소는 `https://micom-lounge.<계정 서브도메인>.workers.dev`입니다.
 6. Firebase 승인 도메인에 배포 주소를 추가합니다. 이메일 작업 URL은 Firebase 기본값을 유지합니다(콘솔에서 사용자 지정 URL 저장 시 400 오류, Identity Platform 미사용). 인증·재설정 링크는 Firebase 기본 화면에서 처리된 뒤 계속 버튼으로 `/login`에 돌아오며, `/auth/action` 화면은 사용자 지정 작업 URL을 설정할 때만 쓰입니다.
