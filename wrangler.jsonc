@@ -10,6 +10,8 @@
   "triggers": { "crons": ["*/10 * * * *"] },
   // Old versions must not stay reachable at <version>-micom.*.workers.dev with production bindings.
   "preview_urls": false,
+  // Public address used for links in newsletter mail (unsubscribe, account); .dev.vars overrides it locally.
+  "vars": { "SITE_URL": "https://micom.loungee.workers.dev" },
   "d1_databases": [
     {
       "binding": "DB",

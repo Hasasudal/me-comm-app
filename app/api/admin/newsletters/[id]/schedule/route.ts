@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { requireConfigured } from '../../../../../../lib/newsletter';
+import { requireConfigured, siteOrigin } from '../../../../../../lib/newsletter';
 import { SCHEDULE_ERROR, validScheduleTime } from '../../../../../../lib/schedule';
 import { db, handle, HttpError, input, json, limit, requireAdmin } from '../../../../../../lib/server';
 
@@ -28,8 +28,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     await limit(request, 'newsletter-schedule', 30, admin.userId);
     if (!validScheduleTime(at)) throw new HttpError(400, SCHEDULE_ERROR);
     const result = await db()
-      .prepare(`UPDATE newsletters SET scheduled_at=?2,scheduled_by=?3,scheduled_by_name=?4,site_origin=?5 WHERE ${unstarted}`)
-      .bind(id, at, admin.userId, admin.displayName, new URL(request.url).origin)
+      .prepare(
+        `UPDATE newsletters SET scheduled_at=?2,scheduled_by=?3,scheduled_by_name=?4,site_origin=?5 WHERE ${unstarted}`,
+      )
+      .bind(id, at, admin.userId, admin.displayName, siteOrigin(request))
       .run();
     if (!result.meta.changes) throw await refuse(id);
     return json({ ok: true, scheduled_at: at });

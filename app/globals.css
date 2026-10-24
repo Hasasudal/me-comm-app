@@ -340,13 +340,6 @@ a svg {
   font-weight: 500;
   color: var(--muted);
 }
-.semester {
-  font-size: 12px;
-  color: var(--faint);
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
 .mobile-menu {
   display: none !important;
 }
@@ -573,13 +566,6 @@ h1 {
   background: var(--accent-soft);
   border-radius: 6px;
   padding: 1px 6px;
-}
-.sort-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--faint);
 }
 .filter-row {
   display: flex;
@@ -957,22 +943,6 @@ label small {
   text-decoration: underline;
   margin-top: 5px;
 }
-.lock-symbol {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  border-radius: 16px;
-  width: 58px;
-  height: 58px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 18px;
-}
-.unlock-title {
-  font-size: 14px;
-  color: var(--faint);
-  margin-top: -13px;
-  overflow-wrap: anywhere;
-}
 .article-content {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -982,9 +952,6 @@ label small {
   padding: 24px 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-}
-.article-title {
-  overflow-wrap: anywhere;
 }
 .article-actions {
   display: flex;
@@ -1163,34 +1130,6 @@ label small {
   font-size: 12px;
   color: var(--muted);
 }
-.unlock-panel {
-  display: grid;
-  grid-template-columns: auto 1fr minmax(260px, 340px);
-  align-items: center;
-  gap: 19px;
-  margin-top: 34px;
-  padding: 28px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface-2);
-}
-.unlock-panel .lock-symbol {
-  margin: 0;
-}
-.unlock-panel h2 {
-  font-size: 18px;
-}
-.unlock-panel > div > p {
-  font-size: 13px;
-  color: var(--faint);
-  margin-top: 4px;
-}
-.unlock-panel form input {
-  margin: 0;
-}
-.unlock-panel form .primary {
-  margin-top: 10px;
-}
 .detail-article {
   min-height: 180px;
 }
@@ -1237,56 +1176,6 @@ label small {
   color: var(--faint);
   margin-bottom: 22px;
 }
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-.admin-join-page {
-  min-height: 100vh;
-  max-width: none;
-  padding: 48px 20px;
-  display: grid;
-  place-items: center;
-  background: radial-gradient(circle at 50% 15%, var(--accent-soft) 0, var(--surface) 42%, var(--surface) 100%);
-}
-.admin-join-card {
-  width: min(480px, 100%);
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 38px 42px;
-  box-shadow: 0 24px 70px #1e376b14;
-}
-.admin-join-brand {
-  width: max-content;
-  margin-bottom: 38px;
-}
-.join-icon {
-  width: 58px;
-  height: 58px;
-  border-radius: 17px;
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  display: grid;
-  place-items: center;
-  margin-bottom: 20px;
-}
-.admin-join-card h1 {
-  font-size: 29px;
-}
-.join-description {
-  font-size: 14px;
-  color: var(--faint);
-  line-height: 1.8;
-  margin-top: 10px;
-}
 .join-state,
 .join-action {
   font-size: 14px;
@@ -1295,60 +1184,6 @@ label small {
 }
 .join-action .primary {
   margin-top: 16px;
-}
-.account-preview {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  background: var(--surface-2);
-  border-radius: 9px;
-  padding: 12px 14px;
-  margin: 24px 0 8px;
-  color: var(--muted);
-}
-.account-preview strong,
-.account-preview small {
-  display: block;
-}
-.account-preview strong {
-  font-size: 14px;
-  color: var(--text-2);
-}
-.account-preview small {
-  font-size: 12px;
-  color: var(--faint);
-}
-.join-success {
-  text-align: center;
-  background: var(--ok-bg);
-  color: var(--ok-text);
-  border-radius: 11px;
-  padding: 24px;
-  margin-top: 25px;
-}
-.join-success svg {
-  margin: auto auto 9px;
-}
-.join-success strong,
-.join-success p {
-  display: block;
-}
-.join-success p {
-  font-size: 13px;
-  margin-top: 3px;
-}
-.join-security {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 12px;
-  margin-top: 23px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
-}
-.join-back {
-  margin: 20px 0 0;
 }
 .admin-members > p {
   margin-bottom: 5px;
@@ -1413,9 +1248,6 @@ label small {
   }
   .brand {
     font-size: 21px;
-  }
-  .semester {
-    display: none;
   }
 }
 @media (max-width: 700px) {
@@ -1584,13 +1416,6 @@ label small {
   .copy-button {
     margin-top: 18px;
   }
-  .unlock-panel {
-    grid-template-columns: 1fr;
-    padding: 22px;
-  }
-  .unlock-panel .lock-symbol {
-    margin-bottom: 0;
-  }
   .recruitment-summary {
     display: grid;
   }
@@ -1610,15 +1435,6 @@ label small {
   .orbit-art {
     margin: -30px auto -40px;
     transform: scale(0.72);
-  }
-  .admin-join-page {
-    padding: 20px 14px;
-  }
-  .admin-join-card {
-    padding: 28px 22px;
-  }
-  .admin-join-card h1 {
-    font-size: 25px;
   }
 }
 .auth-page {
@@ -3271,15 +3087,6 @@ label small {
 .help-page .part:first-child {
   margin-top: 24px;
 }
-.help-page .part-label {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-  border-top: 2px solid var(--ink);
-  padding-top: 8px;
-}
 .help-page section {
   padding-top: 30px;
   scroll-margin-top: 16px;
@@ -4045,32 +3852,150 @@ label small {
 }
 
 /* --- ux stage 2: admin --- */
-.today-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 10px; font-size: 0.88rem; }
-.today-panel h2 { margin: 0; font-size: 0.88rem; }
-.today-panel p { margin: 0; color: var(--muted); }
-.today-items { display: flex; flex-wrap: wrap; gap: 6px; }
-.today-items a, .today-items button { display: inline-flex; gap: 6px; align-items: center; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--ink); font: inherit; text-decoration: none; cursor: pointer; }
-.today-items b { color: var(--danger-text); }
-.shortcut-help { position: fixed; right: 16px; bottom: 16px; z-index: 20; margin: 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface, Canvas); color: var(--ink); font-size: 0.85rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); }
-.shortcut-help kbd { padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; }
-.bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0; }
-.bulk-bar label { display: inline-flex; gap: 6px; align-items: center; }
-.managed-list .pick { margin-right: 10px; flex: none; }
+.today-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 0.88rem;
+}
+.today-panel h2 {
+  margin: 0;
+  font-size: 0.88rem;
+}
+.today-panel p {
+  margin: 0;
+  color: var(--muted);
+}
+.today-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.today-items a,
+.today-items button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.today-items b {
+  color: var(--danger-text);
+}
+.shortcut-help {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface, Canvas);
+  color: var(--ink);
+  font-size: 0.85rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+.shortcut-help kbd {
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.bulk-bar label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.managed-list .pick {
+  margin-right: 10px;
+  flex: none;
+}
 
 /* --- ux stage 2: content & help --- */
-.help-tabs { display: flex; gap: 4px; margin: 44px 0 8px; border-bottom: 2px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 2; }
-.help-tabs button { padding: 10px 18px; border: 0; border-bottom: 3px solid transparent; margin-bottom: -2px; background: none; color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; }
-.help-tabs button.active { color: var(--ink); border-bottom-color: var(--ink); }
-.help-tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
-.help-page [role="tabpanel"][hidden] { display: none; }
-.help-page kbd { padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; font-size: 0.9em; }
+.help-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 44px 0 8px;
+  border-bottom: 2px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 2;
+}
+.help-tabs button {
+  padding: 10px 18px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.help-tabs button.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+.help-tabs button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.help-page [role='tabpanel'][hidden] {
+  display: none;
+}
+.help-page kbd {
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 0.9em;
+}
 
 /* --- ux stage 2: newsletter --- */
-.newsletter-audience { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; display: grid; gap: 6px; margin: 0; }
-.newsletter-audience legend { font-weight: 600; padding: 0 4px; }
-.newsletter-audience label { display: flex; align-items: center; gap: 6px; font-weight: 400; }
-.newsletter-audience input { width: auto; }
-.newsletter-test-to { display: grid; gap: 4px; margin: 8px 0; }
+.newsletter-audience {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.newsletter-audience legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+.newsletter-audience label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+.newsletter-audience input {
+  width: auto;
+}
+.newsletter-test-to {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
 
 /* --- ux stage 2: notifications & comments --- */
 .nav-row {

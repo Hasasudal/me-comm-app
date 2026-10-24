@@ -20,14 +20,16 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # Informational: next 16.3.4 has a critical advisory in code vinext does not run (next/og, image optimizer),
-      # so this reports without failing the job. Make it a hard gate once that advisory is resolved.
+      # Informational: transitive advisories (vinext's @vercel/og, firebase's grpc) sit in code this app does not run,
+      # so this reports without failing the job.
       - run: npm audit --omit=dev --audit-level=critical
         continue-on-error: true
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      # Every migration runs on a fresh local D1 first, so broken SQL fails the PR instead of production.
+      - run: npx wrangler d1 migrations apply micom-lounge --local
 
       # Integration tests (scripts/test-*.mjs) need a dev server and local secrets, so they stay manual.
       - name: Apply D1 migrations

@@ -1,4 +1,4 @@
-# 미컴 라운지 인수인계 (2026-09-23 기준)
+# 미컴 라운지 인수인계 (2026-10-24 기준)
 
 새 세션에서 이 저장소를 이어받을 때 먼저 읽는 문서입니다. 기능 사양은 [docs/implementation.md](implementation.md),
 백업·복구는 [docs/backup.md](backup.md), 검증 범위는 [docs/verification.md](verification.md),
@@ -25,7 +25,7 @@
 ## 2. 게시판과 권한
 
 게시판: 통합(`/`), 자유게시판(`/board`), 학사문의(`/inquiry`), 학생회 건의(`/complaint`), 학과 뉴스(`/news`),
-동아리(`/clubs`), 공모전 모집(`/contests`). 그 밖에 `/help`, `/account`, `/admin`, `/admin/members`,
+동아리(`/clubs`), 공모전 모집(`/contests`). 그 밖에 `/help`, `/account`, `/admin`, `/admin/members`, `/newsletter/unsubscribe`,
 `/login`, `/signup`, `/verify-email`, `/auth/action`(Firebase 이메일 링크 처리).
 
 직책은 `users.role` 한 가지: `member`(일반) · `academic`(학사) · `council`(학생회) · `admin`(관리자).
@@ -48,6 +48,11 @@
 - **가입 승인**: 학교 메일이 인증 메일을 막는 경우가 있어, 인증하지 않은 계정이 로그인하면 `status='pending'`으로
   기록되고 관리자가 승인(`active`)/거절(`suspended`)합니다. 인증을 마치면 승인 없이 자동 활성화됩니다.
 - **직책·상태 변경은 `member_audit`에 기록**되고 회원·직책 관리 화면 아래에서 볼 수 있습니다.
+- **댓글 수정**: 수정하면 `comments.edited_at`이 채워집니다.
+- **답변 완료 표시·상단 고정**: `POST /api/posts/[id]/flags`(`pinned`/`resolved`). 담당자가 직접 답변 완료·대기로 바꿀 수 있습니다.
+- **관리자 요약·일괄 승인**: `/api/admin/summary`(오늘 할 일 패널 `app/admin/today-panel.tsx`), `/api/admin/users/approve`(가입 대기 일괄 승인).
+- **뉴스레터**: 관리자가 `app/admin/newsletter-panel.tsx`에서 작성·예약하고, 발송은 `lib/newsletter.ts`가 Google Apps Script로 처리합니다. 예약 발송은 `worker/index.ts`의 `scheduled`가 `wrangler.jsonc`의 cron(10분마다)으로 실행합니다. 설정은 [docs/newsletter/README.md](newsletter/README.md).
+- **화면**: 다크 모드(`globals.css`), 삭제 등 확인 창은 `app/confirm-dialog.tsx`를 씁니다.
 
 ## 3. 코드 구조
 
@@ -66,9 +71,10 @@ web/
     writer-tag.tsx     별명 옆 실제 계정 표시(관리자·담당자용)
   lib/                 서버 로직: server.ts(권한·검증·목록 SQL·rate limit), member-auth.ts(세션),
                        firebase-token.ts(ID 토큰 검증), images.ts(R2), database.ts(D1 연결),
-                       password.ts(PBKDF2), search.ts, annotations.ts, news-docx.ts, recruitment.ts, clubs.ts
-  db/schema.ts         drizzle 스키마 (테이블: posts, comments, images, users, sessions, attempts, member_audit, clubs)
-  drizzle/             마이그레이션 SQL (0000~0011). 배포 시 자동 적용
+                       password.ts(PBKDF2), search.ts, annotations.ts, news-docx.ts, recruitment.ts, clubs.ts, newsletter.ts(Apps Script 발송)
+  worker/index.ts      Worker 진입점: vinext 핸들러 + 뉴스레터 예약 발송(cron)
+  db/schema.ts         drizzle 스키마 (테이블: posts, comments, images, users, sessions, attempts, member_audit, clubs, newsletters, newsletter_deliveries)
+  drizzle/             마이그레이션 SQL (0000~0018). 배포 시 자동 적용
   public/logo.png      학과 로고(MEDIA Communication). 사이드바·로그인 화면 위쪽에 표시
   public/logo-mark.png 작은 크기용 로고(무지개+MEDIA, 작아서 안 읽히는 "Since 1989" 제외). 첫 화면 그림 가운데
   public/favicon.png   브라우저 탭 아이콘(logo-mark를 정사각형으로)

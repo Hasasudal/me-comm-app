@@ -118,7 +118,7 @@ try {
   assert.match(mock.sent[0].html, /\/account"/, 'test footer links to the account page');
   mock.sent = [];
 
-  // Extra test recipients: registered active members only, at most 5.
+  // Extra test recipients: subscribed active members only, at most 5.
   const testMail = (to) =>
     request('/api/admin/newsletters/test', { method: 'POST', cookie: admin, body: { subject: '추가 테스트', html: '<p>x</p>', to } });
   let t = await testMail('nobody@example.com, suspended@ks.ac.kr');
@@ -127,9 +127,12 @@ try {
   assert.equal(mock.sent.length, 0, 'nothing is mailed when any address is unknown');
   t = await testMail('a@ks.ac.kr,b@ks.ac.kr,c@ks.ac.kr,d@ks.ac.kr,e@ks.ac.kr,f@ks.ac.kr');
   assert.equal(t.status, 400, 'more than 5 extras');
-  t = await testMail(' Second@KS.ac.kr, active@ks.ac.kr ');
+  t = await testMail('second@ks.ac.kr');
+  assert.equal(t.status, 400, 'members who turned the newsletter off get no test mail');
+  assert.equal(mock.sent.length, 0);
+  t = await testMail(' Expired@KS.ac.kr, active@ks.ac.kr ');
   assert.equal(t.status, 200);
-  assert.deepEqual(mock.sent.map((m) => m.to).sort(), ['active@ks.ac.kr', 'second@ks.ac.kr'], 'admin once, plus the member');
+  assert.deepEqual(mock.sent.map((m) => m.to).sort(), ['active@ks.ac.kr', 'expired@ks.ac.kr'], 'admin once, plus the member');
   mock.sent = [];
 
   // Everyone active and subscribed at the first call; the fixture's second (off) and suspended members are not.
