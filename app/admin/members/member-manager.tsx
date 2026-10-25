@@ -44,10 +44,10 @@ const formatWhen = (n: number) =>
     minute: '2-digit',
   }).format(n);
 const roleHints: Record<Role, string> = {
-  member: '일반 회원 권한만 갖습니다',
-  academic: '학사문의를 모두 보고 답변합니다',
-  council: '학생회 건의를 모두 보고 답변합니다',
-  admin: '모든 기능과 직책 관리를 할 수 있습니다',
+  member: '일반 회원 권한만 가져요',
+  academic: '학사문의를 모두 보고 답변해요',
+  council: '학생회 건의를 모두 보고 답변해요',
+  admin: '모든 기능과 직책 관리를 할 수 있어요',
 };
 const roleOrder = Object.keys(roleLabels) as Role[];
 
@@ -128,8 +128,18 @@ export default function MemberManager() {
     if (!(await confirmDialog(question))) return;
     setBusy(true);
     setError('');
+    setNotice('');
     try {
       await api(`/api/admin/users/${encodeURIComponent(user.id)}`, change, 'PATCH');
+      setNotice(
+        change.role
+          ? `${user.display_name} 회원의 직책을 바꿨어요.`
+          : user.status === 'pending'
+            ? `${user.display_name} 회원을 승인했어요.`
+            : change.status === 'suspended'
+              ? `${user.display_name} 회원의 이용을 정지했어요.`
+              : `${user.display_name} 회원의 정지를 풀었어요.`,
+      );
       await Promise.all([load(page), loadAudit()]);
     } catch (cause) {
       setError((cause as Error).message);
@@ -141,7 +151,7 @@ export default function MemberManager() {
       ? update(
           user,
           { status: 'suspended' },
-          `${user.display_name} 회원의 이용을 정지할까요?\n모든 기기에서 로그아웃됩니다.`,
+          `${user.display_name} 회원의 이용을 정지할까요?\n모든 기기에서 로그아웃돼요.`,
         )
       : update(user, { status: 'active' }, `${user.display_name} 회원의 이용을 복구할까요?`);
   // Pending rows only exist for sign-ins whose school mail was never verified: anyone could have typed that address,
@@ -150,13 +160,13 @@ export default function MemberManager() {
     update(
       user,
       { status: 'active' },
-      `이메일 인증을 하지 않은 계정입니다. 본인 확인 후 승인하세요.
+      `이메일 인증을 하지 않은 계정이에요. 본인 확인 후 승인해주세요.
 ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
     );
   async function decline(user: User) {
     if (
       !(await confirmDialog(`${user.display_name}(${user.email}) 회원의 가입을 거절할까요?
-가입 요청이 삭제됩니다.`, {
+가입 요청이 삭제돼요.`, {
         ok: '거절',
         danger: true,
       }))
@@ -164,8 +174,10 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
       return;
     setBusy(true);
     setError('');
+    setNotice('');
     try {
       await api(`/api/admin/users/${encodeURIComponent(user.id)}`, {}, 'DELETE');
+      setNotice(`${user.display_name} 회원의 가입 요청을 거절했어요.`);
       await Promise.all([load(page), loadAudit()]);
     } catch (cause) {
       setError((cause as Error).message);
@@ -177,7 +189,7 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
   async function approvePicked() {
     if (
       !picked.length ||
-      !(await confirmDialog(`이메일 인증을 하지 않은 계정입니다. 본인 확인 후 승인하세요.
+      !(await confirmDialog(`이메일 인증을 하지 않은 계정이에요. 본인 확인 후 승인해주세요.
 선택한 ${picked.length}명의 가입을 승인할까요?`, {
         ok: '승인',
       }))
@@ -185,6 +197,7 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
       return;
     setBusy(true);
     setError('');
+    setNotice('');
     try {
       const result = await api<{ approved: number }>('/api/admin/users/approve', { userIds: picked }, 'POST');
       setNotice(`${result.approved}명을 승인했어요.`);
@@ -218,18 +231,18 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
           <h1>
             회원·직책 관리<span className="heading-dot">.</span>
           </h1>
-          <p>회원을 찾아 직책(일반·학사·학생회·관리자)을 정하고 이용 상태를 관리합니다.</p>
+          <p>회원을 찾아 직책(일반·학사·학생회·관리자)을 정하고 이용 상태를 관리해요.</p>
         </div>
       </section>
       {!identity.loaded ? (
         <div className="loading" role="status">
-          관리자 권한을 확인하고 있습니다…
+          관리자 권한을 확인하고 있어요…
         </div>
       ) : !identity.admin ? (
         <div className="admin-gate">
           <ShieldCheck size={32} />
           <h3>관리자 전용 공간입니다</h3>
-          <p>관리자 직책이 필요합니다. 관리자에게 직책을 요청해주세요.</p>
+          <p>관리자 직책이 필요해요. 관리자에게 직책을 요청해주세요.</p>
         </div>
       ) : (
         <section className="member-panel">
@@ -362,7 +375,7 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
                     {user.status === 'active' && !user.email_verified && (
                       <span
                         className="status-chip pending unverified-chip"
-                        title="인증 메일을 받은 적 없는 주소예요. 실제 학교 메일이 맞는지 본인에게 확인을 부탁하세요."
+                        title="인증 메일을 받은 적 없는 주소예요. 실제 학교 메일이 맞는지 본인에게 확인을 부탁해주세요."
                       >
                         이메일 미인증
                       </span>
@@ -373,9 +386,13 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
                   className={`role-select ${user.role}`}
                   aria-label={`${user.display_name} 직책`}
                   value={user.role}
-                  disabled={busy || user.id === identity.userId}
+                  disabled={busy || user.id === identity.userId || user.status === 'pending'}
                   title={
-                    user.id === identity.userId ? '내 직책은 다른 관리자가 바꿀 수 있습니다' : roleHints[user.role]
+                    user.status === 'pending'
+                      ? '가입 승인 후에 직책을 바꿀 수 있어요'
+                      : user.id === identity.userId
+                        ? '내 직책은 다른 관리자가 바꿀 수 있어요'
+                        : roleHints[user.role]
                   }
                   onChange={(event) => void assign(user, event.target.value as Role)}
                 >
@@ -408,7 +425,7 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
                 )}
               </li>
             ))}
-            {!busy && !users.length && <li className="empty-members">조건에 맞는 회원이 없습니다.</li>}
+            {!busy && !users.length && <li className="empty-members">조건에 맞는 회원이 없어요.</li>}
           </ul>
           <div className="member-pagination">
             <button className="secondary" disabled={busy || page <= 1} onClick={() => void load(page - 1)}>
@@ -428,7 +445,7 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
             {!audit ? (
               <p className="member-audit-empty">불러오는 중…</p>
             ) : audit.length === 0 ? (
-              <p className="member-audit-empty">아직 직책이나 상태를 바꾼 기록이 없습니다.</p>
+              <p className="member-audit-empty">아직 직책이나 상태를 바꾼 기록이 없어요.</p>
             ) : (
               <ol>
                 {audit.map((entry) => (
@@ -438,7 +455,7 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
                       <strong>{entry.actor_name}</strong>님이 <strong>{entry.target_name}</strong>
                       <small>({entry.target_email})</small>의 {entry.action === 'role' ? '직책을' : '상태를'}{' '}
                       <em>{auditValue(entry, entry.before)}</em> → <em>{auditValue(entry, entry.after)}</em>(으)로
-                      바꿨습니다.
+                      바꿨어요.
                     </span>
                   </li>
                 ))}

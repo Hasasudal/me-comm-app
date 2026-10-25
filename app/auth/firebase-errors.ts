@@ -35,6 +35,7 @@ export function firebaseMessage(error: unknown) {
     'auth/requires-recent-login': '보안을 위해 다시 로그인이 필요해요. 로그아웃한 뒤 다시 로그인해주세요.',
   };
   if (messages[code]) return messages[code];
+  if (error instanceof TypeError) return messages['auth/network-request-failed'];
   return error instanceof Error && !code ? error.message : '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.';
 }
 

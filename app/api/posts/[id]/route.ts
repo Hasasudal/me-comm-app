@@ -10,6 +10,7 @@ import {
   input,
   isAdmin,
   json,
+  limit,
   parseReview,
   passwordField,
   publicPost,
@@ -41,6 +42,7 @@ export async function GET(request: Request, context: Context) {
 export async function PATCH(request: Request, context: Context) {
   return handle(async () => {
     const member = await requireMember(request);
+    await limit(request, 'post-edit', 20, member.userId);
     const admin = isAdmin(member);
     const data = editSchema.parse(await input(request));
     const { id } = await context.params;
@@ -51,7 +53,7 @@ export async function PATCH(request: Request, context: Context) {
     if (data.prefix !== post.prefix) checkPrefix(data.prefix, member);
     const news = post.category === 'news';
     if (news && post.status === 'rejected' && !admin)
-      throw new HttpError(409, '반려된 기사는 수정할 수 없습니다. 새 기사로 작성해주세요.');
+      throw new HttpError(409, '반려된 기사는 수정할 수 없어요. 새 기사로 작성해주세요.');
     // A writer's change to news sends it back for review and clears the previous feedback; an admin (the reviewer)
     // fixing it keeps the review result. Marks point at character offsets, so a body change drops them but keeps the note.
     const review = news && !admin;

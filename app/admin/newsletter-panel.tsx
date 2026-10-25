@@ -73,7 +73,7 @@ const formatKst = (n: number) =>
 // Picker for a new newsletter (id null) or for rescheduling a history item.
 type Scheduling = { id: string | null; value: string };
 const limitText = (remaining: number | null) => (remaining === null ? '확인 불가' : `${remaining}명`);
-const limitHit = '오늘 발송 한도를 다 썼습니다. 내일 이어서 보내세요.';
+const limitHit = '오늘 발송 한도를 다 썼어요. 내일 이어서 보내주세요.';
 
 // Exported newsletter files can start with plain-text lines (a title, "이메일 발송용 HTML 코드") before the markup.
 // Returns the markup from <!doctype/<html on, plus a subject guess: the <title>, else that first text line.
@@ -168,7 +168,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => applySource(String(reader.result || ''));
-    reader.onerror = () => setError('파일을 읽지 못했습니다. 다시 선택해주세요.');
+    reader.onerror = () => setError('파일을 읽지 못했어요. 다시 선택해주세요.');
     reader.readAsText(file, 'utf-8');
   }
 
@@ -181,7 +181,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
     try {
       await action();
     } catch (e) {
-      // Includes the 502 "결과를 확인하지 못했습니다" case: the loop stops here and load() below shows the failed count.
+      // Includes the 502 "결과를 확인하지 못했어요" case: the loop stops here and load() below shows the failed count.
       setError((e as Error).message);
     } finally {
       running.current = false;
@@ -198,7 +198,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
         to: testTo,
       });
       setOverview((current) => (current ? { ...current, remaining: result.remaining } : current));
-      onNotice(result.count > 1 ? `테스트 메일을 ${result.count}명에게 보냈습니다.` : '내 이메일로 테스트 메일을 보냈습니다.');
+      onNotice(result.count > 1 ? `테스트 메일을 ${result.count}명에게 보냈어요.` : '내 이메일로 테스트 메일을 보냈어요.');
     });
 
   // One batch per request; keeps going until everything is out or today's quota runs out.
@@ -213,7 +213,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
       setOverview((current) => (current ? { ...current, remaining: result.remaining } : current));
       if (result.done) {
         onNotice(
-          failed ? `뉴스레터를 보냈습니다. 실패 ${failed}건은 기록에서 확인하세요.` : '뉴스레터를 모두 보냈습니다.',
+          failed ? `뉴스레터를 보냈어요. 실패 ${failed}건은 기록에서 확인해주세요.` : '뉴스레터를 모두 보냈어요.',
         );
         return;
       }
@@ -223,22 +223,19 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
       }
       // Nothing moved: another admin is sending this batch. Wait a little, then give up after a few tries.
       if (!result.sent && !result.failed) {
-        if (++idle >= 4) throw new Error('다른 관리자가 보내는 중인 것 같습니다. 잠시 후 이어서 보내기를 눌러주세요.');
+        if (++idle >= 4) throw new Error('다른 관리자가 보내는 중인 것 같아요. 잠시 후 이어서 보내기를 눌러주세요.');
         await wait(2000);
       } else idle = 0;
     }
   }
   const prepare = () =>
     guarded(async () => {
-      const { id } = await api<{ id: string }>('/api/admin/newsletters', { subject: subject.trim(), html, audience });
       const ok = await confirmDialog(
         `${audienceShort[audience]} ${overview?.audiences[audience] ?? 0}명에게 보낼까요? 오늘 남은 한도: ${limitText(overview?.remaining ?? null)}`,
         { ok: '보내기' },
       );
-      if (!ok) {
-        setInfo('발송을 멈췄습니다. 아래 기록에서 이어서 보내거나 삭제할 수 있습니다.');
-        return;
-      }
+      if (!ok) return;
+      const { id } = await api<{ id: string }>('/api/admin/newsletters', { subject: subject.trim(), html, audience });
       setSubject('');
       setHtml('');
       await deliver(id);
@@ -253,14 +250,14 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
       const at = fromKstInput(picked.value);
       const now = Date.now();
       if (!Number.isFinite(at) || at < now + 10 * minute || at > now + 60 * 24 * hour) {
-        throw new Error('예약 시각을 확인해주세요. 10분 뒤부터 60일 안에서 고를 수 있습니다.');
+        throw new Error('예약 시각을 확인해주세요. 10분 뒤부터 60일 안에서 고를 수 있어요.');
       }
       const item = overview?.newsletters.find((n) => n.id === picked.id);
       const to = item?.audience ?? audience;
       const count = item?.started_at ? item.pending : (overview?.audiences[to] ?? 0);
       const ok = await confirmDialog(
         `${item ? `‘${item.subject}’ ` : ''}${audienceShort[to]} ${count}명에게 ${formatKst(at)}(한국 시간)에 보내도록 예약할까요?\n` +
-          '하루 발송 한도를 다 쓰면 다음 날 자동으로 이어서 보냅니다.',
+          '하루 발송 한도를 다 쓰면 다음 날 자동으로 이어서 보내요.',
         { ok: '예약하기' },
       );
       if (!ok) return;
@@ -274,17 +271,17 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
       }
       await api(`/api/admin/newsletters/${id}/schedule`, { at });
       setScheduling(null);
-      onNotice(`${formatKst(at)}에 보내도록 예약했습니다.`);
+      onNotice(`${formatKst(at)}에 보내도록 예약했어요.`);
     });
   const unschedule = (item: Newsletter) =>
     guarded(async () => {
       const msg = item.started_at
-        ? `‘${item.subject}’ 예약을 취소할까요? 이미 보낸 메일은 그대로이고, 남은 ${item.pending}명은 ‘이어서 보내기’를 누를 때까지 기다립니다.`
-        : `‘${item.subject}’ 예약을 취소할까요? 뉴스레터는 기록에 남습니다.`;
+        ? `‘${item.subject}’ 예약을 취소할까요? 이미 보낸 메일은 그대로이고, 남은 ${item.pending}명은 ‘이어서 보내기’를 누를 때까지 기다려요.`
+        : `‘${item.subject}’ 예약을 취소할까요? 뉴스레터는 기록에 남아요.`;
       if (!(await confirmDialog(msg, { ok: '예약 취소', cancel: '닫기', danger: true })))
         return;
       await api(`/api/admin/newsletters/${item.id}/schedule`, {}, 'DELETE');
-      onNotice('예약을 취소했습니다.');
+      onNotice('예약을 취소했어요.');
     });
   const resume = (item: Newsletter) =>
     guarded(async () => {
@@ -305,12 +302,23 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
     guarded(async () => {
       if (!(await confirmDialog(`‘${item.subject}’ 뉴스레터를 삭제할까요?`, { ok: '삭제', danger: true }))) return;
       await api(`/api/admin/newsletters/${item.id}`, {}, 'DELETE');
-      onNotice('뉴스레터를 삭제했습니다.');
+      onNotice('뉴스레터를 삭제했어요.');
     });
 
   const configured = overview?.configured ?? false;
   const htmlBytes = new TextEncoder().encode(html).length;
   const tooLarge = htmlBytes > maxHtmlBytes;
+  const notReady = !configured
+    ? '발송 설정이 필요해요'
+    : busy
+      ? '처리 중이에요'
+      : !subject.trim()
+        ? '제목을 먼저 적어주세요'
+        : !html.trim()
+          ? '본문을 먼저 넣어주세요'
+          : tooLarge
+            ? '본문이 너무 커요'
+            : undefined;
   const ready = configured && !!subject.trim() && !!html.trim() && !tooLarge && !busy;
   const picker = (picked: Scheduling) => {
     const now = Date.now();
@@ -366,7 +374,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
       )}
       {overview && !configured && (
         <p className="review-confirm">
-          발송 설정이 필요합니다 (<a href="/help#admin-newsletter">도움말</a> 참고)
+          발송 설정이 필요해요 (<a href="/help#admin-newsletter">도움말</a> 참고)
         </p>
       )}
 
@@ -409,7 +417,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
               </span>
               <span className={tooLarge ? 'newsletter-bytes danger-text-inline' : 'newsletter-bytes'}>
                 {(htmlBytes / 1000).toFixed(1)}KB / {maxHtmlBytes / 1000}KB
-                {tooLarge && ' · 뉴스레터 HTML이 너무 큽니다'}
+                {tooLarge && ' · 뉴스레터 HTML이 너무 커요'}
               </span>
               <label className="secondary newsletter-file">
                 <Upload size={16} />
@@ -438,7 +446,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
               }}
             />
             <small className="newsletter-hint">
-              HTML 파일을 불러오거나 코드를 붙여넣으세요. 앞에 붙은 설명 줄은 자동으로 정리됩니다.
+              HTML 파일을 불러오거나 코드를 붙여넣어주세요. 앞에 붙은 설명 줄은 자동으로 정리돼요.
             </small>
           </div>
 
@@ -504,17 +512,17 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
         />
       </label>
       <div className="review-actions">
-        <button className="secondary" disabled={!ready} onClick={() => void sendTest()}>
+        <button className="secondary" disabled={!ready} title={notReady} onClick={() => void sendTest()}>
           <Mail size={16} />
           {testTo.trim() ? '테스트 발송' : '나에게 테스트 발송'}
         </button>
-        <button className="secondary" disabled={!ready} onClick={() => openPicker(null)}>
+        <button className="secondary" disabled={!ready} title={notReady} onClick={() => openPicker(null)}>
           <CalendarClock size={16} />
           예약 발송
         </button>
-        <button className="primary" disabled={!ready} onClick={() => void prepare()}>
+        <button className="primary" disabled={!ready} title={notReady} onClick={() => void prepare()}>
           <Send size={16} />
-          {busy && progress ? '보내는 중…' : '발송 준비'}
+          {busy && progress ? '보내는 중…' : '발송하기'}
         </button>
       </div>
       </div>
@@ -563,7 +571,7 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
                       </small>
                     )}
                     {item.started_at && item.scheduled_at && item.pending > 0 && (
-                      <small>한도에 걸리면 다음 날 자동으로 이어서 보냅니다.</small>
+                      <small>한도에 걸리면 다음 날 자동으로 이어서 보내요.</small>
                     )}
                     {scheduling?.id === item.id && picker(scheduling)}
                   </div>

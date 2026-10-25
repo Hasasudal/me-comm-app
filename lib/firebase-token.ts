@@ -38,6 +38,8 @@ export class FirebaseTokenError extends Error {
 }
 
 let cachedKeys: { value: FirebaseKeySet; expiresAt: number } | null = null;
+// Tokens with made-up kids would otherwise refetch the JWKS on every request: one forced refresh a minute.
+let forcedAt = 0;
 
 function decodeBase64Url(value: string) {
   if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new FirebaseTokenError();
@@ -69,12 +71,13 @@ function cacheSeconds(header: string | null) {
 
 async function fetchFirebaseKeys({ force = false }: { force?: boolean } = {}): Promise<FirebaseKeySet> {
   const now = Date.now();
-  if (!force && cachedKeys && cachedKeys.expiresAt > now) return cachedKeys.value;
+  if (cachedKeys && (force ? now - forcedAt < 60000 : cachedKeys.expiresAt > now)) return cachedKeys.value;
+  if (force) forcedAt = now;
   const response = await fetch(FIREBASE_JWKS_URL, { headers: { Accept: 'application/json' } });
-  if (!response.ok) throw new FirebaseTokenError('로그인 인증 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
+  if (!response.ok) throw new FirebaseTokenError('로그인 인증 서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
   const value = (await response.json()) as FirebaseKeySet;
   if (!Array.isArray(value.keys) || !value.keys.length)
-    throw new FirebaseTokenError('로그인 인증 서버 응답을 확인할 수 없습니다.');
+    throw new FirebaseTokenError('로그인 인증 서버 응답을 확인할 수 없어요. 잠시 후 다시 시도해주세요.');
   cachedKeys = { value, expiresAt: now + cacheSeconds(response.headers.get('cache-control')) * 1000 };
   return value;
 }

@@ -92,7 +92,7 @@ export async function requireMember(request: Request) {
 
 type Identity = { userId: string; email: string; displayName: string; emailVerified: boolean };
 const PENDING_MESSAGE =
-  '학교 이메일 인증이 안 된 계정이라 운영진 승인을 기다리고 있어요. 승인되면 다시 로그인해주세요. 인증 메일의 링크를 눌러도 바로 이용할 수 있어요.';
+  '학교 이메일 인증이 안 된 계정이라 운영진 승인을 기다리고 있어요. 승인되면 다시 로그인해주세요. 인증 메일의 링크를 눌러도 바로 이용할 수 있어요. 며칠이 지나도 승인되지 않으면 학과 사무실에 문의해주세요.';
 
 // A school address whose verification mail never arrived can still ask to join: it is recorded as 'pending'
 // until an admin approves it (status 'active') or turns it down (row deleted). Verified mail skips the wait.
@@ -108,9 +108,9 @@ export async function issueMemberSession(identity: Identity, request?: Request) 
       .bind(Date.now() - PENDING_DAYS * 24 * 60 * 60 * 1000)
       .run();
   const existing = await db()
-    .prepare('SELECT id,email,status FROM users WHERE id=? OR email=?')
+    .prepare('SELECT id,email,status,email_verified_at FROM users WHERE id=? OR email=?')
     .bind(identity.userId, identity.email)
-    .all<{ id: string; email: string; status: string }>();
+    .all<{ id: string; email: string; status: string; email_verified_at: number | null }>();
   // A pending row only shows someone typed the address; a verified token proves the mailbox, so it takes the address
   // over (otherwise anyone could sign up with a classmate's mail, delete the Firebase account and lock them out).
   const conflicts = existing.results.filter((row) => row.id !== identity.userId);
@@ -155,6 +155,10 @@ export async function issueMemberSession(identity: Identity, request?: Request) 
             .prepare("DELETE FROM users WHERE email=? AND id<>? AND status='pending'")
             .bind(identity.email, identity.userId),
         ]
+      : []),
+    // The mailbox is proven for the first time: sessions opened before (maybe by whoever typed it) all end.
+    ...(identity.emailVerified && current && current.email_verified_at === null
+      ? [db().prepare('DELETE FROM sessions WHERE user_id=?').bind(identity.userId)]
       : []),
     // Signing in again on this browser replaces its old session instead of leaving it orphaned.
     ...(previous

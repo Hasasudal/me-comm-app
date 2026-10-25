@@ -80,7 +80,7 @@ export default function ClubManager() {
       {!clubs ? (
         <p className="member-audit-empty">불러오는 중…</p>
       ) : clubs.length === 0 ? (
-        <p className="member-audit-empty">아직 신청된 동아리가 없습니다.</p>
+        <p className="member-audit-empty">아직 신청된 동아리가 없어요.</p>
       ) : (
         <ol className="club-list">
           {clubs.map((club) => (

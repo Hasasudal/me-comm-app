@@ -49,8 +49,8 @@ export async function POST(request: Request) {
       throw new HttpError(
         bad.error === 'quota' ? 429 : 502,
         bad.error === 'quota'
-          ? '오늘 발송 한도를 다 썼습니다. 내일 이어서 보내세요.'
-          : '테스트 메일을 보내지 못했습니다.',
+          ? '오늘 발송 한도를 다 썼어요. 내일 이어서 보내주세요.'
+          : '테스트 메일을 보내지 못했어요.',
       );
     return json({ ok: true, remaining, count: results.length });
   });

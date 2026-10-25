@@ -89,4 +89,16 @@ assert.equal(
   'a name made only of hidden characters falls back to the mail ID',
 );
 
+// Unknown kids force at most one JWKS refetch a minute.
+let fetches = 0;
+const realFetch = globalThis.fetch;
+globalThis.fetch = async () => {
+  fetches++;
+  return Response.json({ keys: [{ ...publicJwk, kid: 'test-key', alg: 'RS256', use: 'sig' }] });
+};
+for (const kid of ['nope-1', 'nope-2', 'nope-3'])
+  await assert.rejects(async () => verifyFirebaseIdToken(await signToken(primary.privateKey, validClaims, kid), { projectId, now }), /인증/);
+globalThis.fetch = realFetch;
+assert.equal(fetches, 2, 'one cache fill and one forced refresh, then throttled');
+
 console.log('PASS: Firebase token signature, claims, auth_time, school email and name validation.');

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // Firebase uids never take this form, so no account can claim the withdrawn member's content.
 const WITHDRAWN_ID = 'withdrawn';
 const WITHDRAWN_NAME = '탈퇴한 회원';
-const LAST_ADMIN = '마지막 관리자는 다른 회원에게 관리자 직책을 준 뒤 탈퇴할 수 있습니다.';
+const LAST_ADMIN = '마지막 관리자는 다른 회원에게 관리자 직책을 준 뒤 탈퇴할 수 있어요.';
 const REAUTH = '보안을 위해 비밀번호를 다시 확인해주세요.';
 const REAUTH_SECONDS = 5 * 60;
 
@@ -31,18 +31,26 @@ export async function PATCH(request: Request) {
     const projectId = env.FIREBASE_PROJECT_ID?.trim();
     if (!projectId) throw new HttpError(503, '로그인 기능이 아직 준비되지 않았어요. 운영진에게 알려주세요.');
     const verified = await verifyFirebaseIdToken(idToken, { projectId });
-    if (verified.userId !== member.userId) throw new HttpError(403, '현재 로그인한 계정과 일치하지 않습니다.');
-    if (!verified.emailVerified) throw new HttpError(403, '새 학교 이메일의 인증을 먼저 마쳐주세요.');
-    const conflict = await db()
-      .prepare('SELECT id FROM users WHERE email=? AND id<>?')
-      .bind(verified.email, member.userId)
-      .first();
-    if (conflict) throw new HttpError(409, '이미 다른 계정에서 사용 중인 학교 이메일입니다.');
+    if (verified.userId !== member.userId) throw new HttpError(403, '현재 로그인한 계정과 일치하지 않아요.');
     const emailChanged = verified.email !== member.email;
-    await db()
-      .prepare('UPDATE users SET email=?,display_name=?,updated_at=? WHERE id=?')
-      .bind(verified.email, verified.displayName, Date.now(), member.userId)
-      .run();
+    // Renaming works for admin-approved unverified members; only moving the address needs the new mailbox proven.
+    if (emailChanged && !verified.emailVerified) throw new HttpError(403, '새 학교 이메일의 인증을 먼저 마쳐주세요.');
+    const conflicts = await db()
+      .prepare('SELECT status FROM users WHERE email=? AND id<>?')
+      .bind(verified.email, member.userId)
+      .all<{ status: string }>();
+    if (conflicts.results.some((row) => row.status !== 'pending'))
+      throw new HttpError(409, '이미 다른 계정에서 쓰고 있는 학교 이메일이에요. 다른 이메일을 입력해주세요.');
+    // A pending sign-up only shows someone typed the address; the proven mailbox takes it over, as at sign-in.
+    await db().batch([
+      db()
+        .prepare("DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email=? AND id<>? AND status='pending')")
+        .bind(verified.email, member.userId),
+      db().prepare("DELETE FROM users WHERE email=? AND id<>? AND status='pending'").bind(verified.email, member.userId),
+      db()
+        .prepare('UPDATE users SET email=?,display_name=?,updated_at=? WHERE id=?')
+        .bind(verified.email, verified.displayName, Date.now(), member.userId),
+    ]);
     if (emailChanged) await revokeMemberSessions(member.userId);
     return json(
       { ok: true, email: verified.email, displayName: verified.displayName, reauthenticate: emailChanged },
@@ -100,9 +108,16 @@ export async function DELETE(request: Request) {
         .bind(WITHDRAWN_ID, WITHDRAWN_NAME, member.userId),
       db().prepare(`DELETE FROM sessions WHERE user_id=?${guard}`).bind(member.userId),
       db().prepare(`DELETE FROM newsletter_deliveries WHERE user_id=?${guard}`).bind(member.userId),
+      // Audit history keeps what happened but no longer says to whom (or by whom).
+      db()
+        .prepare(`UPDATE member_audit SET target_email='',target_name=? WHERE target_id=?${guard}`)
+        .bind(WITHDRAWN_NAME, member.userId),
+      db()
+        .prepare(`UPDATE member_audit SET actor_name=? WHERE actor_id=?${guard}`)
+        .bind(WITHDRAWN_NAME, member.userId),
       db().prepare(`DELETE FROM users WHERE id=?${guard}`).bind(member.userId),
     ]);
-    if (!results[6].meta.changes) throw new HttpError(409, LAST_ADMIN);
+    if (!results[8].meta.changes) throw new HttpError(409, LAST_ADMIN);
     // Photos go only once the batch went through (a rejected batch keeps the posts, so it must keep their photos);
     // image rows are keyed by post id and owner, which the batch leaves in place.
     await deletePostImages(doomed.results.map((row) => row.id));

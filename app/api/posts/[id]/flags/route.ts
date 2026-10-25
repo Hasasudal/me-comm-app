@@ -35,8 +35,8 @@ export async function POST(request: Request, context: Context) {
         throw new HttpError(403, '이 글을 맡은 담당자만 답변 상태를 바꿀 수 있어요.');
     }
     if (flags.pinned !== undefined) {
-      if (!admin) throw new HttpError(403, '관리자만 글을 고정할 수 있습니다.');
-      if (privateCategories.includes(post.category)) throw new HttpError(400, '비공개 글은 고정할 수 없습니다.');
+      if (!admin) throw new HttpError(403, '관리자만 글을 고정할 수 있어요.');
+      if (privateCategories.includes(post.category)) throw new HttpError(400, '비공개 글은 고정할 수 없어요.');
     }
     // Pin first: a full board refuses before `resolved` is written. The cap is checked in the same statement
     // as the write (posts/route.ts lists at most 10 pins).

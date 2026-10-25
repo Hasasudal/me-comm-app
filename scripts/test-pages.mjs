@@ -12,7 +12,7 @@ const boardHtml = await (await fetch(base + '/')).text();
 assert.doesNotMatch(boardHtml, /aria-label="제목 검색"/, 'anonymous page does not expose board controls');
 assert.match(
   boardHtml,
-  /계정 정보를 확인하고 있습니다/,
+  /계정 정보를 확인하고 있어요/,
   'initial page waits for the member session before choosing a signed-in or guest view',
 );
 assert.doesNotMatch(

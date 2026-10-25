@@ -16,12 +16,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
       .refine((value) => value.status || value.role, '바꿀 내용을 선택해주세요.')
       .parse(await input(request));
     if (userId === current.userId && (change.status === 'suspended' || (change.role && change.role !== 'admin')))
-      throw new HttpError(400, '내 계정의 관리자 직책은 직접 바꾸거나 정지할 수 없습니다.');
+      throw new HttpError(400, '내 계정의 관리자 직책은 직접 바꾸거나 정지할 수 없어요.');
     const target = await db()
       .prepare('SELECT id,email,display_name,status,role FROM users WHERE id=?')
       .bind(userId)
       .first<{ id: string; email: string; display_name: string; status: string; role: string }>();
-    if (!target) throw new HttpError(404, '회원을 찾을 수 없습니다.');
+    if (!target) throw new HttpError(404, '회원을 찾을 수 없어요.');
+    if (target.status === 'pending' && change.role && change.role !== target.role)
+      throw new HttpError(400, '가입 승인 후에 직책을 바꿀 수 있어요.');
     const losesAdmin =
       target.role === 'admin' && (change.status === 'suspended' || (change.role && change.role !== 'admin'));
     // Checked inside each statement, so two admins demoting each other at once cannot leave none.
@@ -71,11 +73,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
               .bind(userId, ...guardArgs),
           ]
         : []),
+      // A former admin's scheduled newsletters must not go out under their name.
+      ...(losesAdmin
+        ? [
+            db()
+              .prepare(
+                `UPDATE newsletters SET scheduled_at=NULL,scheduled_by=NULL,scheduled_by_name=NULL WHERE scheduled_by=? AND sent_at IS NULL AND ${guard}`,
+              )
+              .bind(userId, ...guardArgs),
+          ]
+        : []),
     ]);
     if (!results[0].meta.changes)
       throw losesAdmin
-        ? new HttpError(409, '마지막 관리자의 직책은 바꾸거나 정지할 수 없습니다.')
-        : new HttpError(404, '회원을 찾을 수 없습니다.');
+        ? new HttpError(409, '마지막 관리자의 직책은 바꾸거나 정지할 수 없어요.')
+        : new HttpError(404, '회원을 찾을 수 없어요.');
     return json({ ok: true, status, role });
   });
 }
@@ -98,7 +110,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ user
         .bind(userId),
       db().prepare("DELETE FROM users WHERE id=? AND status='pending'").bind(userId),
     ]);
-    if (!results[2].meta.changes) throw new HttpError(404, '승인 대기 중인 회원을 찾을 수 없습니다.');
+    if (!results[2].meta.changes) throw new HttpError(404, '승인 대기 중인 회원을 찾을 수 없어요.');
     return json({ ok: true });
   });
 }

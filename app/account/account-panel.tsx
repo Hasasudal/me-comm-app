@@ -14,7 +14,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api-client';
 import { confirmDialog } from '../confirm-dialog';
 import { firebaseAuth } from '../firebase-client';
-import { firebaseMessage, isSchoolEmail } from '../auth/firebase-errors';
+import { firebaseMessage, isSchoolEmail, normalizeSchoolEmail } from '../auth/firebase-errors';
 
 type Session = { signedIn: boolean; email?: string; displayName?: string; newsletter?: boolean; emailVerified?: boolean };
 
@@ -75,10 +75,9 @@ export default function AccountPanel() {
     setError('');
     setNotice('');
     try {
-      const email = String(new FormData(event.currentTarget).get('email') || '')
-        .trim()
-        .toLowerCase();
+      const email = normalizeSchoolEmail(String(new FormData(event.currentTarget).get('email') || ''));
       if (!isSchoolEmail(email)) throw new Error('경성대학교 이메일(@ks.ac.kr)을 입력해주세요.');
+      if (email === session?.email?.toLowerCase()) throw new Error('지금과 같은 주소예요.');
       const { user } = await currentUser();
       await verifyBeforeUpdateEmail(user, email, {
         url: `${window.location.origin}/login?verified=1`,
@@ -86,7 +85,12 @@ export default function AccountPanel() {
       });
       setNotice('새 학교 이메일로 확인 링크를 보냈어요. 링크를 누른 뒤 다시 로그인하면 바뀌어요.');
     } catch (cause) {
-      setError(firebaseMessage(cause));
+      const code = typeof cause === 'object' && cause && 'code' in cause ? String(cause.code) : '';
+      setError(
+        code === 'auth/email-already-in-use'
+          ? '이미 다른 계정에서 쓰는 학교 이메일이에요.'
+          : firebaseMessage(cause),
+      );
     } finally {
       setBusy(false);
     }
@@ -147,6 +151,9 @@ export default function AccountPanel() {
     try {
       await api('/api/auth/session', { all: true }, 'DELETE');
       await signOut(await firebaseAuth()).catch(() => {});
+      try {
+        sessionStorage.setItem('micom:flash', '모든 기기에서 로그아웃했어요.');
+      } catch {}
       window.location.assign('/login');
     } catch (cause) {
       setError(firebaseMessage(cause));
@@ -174,7 +181,15 @@ export default function AccountPanel() {
       // The server checks this token's auth_time to confirm the password was just entered.
       const idToken = await user.getIdToken(true);
       await api('/api/account', { confirm, idToken }, 'DELETE');
-      await deleteUser(user);
+      let note = '탈퇴 처리됐어요.';
+      try {
+        await deleteUser(user);
+      } catch {
+        note = '탈퇴는 처리됐어요. 로그인 정보 삭제만 실패했어요. 학과 사무실에 알려주세요.';
+      }
+      try {
+        sessionStorage.setItem('micom:flash', note);
+      } catch {}
       window.location.assign('/');
     } catch (cause) {
       if (passwordInput) passwordInput.value = '';
@@ -234,11 +249,11 @@ export default function AccountPanel() {
           이름 저장
         </button>
       </form>
-      <form className="account-section" onSubmit={changeEmail}>
+      <form className="account-section" onSubmit={changeEmail} noValidate>
         <h2>학교 이메일 변경</h2>
         <label>
           새 학교 이메일
-          <input name="email" type="email" defaultValue={session.email} required />
+          <input name="email" type="email" defaultValue={session.email} required placeholder="메일 아이디 또는 전체 주소" />
         </label>
         <button className="secondary full" disabled={busy}>
           확인 메일 보내기

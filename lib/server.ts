@@ -6,7 +6,7 @@ import { optionalMember, requireMember, type Member, type Role } from './member-
 import { verifyPassword } from './password';
 import type { Review } from './annotations';
 import { imagesField } from './images';
-import { hidden, hiddenInText, isReservedName, reservedKey } from './author-names';
+import { hidden, hiddenInText, isNoticePrefix, isReservedName } from './author-names';
 
 export { db, HttpError, requireMember };
 export function json(value: unknown, status = 200, headers?: HeadersInit) {
@@ -36,7 +36,7 @@ function zodMessage(issue: z.ZodIssue | undefined) {
 export async function input(request: Request, maxBytes = 100000) {
   const origin = request.headers.get('origin');
   if (origin && origin !== new URL(request.url).origin) throw new HttpError(403, '요청을 처리하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해주세요.');
-  if (!request.headers.get('content-type')?.includes('application/json'))
+  if (request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json')
     throw new HttpError(415, '요청을 처리하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해주세요.');
   const reader = request.body?.getReader();
   if (!reader) throw new HttpError(400, '입력한 내용이 없어요. 내용을 입력한 뒤 다시 시도해주세요.');
@@ -75,7 +75,7 @@ export function checkAuthorName(name: string, member: Member) {
 /** Post prefixes (머릿글): the same names, and '공지' only for admins. */
 export function checkPrefix(prefix: string | null, member: Member) {
   if (!prefix) return;
-  if (reservedKey(prefix) === '공지' && !isAdmin(member))
+  if (isNoticePrefix(prefix) && !isAdmin(member))
     throw new HttpError(400, '공지 머릿글은 운영진만 쓸 수 있어요.');
   checkAuthorName(prefix, member);
 }

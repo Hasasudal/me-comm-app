@@ -42,7 +42,7 @@ export default function VerifyTips() {
     <div className="verify-panel">
       {email && (
         <p className="verify-sent">
-          <strong>{email}</strong>(으)로 인증 메일을 보냈어요. 주소가 틀렸다면 운영진에게 알려주세요.
+          <strong>{email}</strong>(으)로 인증 메일을 보냈어요. 주소를 잘못 입력했다면 올바른 학교 메일 아이디로 다시 가입해주세요.
         </p>
       )}
       <strong>인증 메일이 보이지 않나요?</strong>

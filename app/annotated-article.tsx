@@ -140,7 +140,13 @@ export function AnnotatedArticle({
     setToolbar({
       ...found.range,
       top: found.rect.top - box.top,
-      left: Math.min(Math.max(found.rect.left + found.rect.width / 2 - box.left, 120), box.width - 120),
+      // Memo mode is ~310px wide and centred on this point: keep half of it (155) inside both the viewport and the layout box.
+      left:
+        Math.min(
+          Math.max(found.rect.left + found.rect.width / 2, box.left + 155, 155),
+          box.right - 155,
+          document.documentElement.clientWidth - 155,
+        ) - box.left,
     });
     setMemoMode(false);
     setMemoText('');

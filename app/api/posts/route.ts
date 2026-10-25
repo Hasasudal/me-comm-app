@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const category = url.searchParams.get('category');
     if (category && !['board', 'inquiry', 'complaint', 'news', 'clubs', 'contests'].includes(category))
-      throw new HttpError(400, '지원하지 않는 게시판입니다.');
+      throw new HttpError(400, '지원하지 않는 게시판이에요.');
     const where: string[] = [];
     const binds: (string | number)[] = [];
     // News lists only the member's own submissions; desks list the member's own, or all of them for admins.

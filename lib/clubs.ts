@@ -11,6 +11,6 @@ export async function clubFor(category: string, clubId: string | null | undefine
   if (category !== 'clubs') return null;
   if (!clubId) throw new HttpError(400, '동아리를 선택해주세요.');
   const club = await db().prepare("SELECT id FROM clubs WHERE id=? AND status='active'").bind(clubId).first();
-  if (!club) throw new HttpError(400, '승인된 동아리만 선택할 수 있습니다.');
+  if (!club) throw new HttpError(400, '승인된 동아리만 선택할 수 있어요.');
   return clubId;
 }
