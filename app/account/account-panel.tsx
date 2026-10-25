@@ -4,6 +4,7 @@ import {
   deleteUser,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  sendEmailVerification,
   sendPasswordResetEmail,
   signOut,
   updateProfile,
@@ -15,7 +16,7 @@ import { confirmDialog } from '../confirm-dialog';
 import { firebaseAuth } from '../firebase-client';
 import { firebaseMessage, isSchoolEmail } from '../auth/firebase-errors';
 
-type Session = { signedIn: boolean; email?: string; displayName?: string; newsletter?: boolean };
+type Session = { signedIn: boolean; email?: string; displayName?: string; newsletter?: boolean; emailVerified?: boolean };
 
 export default function AccountPanel() {
   const [session, setSession] = useState<Session | null>(null);
@@ -84,6 +85,29 @@ export default function AccountPanel() {
         handleCodeInApp: false,
       });
       setNotice('새 학교 이메일로 확인 링크를 보냈어요. 링크를 누른 뒤 다시 로그인하면 바뀌어요.');
+    } catch (cause) {
+      setError(firebaseMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+  // Same flow as the verify-email page; the member must be signed in to Firebase on this device.
+  async function resendVerification() {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const auth = await firebaseAuth();
+      await auth.authStateReady();
+      if (!auth.currentUser) {
+        setError('이 기기에서 로그인이 풀렸어요. 로그인 화면에서 로그인한 뒤 ‘인증 메일 다시 보내기’를 눌러주세요.');
+        return;
+      }
+      await sendEmailVerification(auth.currentUser, {
+        url: `${window.location.origin}/login?verified=1`,
+        handleCodeInApp: false,
+      });
+      setNotice('인증 메일을 다시 보냈어요. 스팸함도 함께 확인해주세요.');
     } catch (cause) {
       setError(firebaseMessage(cause));
     } finally {
@@ -220,6 +244,18 @@ export default function AccountPanel() {
           확인 메일 보내기
         </button>
         <p className="field-hint">새 학교 이메일로 온 확인 링크를 누른 뒤 다시 로그인하면 바뀌어요.</p>
+        {session.emailVerified === false && (
+          <div className="email-unverified-hint">
+            <p className="field-hint warn">
+              학교 이메일 인증이 아직 안 됐어요. {session.email}이(가) 실제로 쓰는 학교 메일이 맞는지 확인해주세요.
+              메일이 전달되지 않을 수 있어 뉴스레터와 안내 메일을 못 받을 수 있어요. 주소가 다르면 위에서 바꾸고, 맞다면
+              인증 메일을 다시 받아 링크를 눌러주세요.
+            </p>
+            <button className="secondary full" type="button" disabled={busy} onClick={() => void resendVerification()}>
+              인증 메일 다시 보내기
+            </button>
+          </div>
+        )}
       </form>
       <section className="account-section">
         <h2>비밀번호</h2>

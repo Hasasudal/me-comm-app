@@ -203,6 +203,10 @@ export async function identity(request?: Request) {
             .bind(...desks)
             .all<{ category: string; count: number }>()
         : null;
+      const prefs = await db()
+        .prepare('SELECT newsletter,email_verified_at FROM users WHERE id=?')
+        .bind(member.userId)
+        .first<{ newsletter: number; email_verified_at: number | null }>();
       return {
         newsReviewedAt: reviewed?.at ?? null,
         repliedAt: replied?.at ?? null,
@@ -220,9 +224,8 @@ export async function identity(request?: Request) {
         userId: member.userId,
         email: member.email,
         displayName: member.displayName,
-        newsletter: !!(
-          await db().prepare('SELECT newsletter FROM users WHERE id=?').bind(member.userId).first<{ newsletter: number }>()
-        )?.newsletter,
+        newsletter: !!prefs?.newsletter,
+        emailVerified: prefs?.email_verified_at != null,
       };
     }
   }

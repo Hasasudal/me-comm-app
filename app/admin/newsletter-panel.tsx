@@ -348,10 +348,14 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
           뉴스레터
         </h2>
         {overview && (
-          <p>
-            수신 회원 <strong>{overview.subscribers}명</strong> · 오늘 남은 발송 한도{' '}
-            <strong>{limitText(overview.remaining)}</strong>
-          </p>
+          <ul className="newsletter-stats">
+            <li>
+              수신 회원 <strong>{overview.subscribers}명</strong>
+            </li>
+            <li>
+              오늘 남은 발송 한도 <strong>{limitText(overview.remaining)}</strong>
+            </li>
+          </ul>
         )}
       </header>
       {loadError && (
@@ -382,55 +386,61 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
         </p>
       )}
       <div className="newsletter-compose">
-        <label>
-          제목
+        <h3 className="newsletter-section-title">새 뉴스레터</h3>
+        <label className="newsletter-field">
+          <span>제목</span>
           <input value={subject} maxLength={150} onChange={(event) => setSubject(event.target.value)} />
         </label>
         <fieldset className="newsletter-audience">
           <legend>받는 사람</legend>
           {(Object.keys(audienceLabel) as Audience[]).map((value) => (
-            <label key={value}>
+            <label key={value} className={audience === value ? 'selected' : undefined}>
               <input type="radio" name="newsletter-audience" checked={audience === value} onChange={() => setAudience(value)} />
-              {audienceLabel[value]}
-              {overview && <small> · {overview.audiences[value]}명</small>}
+              <span className="newsletter-audience-name">{audienceLabel[value]}</span>
+              {overview && <small>{overview.audiences[value]}명</small>}
             </label>
           ))}
         </fieldset>
-        <label>
-          HTML 코드
-          <small>
-            HTML 파일을 불러오거나 코드를 붙여넣으세요. 앞에 붙은 설명 줄은 자동으로 정리됩니다.{' '}
-            <span className={tooLarge ? 'danger-text-inline' : undefined}>
-              ({(htmlBytes / 1000).toFixed(1)}KB / {maxHtmlBytes / 1000}KB
-              {tooLarge && ' · 뉴스레터 HTML이 너무 큽니다'})
-            </span>
-          </small>
-          <textarea
-            value={html}
-            rows={6}
-            spellCheck={false}
-            className="newsletter-source"
-            onChange={(event) => setHtml(event.target.value)}
-            onPaste={(event) => {
-              if (html.trim()) return;
-              event.preventDefault();
-              applySource(event.clipboardData.getData('text'));
-            }}
-          />
-        </label>
-        <label className="secondary newsletter-file">
-          <Upload size={16} />
-          HTML 파일 불러오기
-          <input
-            type="file"
-            accept=".html,.htm"
-            onChange={(event) => {
-              readFile(event.target.files?.[0]);
-              event.target.value = '';
-            }}
-          />
-        </label>
-      </div>
+        <div className="newsletter-workspace">
+          <div className="newsletter-editor">
+            <div className="newsletter-toolbar">
+              <span id="newsletter-html-label" className="newsletter-field-label">
+                HTML 코드
+              </span>
+              <span className={tooLarge ? 'newsletter-bytes danger-text-inline' : 'newsletter-bytes'}>
+                {(htmlBytes / 1000).toFixed(1)}KB / {maxHtmlBytes / 1000}KB
+                {tooLarge && ' · 뉴스레터 HTML이 너무 큽니다'}
+              </span>
+              <label className="secondary newsletter-file">
+                <Upload size={16} />
+                HTML 파일 불러오기
+                <input
+                  type="file"
+                  accept=".html,.htm"
+                  onChange={(event) => {
+                    readFile(event.target.files?.[0]);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+            <textarea
+              value={html}
+              rows={12}
+              spellCheck={false}
+              aria-labelledby="newsletter-html-label"
+              className="newsletter-source"
+              onChange={(event) => setHtml(event.target.value)}
+              onPaste={(event) => {
+                if (html.trim()) return;
+                event.preventDefault();
+                applySource(event.clipboardData.getData('text'));
+              }}
+            />
+            <small className="newsletter-hint">
+              HTML 파일을 불러오거나 코드를 붙여넣으세요. 앞에 붙은 설명 줄은 자동으로 정리됩니다.
+            </small>
+          </div>
 
       {html.trim() && (
         <div className="newsletter-preview">
@@ -464,6 +474,8 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
           />
         </div>
       )}
+        </div>
+      </div>
 
       {progress && (
         <p className="form-success" role="status">
@@ -481,8 +493,9 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
           {error}
         </p>
       )}
+      <div className="newsletter-actionbar">
       <label className="newsletter-test-to">
-        테스트 메일 추가 수신자 (선택)
+        <span>테스트 메일 추가 수신자 (선택)</span>
         <input
           value={testTo}
           maxLength={300}
@@ -504,26 +517,27 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
           {busy && progress ? '보내는 중…' : '발송 준비'}
         </button>
       </div>
+      </div>
       {scheduling && !scheduling.id && picker(scheduling)}
 
       {overview && overview.newsletters.length > 0 && (
         <>
-          <h3 className="newsletter-history-title">보낸 뉴스레터</h3>
+          <h3 className="newsletter-history-title newsletter-section-title">보낸 뉴스레터</h3>
           <ul className="newsletter-history">
             {overview.newsletters.map((item) => {
               const waiting = !!item.scheduled_at && !item.started_at;
               return (
                 <li key={item.id}>
-                  <div>
-                    <strong>
-                      {item.subject}
+                  <div className="newsletter-history-main">
+                    <div className="newsletter-history-title-row">
+                      <strong>{item.subject}</strong>
                       {waiting && <span className="status-badge feedback">예약됨</span>}
                       {item.started_at && !item.sent_at && item.pending > 0 && (
                         <span className="status-badge pending">{item.scheduled_at ? '발송 중' : '중단됨'}</span>
                       )}
                       {item.sent_at && <span className="status-badge published">완료</span>}
                       {item.audience === 'staff' && <span className="status-badge">운영진만</span>}
-                    </strong>
+                    </div>
                     {waiting && (
                       <small>
                         예약: {formatKst(item.scheduled_at ?? 0)} (한국 시간) · {item.scheduled_by_name || '이름 없음'}
@@ -535,6 +549,14 @@ export default function NewsletterPanel({ onNotice }: { onNotice: (message: stri
                       {item.failed > 0 && ` · 실패 ${item.failed}`}
                       {item.pending > 0 && ` · 남음 ${item.pending}`}
                     </small>
+                    {item.started_at && !item.sent_at && item.total > 0 && (
+                      <progress
+                        className="newsletter-progress"
+                        value={item.sent}
+                        max={item.total}
+                        aria-label={`발송 진행률 ${item.sent} / ${item.total}`}
+                      />
+                    )}
                     {item.started_at && (
                       <small>
                         발송 시작: {item.started_by_name || '이름 없음'} · {formatDate(item.started_at)}

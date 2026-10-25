@@ -55,6 +55,8 @@ export const users = sqliteTable(
     // member | academic (학사) | council (학생회) | admin; admins assign roles.
     role: text('role').notNull().default('member'),
     suspended_at: integer('suspended_at'),
+    // When a verified Firebase token last vouched for this address; NULL = never verified (admin-approved sign-ups).
+    email_verified_at: integer('email_verified_at'),
     // Newsletter subscription (on by default; members turn it off) and the random unsubscribe token, made lazily.
     newsletter: integer('newsletter').notNull().default(1),
     newsletter_token: text('newsletter_token'),

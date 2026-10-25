@@ -52,7 +52,7 @@
 - **답변 완료 표시·상단 고정**: `POST /api/posts/[id]/flags`(`pinned`/`resolved`). 담당자가 직접 답변 완료·대기로 바꿀 수 있습니다.
 - **관리자 요약·일괄 승인**: `/api/admin/summary`(오늘 할 일 패널 `app/admin/today-panel.tsx`), `/api/admin/users/approve`(가입 대기 일괄 승인).
 - **뉴스레터**: 관리자가 `app/admin/newsletter-panel.tsx`에서 작성·예약하고, 발송은 `lib/newsletter.ts`가 Google Apps Script로 처리합니다. 예약 발송은 `worker/index.ts`의 `scheduled`가 `wrangler.jsonc`의 cron(10분마다)으로 실행합니다. 설정은 [docs/newsletter/README.md](newsletter/README.md).
-- **화면**: 다크 모드(`globals.css`), 삭제 등 확인 창은 `app/confirm-dialog.tsx`를 씁니다.
+- **화면**: 다크 모드(`globals.css`의 `:root[data-theme='dark']`, `app/layout.tsx`가 첫 화면 전에 테마를 정하고 `app/theme-toggle.tsx`로 바꿈), 삭제 등 확인 창은 `app/confirm-dialog.tsx`를 씁니다.
 
 ## 3. 코드 구조
 

@@ -16,7 +16,7 @@
   --warn: #b45f06;
   --warn-text: #8a5a10;
   --sidebar-width: 276px;
-  color-scheme: light dark;
+  color-scheme: light;
   /* Semantic tokens (light values ~ the original hex palette; dark overrides below). */
   --card: #fff;
   --surface-2: #f4f7fc;
@@ -44,41 +44,41 @@
   --hl: #fff0a0;
   --lime: #d1ef9d;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --blue: #3a66f0;
-    --ink: #e8ecf4;
-    --muted: #a9b3c5;
-    --line: #2a3346;
-    --surface: #0e131c;
-    --danger: #cf3d43;
-    --warn-text: #f0b46a;
-    --card: #171e2b;
-    --surface-2: #1c2434;
-    --accent-soft: #1d2b4f;
-    --accent-text: #8fadff;
-    --accent-line: #2f4175;
-    --line-strong: #364159;
-    --text-2: #ccd3e0;
-    --faint: #8f9ab0;
-    --danger-text: #ff8d92;
-    --ok-bg: #12332a;
-    --ok-text: #72d6ac;
-    --bad-bg: #3b1c20;
-    --bad-text: #ff9ca1;
-    --bad-line: #6a2c32;
-    --warn-bg: #3a2b14;
-    --warn-fg: #f2b779;
-    --warn-line: #6b4a25;
-    --info-bg: #11303a;
-    --info-text: #70c8de;
-    --info-line: #24505e;
-    --violet-bg: #2a2549;
-    --violet-text: #b9aaf7;
-    --glass: #171e2bee;
-    --hl: #5c4a12;
-    --lime: #2c4a1c;
-  }
+/* app/layout.tsx sets data-theme before first paint: the saved choice (theme-toggle.tsx) or the device setting. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --blue: #3a66f0;
+  --ink: #e8ecf4;
+  --muted: #a9b3c5;
+  --line: #2a3346;
+  --surface: #0e131c;
+  --danger: #cf3d43;
+  --warn-text: #f0b46a;
+  --card: #171e2b;
+  --surface-2: #1c2434;
+  --accent-soft: #1d2b4f;
+  --accent-text: #8fadff;
+  --accent-line: #2f4175;
+  --line-strong: #364159;
+  --text-2: #ccd3e0;
+  --faint: #8f9ab0;
+  --danger-text: #ff8d92;
+  --ok-bg: #12332a;
+  --ok-text: #72d6ac;
+  --bad-bg: #3b1c20;
+  --bad-text: #ff9ca1;
+  --bad-line: #6a2c32;
+  --warn-bg: #3a2b14;
+  --warn-fg: #f2b779;
+  --warn-line: #6b4a25;
+  --info-bg: #11303a;
+  --info-text: #70c8de;
+  --info-line: #24505e;
+  --violet-bg: #2a2549;
+  --violet-text: #b9aaf7;
+  --glass: #171e2bee;
+  --hl: #5c4a12;
+  --lime: #2c4a1c;
 }
 * {
   box-sizing: border-box;
@@ -167,13 +167,11 @@ a svg {
   width: 170px;
   height: auto;
 }
-@media (prefers-color-scheme: dark) {
-  /* The wordmark's "Communication" is black on transparent: give it a light plate. */
-  .brand-logo {
-    background: #fff;
-    border-radius: 8px;
-    padding: 6px 10px;
-  }
+/* The wordmark's "Communication" is black on transparent: give it a light plate. */
+:root[data-theme='dark'] .brand-logo {
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
 }
 .brand-light {
   font-weight: 500;
@@ -4040,4 +4038,303 @@ label small {
   .comments li.comment-new {
     transition: none;
   }
+}
+
+/* --- newsletter panel redesign --- */
+.newsletter-panel {
+  padding: 24px;
+}
+.newsletter-panel .newsletter-head {
+  align-items: center;
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+.newsletter-panel .newsletter-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.newsletter-panel .newsletter-stats li {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 4px 12px;
+}
+.newsletter-panel .newsletter-stats strong {
+  color: var(--ink);
+  margin-left: 4px;
+}
+.newsletter-panel .newsletter-section-title {
+  font-size: 15px;
+  margin: 0 0 14px;
+}
+.newsletter-panel .newsletter-compose {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 20px;
+}
+.newsletter-panel .newsletter-compose > .newsletter-section-title {
+  margin: 0;
+}
+.newsletter-panel .newsletter-compose label.newsletter-field {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.newsletter-panel .newsletter-field > span,
+.newsletter-panel .newsletter-field-label,
+.newsletter-panel .newsletter-test-to > span,
+.newsletter-panel .newsletter-audience legend {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.newsletter-panel .newsletter-audience {
+  border: 0;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 0;
+  padding: 0;
+}
+.newsletter-panel .newsletter-audience legend {
+  float: left;
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+  padding: 0;
+  width: 100%;
+}
+.newsletter-panel .newsletter-audience label {
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  font-weight: 500;
+  gap: 10px;
+  justify-content: flex-start;
+  margin: 0;
+  min-height: 52px;
+  padding: 10px 14px;
+}
+.newsletter-panel .newsletter-audience label.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+.newsletter-panel .newsletter-audience label:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.newsletter-panel .newsletter-audience input {
+  accent-color: var(--blue);
+  flex-shrink: 0;
+  height: 18px;
+  margin: 0;
+  width: 18px;
+}
+.newsletter-panel .newsletter-audience-name {
+  flex: 1;
+}
+.newsletter-panel .newsletter-audience small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.newsletter-panel .newsletter-workspace {
+  display: grid;
+  gap: 16px;
+}
+.newsletter-panel .newsletter-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.newsletter-panel .newsletter-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.newsletter-panel .newsletter-bytes {
+  color: var(--muted);
+  font-size: 12px;
+  margin-right: auto;
+}
+.newsletter-panel .newsletter-file {
+  min-height: 44px;
+  padding: 0 14px;
+}
+.newsletter-panel .newsletter-source {
+  min-height: 280px;
+  resize: vertical;
+  width: 100%;
+}
+.newsletter-panel .newsletter-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+.newsletter-panel .newsletter-preview {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 0;
+  min-width: 0;
+  padding: 12px;
+}
+.newsletter-panel .newsletter-preview-bar {
+  margin-bottom: 10px;
+}
+.newsletter-panel .newsletter-frame {
+  height: 480px;
+  max-width: 100%;
+}
+.newsletter-panel .newsletter-frame.mobile {
+  max-width: 375px;
+}
+.newsletter-panel .newsletter-actionbar {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+.newsletter-panel .newsletter-test-to {
+  display: grid;
+  flex: 1 1 280px;
+  gap: 6px;
+  margin: 0;
+  max-width: 420px;
+}
+.newsletter-panel .review-actions {
+  margin: 0;
+}
+.newsletter-panel .review-actions button,
+.newsletter-panel .newsletter-history-actions button,
+.newsletter-panel .newsletter-schedule button {
+  min-height: 44px;
+}
+.newsletter-panel .newsletter-history-title {
+  margin: 28px 0 8px;
+}
+.newsletter-panel .newsletter-history {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.newsletter-panel .newsletter-history li {
+  align-items: flex-start;
+  padding: 14px 16px;
+}
+.newsletter-panel .newsletter-history li + li {
+  border-top: 1px solid var(--line);
+}
+.newsletter-panel .newsletter-history li:first-child {
+  border-top: 0;
+}
+.newsletter-panel .newsletter-history-main {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+.newsletter-panel .newsletter-history-title-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.newsletter-panel .newsletter-history-title-row strong {
+  display: inline;
+  font-size: 15px;
+}
+.newsletter-panel .newsletter-history-title-row .status-badge {
+  margin-left: 0;
+}
+.newsletter-panel .newsletter-progress {
+  appearance: none;
+  background: var(--line);
+  border: 0;
+  border-radius: 999px;
+  height: 4px;
+  max-width: 320px;
+  width: 100%;
+}
+.newsletter-panel .newsletter-progress::-webkit-progress-bar {
+  background: var(--line);
+  border-radius: 999px;
+}
+.newsletter-panel .newsletter-progress::-webkit-progress-value {
+  background: var(--blue);
+  border-radius: 999px;
+}
+.newsletter-panel .newsletter-progress::-moz-progress-bar {
+  background: var(--blue);
+  border-radius: 999px;
+}
+.newsletter-panel .newsletter-history-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (min-width: 960px) {
+  .newsletter-panel .newsletter-workspace:has(.newsletter-preview) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .newsletter-panel .newsletter-source {
+    min-height: 480px;
+  }
+}
+@media (max-width: 640px) {
+  .newsletter-panel {
+    padding: 16px 12px;
+  }
+  .newsletter-panel .newsletter-compose {
+    padding: 14px;
+  }
+  .newsletter-panel .newsletter-actionbar,
+  .newsletter-panel .review-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+  .newsletter-panel .newsletter-test-to {
+    max-width: none;
+  }
+  .newsletter-panel .review-actions button {
+    justify-content: center;
+    width: 100%;
+  }
+  .newsletter-panel .newsletter-history li {
+    flex-direction: column;
+  }
+  .newsletter-panel .newsletter-history-actions {
+    justify-content: flex-start;
+  }
+}
+
+/* --- email verification --- */
+.unverified-chip {
+  cursor: help;
+  white-space: nowrap;
+}
+.email-unverified-hint {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+.email-unverified-hint .field-hint {
+  margin-top: 0;
 }

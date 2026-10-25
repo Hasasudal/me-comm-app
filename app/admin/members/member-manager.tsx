@@ -13,6 +13,7 @@ type User = {
   display_name: string;
   status: 'active' | 'suspended' | 'pending';
   role: Role;
+  email_verified: boolean;
   created_at: number;
 };
 type Session = ShellIdentity & { admin?: boolean };
@@ -66,6 +67,7 @@ export default function MemberManager() {
   const [searched, setSearched] = useState({ query, status, role });
   const [total, setTotal] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
+  const [unverifiedCount, setUnverifiedCount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const [error, setError] = useState('');
@@ -94,6 +96,9 @@ export default function MemberManager() {
         // Header chip: unfiltered pending total (best effort).
         api<{ total: number }>('/api/admin/users?status=pending&limit=1')
           .then((pending) => setPendingCount(pending.total))
+          .catch(() => {});
+        api<{ total: number }>('/api/admin/users?status=unverified&limit=1')
+          .then((unverified) => setUnverifiedCount(unverified.total))
           .catch(() => {});
       } catch (cause) {
         setError((cause as Error).message);
@@ -266,6 +271,7 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
               <option value="active">이용 중</option>
               <option value="suspended">정지</option>
               <option value="pending">승인 대기</option>
+              <option value="unverified">이메일 미인증</option>
             </select>
             <button className="primary" disabled={busy}>
               검색
@@ -311,6 +317,20 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
               승인 대기 {pendingCount}명
             </button>
           )}
+          {unverifiedCount > 0 && (
+            <button
+              type="button"
+              className={`status-chip pending pending-filter${status === 'unverified' ? ' active' : ''}`}
+              aria-pressed={status === 'unverified'}
+              disabled={busy}
+              onClick={() => {
+                setStatus('unverified');
+                void load(1, { query, status: 'unverified', role });
+              }}
+            >
+              이메일 미인증 {unverifiedCount}명
+            </button>
+          )}
           <p className="member-count">
             총 {total}명 · 승인 대기와 직책이 있는 회원이 위에 표시됩니다. 내 직책은 다른 관리자가 바꿀 수 있어요.
           </p>
@@ -337,7 +357,17 @@ ${user.display_name}(${user.email}) 회원의 가입을 승인할까요?`,
                     {user.status === 'suspended' && <span className="status-chip">이용 정지</span>}
                     {user.status === 'pending' && <span className="status-chip pending">메일 미인증 · 승인 대기</span>}
                   </strong>
-                  <span>{user.email}</span>
+                  <span>
+                    {user.email}
+                    {user.status === 'active' && !user.email_verified && (
+                      <span
+                        className="status-chip pending unverified-chip"
+                        title="인증 메일을 받은 적 없는 주소예요. 실제 학교 메일이 맞는지 본인에게 확인을 부탁하세요."
+                      >
+                        이메일 미인증
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <select
                   className={`role-select ${user.role}`}
