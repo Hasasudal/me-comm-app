@@ -166,9 +166,9 @@ export async function issueMemberSession(identity: Identity, request?: Request) 
       : []),
     db()
       .prepare(
-        "INSERT INTO users (id,email,display_name,status,suspended_at,created_at,updated_at) VALUES (?,?,?,'active',NULL,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,newsletter=CASE WHEN users.status='pending' THEN 1 ELSE users.newsletter END,status=CASE WHEN users.status='pending' THEN 'active' ELSE users.status END,updated_at=excluded.updated_at",
+        "INSERT INTO users (id,email,display_name,status,suspended_at,email_verified_at,created_at,updated_at) VALUES (?,?,?,'active',NULL,?,?,?) ON CONFLICT(id) DO UPDATE SET email_verified_at=CASE WHEN users.email<>excluded.email THEN excluded.email_verified_at ELSE COALESCE(users.email_verified_at, excluded.email_verified_at) END,email=excluded.email,display_name=excluded.display_name,newsletter=CASE WHEN users.status='pending' THEN 1 ELSE users.newsletter END,status=CASE WHEN users.status='pending' THEN 'active' ELSE users.status END,updated_at=excluded.updated_at",
       )
-      .bind(identity.userId, identity.email, identity.displayName, now, now),
+      .bind(identity.userId, identity.email, identity.displayName, identity.emailVerified ? now : null, now, now),
     // Keep other devices signed in: drop expired sessions and cap each member at MAX_SESSIONS.
     db().prepare('DELETE FROM sessions WHERE expires_at<=?').bind(now),
     db()

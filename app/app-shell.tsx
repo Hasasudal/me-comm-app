@@ -26,6 +26,7 @@ import {
 import { api } from './api-client';
 import { confirmDialog } from './confirm-dialog';
 import SiteNotice from './site-notice';
+import ThemeToggle from './theme-toggle';
 
 export type BoardId = 'all' | 'board' | 'inquiry' | 'complaint' | 'news' | 'clubs' | 'contests';
 export const boards = [
@@ -94,6 +95,8 @@ export type ShellIdentity = {
   userId?: string;
   email?: string;
   displayName?: string;
+  // false = this address never passed Firebase verification (admin-approved); undefined until /api/session answers.
+  emailVerified?: boolean;
   newsReviewedAt?: number | null;
   repliedAt?: number | null;
   waiting?: Partial<Record<BoardId, number>>;
@@ -506,6 +509,7 @@ export function AppShell({
             <span className="breadcrumb">{breadcrumb}</span>
           </div>
           <div className="account-actions">
+            <ThemeToggle />
             {!identity.loaded ? (
               <span className="account-name">계정 확인 중…</span>
             ) : identity.signedIn ? (

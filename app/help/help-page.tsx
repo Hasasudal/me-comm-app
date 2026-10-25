@@ -169,6 +169,17 @@ export default function HelpPage() {
               </div>
             </details>
             <details className="faq">
+              <summary>‘학교 이메일 인증이 안 됐다’는 안내가 떠요.</summary>
+              <div>
+                <p>
+                  인증 메일 없이 운영진 승인으로 가입한 계정이에요. 가입한 주소가 실제로 쓰는 학교 메일이 아니면 뉴스레터와
+                  안내 메일이 전달되지 않을 수 있어요. <strong>계정 설정</strong>에서 주소를 바꾸거나, 맞는 주소라면{' '}
+                  <strong>인증 메일 다시 보내기</strong>를 누르고 링크를 눌러주세요. 인증하면 안내가 사라져요. 운영진은
+                  회원·직책 관리에서 ‘이메일 미인증’ 표시로 확인할 수 있어요.
+                </p>
+              </div>
+            </details>
+            <details className="faq">
               <summary>로그인 비밀번호를 잊어버렸어요.</summary>
               <div>
                 <p>
@@ -653,8 +664,8 @@ export default function HelpPage() {
                   뒤에는 이 버튼을 눌러 두세요.
                 </li>
                 <li>
-                  <strong>다크 모드</strong>: 기기의 화면 설정(다크/라이트)을 따라 자동으로 바뀝니다. 따로 고르는 버튼은
-                  없습니다.
+                  <strong>다크 모드</strong>: 처음에는 기기의 화면 설정(다크/라이트)을 따릅니다. 화면 오른쪽 위의 테마
+                  버튼을 누르면 기기 설정 → 라이트 → 다크 순서로 바뀌고, 고른 테마는 이 브라우저에 기억됩니다.
                 </li>
               </ul>
               <h3>뉴스레터</h3>

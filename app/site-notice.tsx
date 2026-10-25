@@ -26,16 +26,33 @@ const SITE_NOTICES: { id: string; title: string; body: ReactNode; info?: boolean
 ];
 
 const closedKey = (id: string) => `micom:notice-closed:${id}`;
+// Not in SITE_NOTICES: it depends on the member's own account, and closing it only lasts for this browser session.
+const UNVERIFIED_KEY = 'micom:notice-closed:email-unverified';
 
 export default function SiteNotice({ className = '' }: { className?: string }) {
   const [closed, setClosed] = useState<string[] | null>(null);
   // null until /api/session answers, so guest-only notices never flash at members.
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The signed-in member's address when it was never verified (admin-approved), until they close the notice.
+  const [unverified, setUnverified] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     fetch('/api/session', { cache: 'no-store' })
-      .then((response) => (response.json() as Promise<{ signedIn?: boolean }>).catch(() => ({ signedIn: false })))
-      .then((data) => active && setSignedIn(!!data.signedIn))
+      .then((response) =>
+        (response.json() as Promise<{ signedIn?: boolean; emailVerified?: boolean; email?: string }>).catch(() => ({
+          signedIn: false,
+        })),
+      )
+      .then((data) => {
+        if (!active) return;
+        setSignedIn(!!data.signedIn);
+        if (data.signedIn && 'emailVerified' in data && data.emailVerified === false) {
+          try {
+            if (sessionStorage.getItem(UNVERIFIED_KEY) === '1') return;
+          } catch {}
+          setUnverified(data.email || '');
+        }
+      })
       .catch(() => active && setSignedIn(false));
     return () => {
       active = false;
@@ -59,15 +76,42 @@ export default function SiteNotice({ className = '' }: { className?: string }) {
       localStorage.setItem(closedKey(id), '1');
     } catch {}
   }
-  return SITE_NOTICES.filter((n) => !closed.includes(n.id) && (n.audience !== 'guest' || signedIn === false)).map((n) => (
-    <div key={n.id} className={`site-notice ${n.info ? 'info' : ''} ${className}`} role="note">
-      {n.info ? <Mail size={18} aria-hidden="true" /> : <AlertTriangle size={18} aria-hidden="true" />}
-      <p>
-        <strong>{n.title}</strong> {n.body}
-      </p>
-      <button type="button" aria-label={`‘${n.title}’ 안내 닫기`} title="닫기" onClick={() => close(n.id)}>
-        <X size={16} />
-      </button>
-    </div>
-  ));
+  return [
+    ...(unverified !== null
+      ? [
+          <div key="email-unverified" className={`site-notice ${className}`} role="note">
+            <AlertTriangle size={18} aria-hidden="true" />
+            <p>
+              <strong>학교 이메일 인증이 아직 안 됐어요.</strong> 가입한 주소 {unverified}이(가) 실제로 쓰는 학교 메일이
+              맞는지 확인해주세요. 메일이 전달되지 않을 수 있어 뉴스레터와 안내 메일을 못 받을 수 있어요. 주소가 다르면{' '}
+              <a href="/account">계정 설정</a>에서 바꾸고, 맞다면 인증 메일을 다시 받아 링크를 눌러주세요.
+            </p>
+            <button
+              type="button"
+              aria-label="이메일 인증 안내 닫기"
+              title="닫기"
+              onClick={() => {
+                setUnverified(null);
+                try {
+                  sessionStorage.setItem(UNVERIFIED_KEY, '1');
+                } catch {}
+              }}
+            >
+              <X size={16} />
+            </button>
+          </div>,
+        ]
+      : []),
+    ...SITE_NOTICES.filter((n) => !closed.includes(n.id) && (n.audience !== 'guest' || signedIn === false)).map((n) => (
+      <div key={n.id} className={`site-notice ${n.info ? 'info' : ''} ${className}`} role="note">
+        {n.info ? <Mail size={18} aria-hidden="true" /> : <AlertTriangle size={18} aria-hidden="true" />}
+        <p>
+          <strong>{n.title}</strong> {n.body}
+        </p>
+        <button type="button" aria-label={`‘${n.title}’ 안내 닫기`} title="닫기" onClick={() => close(n.id)}>
+          <X size={16} />
+        </button>
+      </div>
+    )),
+  ];
 }

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
       .parse(url.searchParams.get('q') || '')
       .trim();
     const status = z
-      .enum(['all', 'active', 'suspended', 'pending'])
+      .enum(['all', 'active', 'suspended', 'pending', 'unverified'])
       .catch('all')
       .parse(url.searchParams.get('status') || 'all');
     const role = z
@@ -35,19 +35,22 @@ export async function GET(request: Request) {
       .parse(url.searchParams.get('limit') || '20');
     const pattern = `%${escapeLike(query)}%`,
       offset = (page - 1) * limit;
-    const where = `(?='all' OR status=?) AND (?='all' OR role=?) AND (?='' OR lower(email) LIKE lower(?) ESCAPE '\\' OR lower(display_name) LIKE lower(?) ESCAPE '\\')`;
+    // 'unverified' = active members whose address no verified sign-in ever vouched for.
+    const unverified = status === 'unverified',
+      state = unverified ? 'active' : status;
+    const where = `(?='all' OR status=?) AND (?=0 OR email_verified_at IS NULL) AND (?='all' OR role=?) AND (?='' OR lower(email) LIKE lower(?) ESCAPE '\\' OR lower(display_name) LIKE lower(?) ESCAPE '\\')`;
     const [rows, total] = await Promise.all([
       db()
         .prepare(
-          `SELECT id,email,display_name,status,role,suspended_at,created_at,updated_at FROM users WHERE ${where} ORDER BY (status='pending') DESC, (role<>'member') DESC, created_at DESC LIMIT ? OFFSET ?`,
+          `SELECT id,email,display_name,status,role,suspended_at,created_at,updated_at,email_verified_at IS NOT NULL AS email_verified FROM users WHERE ${where} ORDER BY (status='pending') DESC, (role<>'member') DESC, created_at DESC LIMIT ? OFFSET ?`,
         )
-        .bind(status, status, role, role, query, pattern, pattern, limit, offset)
+        .bind(state, state, +unverified, role, role, query, pattern, pattern, limit, offset)
         .all(),
       db()
         .prepare(`SELECT COUNT(*) AS count FROM users WHERE ${where}`)
-        .bind(status, status, role, role, query, pattern, pattern)
+        .bind(state, state, +unverified, role, role, query, pattern, pattern)
         .first<{ count: number }>(),
     ]);
-    return json({ users: rows.results, page, limit, total: total?.count || 0 });
+    return json({ users: rows.results.map((row) => ({ ...row, email_verified: !!row.email_verified })), page, limit, total: total?.count || 0 });
   });
 }
