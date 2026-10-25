@@ -17,7 +17,6 @@ export default function AuthFrame({
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <SiteNotice className="in-card" />
         <a className="brand auth-brand" href="/" aria-label="미컴 라운지 홈">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="brand-logo" src="/logo.png" alt="" width={480} height={201} />
@@ -29,6 +28,7 @@ export default function AuthFrame({
         <h1>{title}</h1>
         <p className="auth-description">{description}</p>
         {children}
+        <SiteNotice className="in-card" auth />
         <div className="auth-footer">{footer}</div>
       </section>
     </main>

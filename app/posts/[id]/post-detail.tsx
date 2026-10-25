@@ -1,6 +1,6 @@
 'use client';
 
-import { recruitmentState } from '../../../lib/recruitment';
+import { formatDeadline, recruitmentState } from '../../../lib/recruitment';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowLeft,
@@ -340,7 +340,7 @@ export default function PostDetail({ id }: { id: string }) {
                   <span>
                     <CalendarDays size={17} />
                     <small>마감일</small>
-                    {post.deadline}
+                    {formatDeadline(post.deadline)}
                   </span>
                 )}
                 {post.headcount && (
