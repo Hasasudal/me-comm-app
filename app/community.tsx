@@ -1,6 +1,6 @@
 'use client';
 
-import { recruitmentState } from '../lib/recruitment';
+import { formatDeadline, recruitmentState } from '../lib/recruitment';
 import { ImagePicker } from './image-picker';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
@@ -731,7 +731,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                           {post.deadline && (
                             <span>
                               <CalendarDays size={13} />
-                              {post.deadline}
+                              {formatDeadline(post.deadline)}
                             </span>
                           )}
                           {post.headcount && (

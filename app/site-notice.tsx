@@ -4,8 +4,9 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { AlertTriangle, Mail, X } from 'lucide-react';
 
 // Site-wide notices shown above every page, in order. Remove an entry to take it down; change its `id` to show it
-// again to people who closed the old one. `audience: 'guest'` shows a notice to signed-out visitors only. `info` uses the calm blue style instead of the red warning one.
-const SITE_NOTICES: { id: string; title: string; body: ReactNode; info?: boolean; audience?: 'guest' }[] = [
+// again to people who closed the old one. `audience` limits a notice to signed-out visitors ('guest') or signed-in
+// members ('member'). `info` uses the calm blue style instead of the red warning one.
+const SITE_NOTICES: { id: string; title: string; body: ReactNode; info?: boolean; audience?: 'guest' | 'member' }[] = [
   {
     id: 'verify-mail-2026-09',
     title: '인증 메일이 오지 않나요?',
@@ -22,6 +23,7 @@ const SITE_NOTICES: { id: string; title: string; body: ReactNode; info?: boolean
       </>
     ),
     info: true,
+    audience: 'member',
   },
 ];
 
@@ -29,7 +31,9 @@ const closedKey = (id: string) => `micom:notice-closed:${id}`;
 // Not in SITE_NOTICES: it depends on the member's own account, and closing it only lasts for this browser session.
 const UNVERIFIED_KEY = 'micom:notice-closed:email-unverified';
 
-export default function SiteNotice({ className = '' }: { className?: string }) {
+// `auth` is the login/sign-up/account card: only the sign-up help shows there, under the form, so the form stays
+// on the first screen (the account page has its own verification hint).
+export default function SiteNotice({ className = '', auth = false }: { className?: string; auth?: boolean }) {
   const [closed, setClosed] = useState<string[] | null>(null);
   // null until /api/session answers, so guest-only notices never flash at members.
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
@@ -77,7 +81,7 @@ export default function SiteNotice({ className = '' }: { className?: string }) {
     } catch {}
   }
   return [
-    ...(unverified !== null
+    ...(unverified !== null && !auth
       ? [
           <div key="email-unverified" className={`site-notice ${className}`} role="note">
             <AlertTriangle size={18} aria-hidden="true" />
@@ -102,7 +106,11 @@ export default function SiteNotice({ className = '' }: { className?: string }) {
           </div>,
         ]
       : []),
-    ...SITE_NOTICES.filter((n) => !closed.includes(n.id) && (n.audience !== 'guest' || signedIn === false)).map((n) => (
+    ...SITE_NOTICES.filter(
+      (n) =>
+        !closed.includes(n.id) &&
+        (n.audience === 'guest' ? signedIn === false : n.audience === 'member' ? signedIn === true && !auth : true),
+    ).map((n) => (
       <div key={n.id} className={`site-notice ${n.info ? 'info' : ''} ${className}`} role="note">
         {n.info ? <Mail size={18} aria-hidden="true" /> : <AlertTriangle size={18} aria-hidden="true" />}
         <p>

@@ -1425,14 +1425,13 @@ label small {
   }
 }
 @media (max-width: 520px) {
-  /* Phones stack the greeting above the illustration so the logo art is fully visible. */
+  /* Phones drop the decorative illustration so the sign-in card below stays close to the top. */
   .welcome-panel {
     flex-direction: column;
     align-items: stretch;
   }
   .orbit-art {
-    margin: -30px auto -40px;
-    transform: scale(0.72);
+    display: none;
   }
 }
 .auth-page {
@@ -3448,7 +3447,7 @@ label small {
   }
 }
 .site-notice.in-card {
-  margin: -4px 0 20px;
+  margin: 20px 0 0;
   font-size: 12.5px;
 }
 /* Stacked notices sit 10px apart (page top and .in-card). */
@@ -3582,6 +3581,18 @@ label small {
   .breadcrumb > a:first-child,
   .breadcrumb > a:first-child + svg {
     display: none;
+  }
+  /* The home crumb is plain text ("라운지 › 게시판"), which no selector can hide: only the current page shows. */
+  .breadcrumb {
+    font-size: 0;
+  }
+  .breadcrumb > svg {
+    display: none;
+  }
+  .breadcrumb b {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -4102,9 +4113,15 @@ label small {
   border: 0;
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  /* Two fixed tracks: with auto-fit, the full-width legend kept extra empty tracks and squeezed the cards. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
   padding: 0;
+}
+@media (max-width: 640px) {
+  .newsletter-panel .newsletter-audience {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .newsletter-panel .newsletter-audience legend {
   float: left;
@@ -4311,6 +4328,8 @@ label small {
     width: 100%;
   }
   .newsletter-panel .newsletter-test-to {
+    /* Stacked in a column, the desktop flex-basis (280px) would become the field's height. */
+    flex: none;
     max-width: none;
   }
   .newsletter-panel .review-actions button {
@@ -4337,4 +4356,12 @@ label small {
 }
 .email-unverified-hint .field-hint {
   margin-top: 0;
+}
+
+/* --- ui polish --- */
+/* The 보기/숨기기 toggle inside the password field gets room to breathe and a full-height touch target. */
+.email-field .password-reset {
+  align-self: stretch;
+  padding: 0 14px;
+  white-space: nowrap;
 }
