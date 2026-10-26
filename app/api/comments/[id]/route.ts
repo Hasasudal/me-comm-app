@@ -53,12 +53,13 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       await remove.run();
       return json({ ok: true });
     }
-    // Same rule as posting: the latest reply from the asker or the desk's staff decides whether the post is answered.
+    // Same rule as posting: the latest reply from the asker or the desk's staff decides whether the post is answered;
+    // interim staff replies (resolves=0) don't count.
     await db().batch([
       remove,
       db()
         .prepare(
-          "UPDATE posts SET resolved_at=(SELECT CASE WHEN comments.author_id=posts.author_id THEN NULL ELSE comments.created_at END FROM comments LEFT JOIN users ON users.id=comments.author_id WHERE comments.post_id=posts.id AND (comments.author_id=posts.author_id OR users.role IN ('admin',?)) ORDER BY comments.created_at DESC, comments.id DESC LIMIT 1) WHERE id=?",
+          "UPDATE posts SET resolved_at=(SELECT CASE WHEN comments.author_id=posts.author_id THEN NULL ELSE comments.created_at END FROM comments LEFT JOIN users ON users.id=comments.author_id WHERE comments.post_id=posts.id AND (comments.author_id=posts.author_id OR (users.role IN ('admin',?) AND comments.resolves=1)) ORDER BY comments.created_at DESC, comments.id DESC LIMIT 1) WHERE id=?",
         )
         .bind(deskRoles[comment.category], comment.post_id),
     ]);

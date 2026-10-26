@@ -428,7 +428,7 @@ export default function Community({ category = 'all', admin = false }: { categor
         author_name: form.get('author_name'),
         prefix: form.get('prefix'),
         images,
-        password: form.get('password'),
+        password: form.get('password') || undefined,
         ...recruitment,
         ...(formCategory === 'clubs' ? { club_id: form.get('club_id') || null } : {}),
       });
@@ -1046,19 +1046,22 @@ export default function Community({ category = 'all', admin = false }: { categor
                     </div>
                   </fieldset>
                 )}
-                <label>
-                  글 비밀번호
-                  <input
-                    name="password"
-                    type="password"
-                    required
-                    minLength={8}
-                    maxLength={128}
-                    autoComplete="new-password"
-                    placeholder="8자 이상 입력해주세요"
-                  />
-                  <small>글을 쓴 계정이면 입력하지 않아도 수정·삭제할 수 있어요.</small>
-                </label>
+                {/* Private posts are managed only by their author and admins, so they take no password. */}
+                {draftCategory !== 'news' && !deskStatus[draftCategory] && (
+                  <label>
+                    글 비밀번호
+                    <input
+                      name="password"
+                      type="password"
+                      required
+                      minLength={8}
+                      maxLength={128}
+                      autoComplete="new-password"
+                      placeholder="8자 이상 입력해주세요"
+                    />
+                    <small>글을 쓴 계정이면 입력하지 않아도 수정·삭제할 수 있어요.</small>
+                  </label>
+                )}
                 {draftCategory === 'news' && (
                   <p className="form-note">
                     기사는 나와 관리자만 볼 수 있고, 검토 결과는 뉴스 탭에서 확인할 수 있어요.

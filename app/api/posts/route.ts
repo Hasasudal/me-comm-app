@@ -113,7 +113,8 @@ export async function POST(request: Request) {
     const [recruitmentStatus, deadline, headcount, roles] = recruitmentValues(data, data.category);
     const clubId = await clubFor(data.category, data.club_id);
     await checkImages(data.images, member.userId);
-    const hash = await hashPassword(data.password, salt);
+    // Private posts get no password; '!' is not a hex digest, so verifyPassword can never match it.
+    const hash = data.password ? await hashPassword(data.password, salt) : '!';
     const status = data.category === 'news' ? 'pending' : 'published';
     await db()
       .prepare(

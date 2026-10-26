@@ -220,7 +220,8 @@ export default function PostDetail({ id }: { id: string }) {
   // Desk staff don't know the student's post password, so only the author and admins get edit/delete there.
   const canManage = !!post && (!deskStatus[post.category] || !!post.mine || admin);
   const canEdit = canManage && (admin || !(news && post!.status === 'rejected'));
-  const passwordField = !admin && !post?.mine && (
+  // Private posts (news, desks) never take a password: only their author and admins manage them.
+  const passwordField = !admin && !post?.mine && !news && !(post && deskStatus[post.category]) && (
     <label>
       글 비밀번호
       <input name="password" type="password" required minLength={8} maxLength={128} autoComplete="off" />
@@ -603,6 +604,7 @@ export default function PostDetail({ id }: { id: string }) {
             {!news && mode === 'view' && (
               <Comments
                 postId={post.id}
+                answered={deskStatus[post.category]?.[1]}
                 onChange={deskStatus[post.category] ? () => void reload().catch(() => {}) : undefined}
               />
             )}
