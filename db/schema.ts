@@ -95,6 +95,8 @@ export const comments = sqliteTable(
     content: text('content').notNull(),
     created_at: integer('created_at').notNull(),
     edited_at: integer('edited_at'),
+    // 0 marks a desk staff's interim reply, which doesn't count as the answer.
+    resolves: integer('resolves').notNull().default(1),
   },
   (table) => [index('idx_comments_post').on(table.post_id, table.created_at)],
 );

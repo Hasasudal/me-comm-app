@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   checkAuthorName,
   commentSchema,
@@ -70,7 +71,7 @@ export async function GET(request: Request, context: Context) {
 export async function POST(request: Request, context: Context) {
   return handle(async () => {
     const { member, post } = await commentablePost(request, context);
-    const data = commentSchema.parse(await input(request));
+    const data = commentSchema.extend({ resolve: z.boolean().optional() }).parse(await input(request));
     checkAuthorName(data.author_name, member);
     await limit(request, 'comment', 20, member.userId);
     await limit(request, 'comment-day', 300, member.userId, 86400000);
@@ -80,10 +81,15 @@ export async function POST(request: Request, context: Context) {
       content: data.content,
       created_at: Date.now(),
     };
+    const desk = deskCategories.includes(post.category);
+    const asker = post.author_id === member.userId;
+    const staff = desk && !asker && managesDesk(member, post.category);
+    // Staff can post an interim reply (resolve: false) that leaves the answered state alone.
+    const resolves = !staff || data.resolve !== false;
     // The cap and the insert are one statement, so racing requests cannot pass MAX_COMMENTS.
     const inserted = await db()
       .prepare(
-        'INSERT INTO comments (id,post_id,author_id,author_name,content,created_at) SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM comments WHERE post_id=?)<?',
+        'INSERT INTO comments (id,post_id,author_id,author_name,content,created_at,resolves) SELECT ?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM comments WHERE post_id=?)<?',
       )
       .bind(
         comment.id,
@@ -92,20 +98,18 @@ export async function POST(request: Request, context: Context) {
         comment.author_name,
         comment.content,
         comment.created_at,
+        resolves ? 1 : 0,
         post.id,
         MAX_COMMENTS,
       )
       .run();
     if (!inserted.meta.changes) throw new HttpError(409, '댓글이 너무 많아 더 달 수 없어요.');
     // A desk post is answered once its staff reply, and waits again when the asker follows up.
-    if (deskCategories.includes(post.category)) {
-      const asker = post.author_id === member.userId;
-      if (asker || managesDesk(member, post.category))
-        await db()
-          .prepare('UPDATE posts SET resolved_at=? WHERE id=?')
-          .bind(asker ? null : comment.created_at, post.id)
-          .run();
-    }
+    if (asker ? desk : staff && resolves)
+      await db()
+        .prepare('UPDATE posts SET resolved_at=? WHERE id=?')
+        .bind(asker ? null : comment.created_at, post.id)
+        .run();
     return json({ comment: { ...comment, role: badge(member.role), deletable: true, editable: true, edited_at: null } }, 201);
   });
 }

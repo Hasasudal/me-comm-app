@@ -18,13 +18,13 @@ type Comment = {
   role: Exclude<Role, 'member'> | null;
   writer?: Writer;
 };
-// Canned answers for staff on the desks (학사문의, 학생회 건의).
+// Canned answers for staff on the desks (학사문의, 학생회 건의). Interim ones don't mark the post answered.
 const answerTemplates = [
-  '확인했어요. 처리 후 다시 안내드릴게요.',
-  '담당 부서에 확인 중이에요. 조금만 기다려 주세요.',
-  '관련 공지를 확인해 주세요: ',
-  '추가로 궁금한 점이 있으면 댓글로 남겨 주세요.',
-  '검토한 뒤 결과를 이 글에 답변드릴게요.',
+  { text: '확인했어요. 처리 후 다시 안내드릴게요.', interim: true },
+  { text: '담당 부서에 확인 중이에요. 조금만 기다려 주세요.', interim: true },
+  { text: '관련 공지를 확인해 주세요: ', interim: false },
+  { text: '추가로 궁금한 점이 있으면 댓글로 남겨 주세요.', interim: false },
+  { text: '검토한 뒤 결과를 이 글에 답변드릴게요.', interim: true },
 ];
 const nameKey = 'micom:author-name';
 const savedName = () => {
@@ -44,13 +44,23 @@ const formatTime = (n: number) =>
   }).format(n);
 
 // onChange runs after a comment is added or removed, so the parent can refresh state the server derives from comments (desk "answered" badge).
-export default function Comments({ postId, onChange }: { postId: string; onChange?: () => void }) {
+// `answered` is the desk's answered wording (답변 완료 / 처리 완료) for the staff's "mark answered" checkbox.
+export default function Comments({
+  postId,
+  onChange,
+  answered = '답변 완료',
+}: {
+  postId: string;
+  onChange?: () => void;
+  answered?: string;
+}) {
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState('');
   const [fresh, setFresh] = useState<string | null>(null);
   const [templates, setTemplates] = useState(false);
+  const [resolve, setResolve] = useState(true);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -103,6 +113,7 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
       const { comment } = await api<{ comment: Comment }>(`/api/posts/${postId}/comments`, {
         author_name: data.get('author_name'),
         content: data.get('content'),
+        ...(templates ? { resolve } : {}),
       });
       setFresh(comment.id);
       setComments((list) => [...(list || []), comment]);
@@ -111,8 +122,10 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
         localStorage.setItem(nameKey, String(data.get('author_name') || ''));
       } catch {}
       onChange?.();
-      // Keep the name for the next comment; clear only the text.
+      // Keep the name for the next comment; clear only the text. An interim reply's unticked box resets, so the
+      // next (likely final) answer marks the post answered unless staff untick it again.
       (form.elements.namedItem('content') as HTMLTextAreaElement).value = '';
+      setResolve(true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -279,13 +292,15 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
             value=""
             onChange={(e) => {
               const box = composer.current;
-              if (!box || !e.target.value) return;
-              box.value = box.value ? `${box.value.trimEnd()}\n${e.target.value}` : e.target.value;
+              const template = answerTemplates.find((item) => item.text === e.target.value);
+              if (!box || !template) return;
+              box.value = box.value ? `${box.value.trimEnd()}\n${template.text}` : template.text;
+              setResolve(!template.interim);
               box.focus();
             }}
           >
             <option value="">자주 쓰는 답변</option>
-            {answerTemplates.map((text) => (
+            {answerTemplates.map(({ text }) => (
               <option key={text} value={text}>
                 {text}
               </option>
@@ -311,6 +326,12 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
           <p className="form-error" role="alert">
             {error}
           </p>
+        )}
+        {templates && (
+          <label className="check-row comment-resolve">
+            <input type="checkbox" checked={resolve} onChange={(e) => setResolve(e.target.checked)} />
+            {answered}로 표시
+          </label>
         )}
         <button className="primary" disabled={busy}>
           {busy ? '등록 중…' : '댓글 등록'}

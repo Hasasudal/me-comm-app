@@ -4440,6 +4440,15 @@ label small {
   width: 100%;
   margin: 0;
 }
+/* Desk staff's "mark answered" checkbox sits under the send row. */
+.comment-form .comment-resolve {
+  grid-row: 3;
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+.comment-form:has(.comment-resolve) .form-error {
+  grid-row: 4;
+}
 .nav-row:has(.nav-count) .nav-item {
   padding-right: 44px;
 }
@@ -4501,6 +4510,16 @@ label small {
   }
   .comment-form:has(.comment-templates) .form-error {
     grid-row: 5;
+  }
+  .comment-form .comment-resolve {
+    grid-row: 4;
+    justify-self: start;
+  }
+  .comment-form:has(.comment-resolve) .primary {
+    grid-row: 5;
+  }
+  .comment-form:has(.comment-resolve) .form-error {
+    grid-row: 6;
   }
   .page-footer {
     padding-bottom: calc(18px + var(--safe-bottom));

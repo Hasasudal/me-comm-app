@@ -140,15 +140,26 @@ export const authorFields = {
     .transform((value) => value || null),
 };
 export const clubField = { club_id: z.string().trim().max(64).optional().nullable() };
-export const createSchema = z.object({
-  ...contentFields,
-  images: imagesField,
-  ...recruitmentFields,
-  ...authorFields,
-  ...clubField,
-  category: z.enum(['board', 'inquiry', 'complaint', 'news', 'clubs', 'contests']),
-  password: passwordField,
-});
+export const createSchema = z
+  .object({
+    ...contentFields,
+    images: imagesField,
+    ...recruitmentFields,
+    ...authorFields,
+    ...clubField,
+    category: z.enum(['board', 'inquiry', 'complaint', 'news', 'clubs', 'contests']),
+    password: z.unknown(),
+  })
+  // Private posts are managed only by their author and admins, who skip the password, so they ignore one.
+  .transform((post, ctx) => {
+    if (privateCategories.includes(post.category)) return { ...post, password: undefined };
+    const password = passwordField.safeParse(post.password ?? '');
+    if (!password.success) {
+      ctx.addIssue({ code: 'custom', message: password.error.issues[0].message, path: ['password'] });
+      return z.NEVER;
+    }
+    return { ...post, password: password.data };
+  });
 export const editSchema = z.object({
   ...contentFields,
   images: imagesField,
@@ -358,6 +369,7 @@ export async function visiblePost(id: string, member: Member) {
 export async function checkPostPassword(request: Request, post: PostRow, password: string | undefined, member: Member) {
   // Admins and the signed-in author skip it; the password lets others (e.g. co-organisers) manage a post.
   if (isAdmin(member) || (post.author_id && post.author_id === member.userId)) return;
+  if (privateCategories.includes(post.category)) throw new HttpError(403, '이 글은 작성자와 관리자만 수정·삭제할 수 있어요.');
   if (!password) throw new HttpError(400, '글 비밀번호를 입력해주세요.');
   await limit(request, 'password', 10, member.userId);
   // Per post too, so many accounts cannot share the guessing; the post id stands in as the subject.
