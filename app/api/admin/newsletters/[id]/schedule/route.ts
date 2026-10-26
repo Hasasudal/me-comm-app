@@ -13,8 +13,8 @@ const cancellable = 'id=?1 AND sent_at IS NULL AND scheduled_at IS NOT NULL';
 async function refuse(id: string) {
   const exists = await db().prepare('SELECT 1 FROM newsletters WHERE id=?').bind(id).first();
   return exists
-    ? new HttpError(409, '예약을 바꿀 수 없는 뉴스레터입니다. (이미 발송했거나 예약이 없어요)')
-    : new HttpError(404, '뉴스레터를 찾을 수 없습니다.');
+    ? new HttpError(409, '예약을 바꿀 수 없는 뉴스레터예요. 이미 발송했거나 예약이 없어요.')
+    : new HttpError(404, '뉴스레터를 찾을 수 없어요.');
 }
 
 // { at } in UTC ms. The cron (worker/index.ts) sends it within 10 minutes after `at`, building unsubscribe links

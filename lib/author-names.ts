@@ -16,6 +16,9 @@ const reservedNames: [string, Role | null, boolean][] = [
   ['admin', null, false],
   ['학사', 'academic', false],
   ['학생회', 'council', true],
+  ['운영진', null, true],
+  ['미컴봇', null, true],
+  ['학과사무실', 'academic', true],
 ];
 export const reservedKey = (name: string) =>
   name
@@ -30,4 +33,9 @@ export const isReservedName = (name: string, role: Role) => {
     ([word, own, anywhere]) =>
       own !== role && (anywhere ? key.includes(word) : key.startsWith(word) || key.endsWith(word)),
   );
+};
+/** '공지' prefixes (공지사항, 긴급공지, 학과 공지) are for admins only. */
+export const isNoticePrefix = (prefix: string) => {
+  const key = reservedKey(prefix);
+  return key.startsWith('공지') || key.endsWith('공지');
 };

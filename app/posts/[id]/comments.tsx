@@ -53,7 +53,11 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
   const [templates, setTemplates] = useState(false);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [itemError, setItemError] = useState<{ id: string; message: string } | null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setName((value) => value || savedName()), 0);
@@ -83,11 +87,11 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
         const target = location.hash.match(/^#comment-(.+)$/)?.[1];
         if (target && data.comments.some((item) => item.id === target)) setFresh(target);
       })
-      .catch((e) => active && setError((e as Error).message));
+      .catch((e) => active && setLoadError((e as Error).message));
     return () => {
       active = false;
     };
-  }, [postId]);
+  }, [postId, attempt]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,7 +123,7 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
   async function save(comment: Comment) {
     if (!editing) return;
     setSaving(true);
-    setError('');
+    setItemError(null);
     try {
       const { comment: saved } = await api<{ comment: { content: string; edited_at: number } }>(
         `/api/comments/${comment.id}`,
@@ -128,8 +132,9 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
       );
       setComments((list) => (list || []).map((item) => (item.id === comment.id ? { ...item, ...saved } : item)));
       setEditing(null);
+      setTimeout(() => document.getElementById(`comment-${comment.id}`)?.focus(), 0);
     } catch (e) {
-      setError((e as Error).message);
+      setItemError({ id: comment.id, message: (e as Error).message });
     } finally {
       setSaving(false);
     }
@@ -139,6 +144,8 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
     if (editing && editing.text !== comment.content && !(await confirmDialog('고친 내용을 버릴까요?', { ok: '버리기', danger: true })))
       return;
     setEditing(null);
+    setItemError(null);
+    setTimeout(() => document.getElementById(`comment-${comment.id}`)?.focus(), 0);
   }
 
   async function startEdit(comment: Comment) {
@@ -150,24 +157,39 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
 
   async function remove(comment: Comment) {
     if (!(await confirmDialog('댓글을 삭제할까요?', { ok: '삭제', danger: true }))) return;
-    setError('');
+    setItemError(null);
     try {
       await api(`/api/comments/${comment.id}`, {}, 'DELETE');
       setComments((list) => (list || []).filter((item) => item.id !== comment.id));
       onChange?.();
+      setTimeout(() => heading.current?.focus(), 0);
     } catch (e) {
-      setError((e as Error).message);
+      setItemError({ id: comment.id, message: (e as Error).message });
     }
   }
 
   return (
     <section className="comments" aria-label="댓글">
-      <h2>
+      <h2 ref={heading} tabIndex={-1}>
         <MessageSquare size={18} />
         댓글 <span>{comments?.length ?? '—'}</span>
       </h2>
-      {comments === null && !error ? (
-        <p className="comments-empty">댓글을 불러오는 중입니다…</p>
+      {comments === null && loadError ? (
+        <div className="form-error" role="alert">
+          <p>{loadError}</p>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              setLoadError('');
+              setAttempt((n) => n + 1);
+            }}
+          >
+            다시 시도
+          </button>
+        </div>
+      ) : comments === null ? (
+        <p className="comments-empty">댓글을 불러오는 중이에요…</p>
       ) : comments?.length ? (
         <ul>
           {comments.map((comment) => (
@@ -228,6 +250,11 @@ export default function Comments({ postId, onChange }: { postId: string; onChang
                 </div>
               ) : (
                 <p>{comment.content}</p>
+              )}
+              {itemError?.id === comment.id && (
+                <p className="form-error" role="alert">
+                  {itemError.message}
+                </p>
               )}
             </li>
           ))}

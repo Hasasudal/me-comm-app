@@ -391,6 +391,8 @@ try {
     });
   assert.equal((await prefixed('[관리자]')).status, 400, 'members cannot prefix as 관리자');
   assert.equal((await prefixed('공지')).data.error, '공지 머릿글은 운영진만 쓸 수 있어요.', '공지 is admin-only');
+  for (const p of ['공지사항', '긴급공지', '학과 공지']) assert.equal((await prefixed(p)).status, 400, `${p} is admin-only`);
+  assert.equal((await sign('미컴봇', author)).status, 400, 'members cannot sign as 미컴봇');
   await request(`/api/comments/${signed.data.comment.id}`, { method: 'DELETE', cookie: admin, body: {} });
   setRole('test-member-active', 'admin');
   assert.equal((await request(`/api/posts/${ids.news}`, { cookie: admin })).status, 200, 'admin can open any news');

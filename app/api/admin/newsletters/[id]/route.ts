@@ -17,8 +17,8 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (!results[0].meta.changes) {
       const exists = await db().prepare('SELECT 1 FROM newsletters WHERE id=?').bind(id).first();
       throw exists
-        ? new HttpError(409, '이미 발송을 시작한 뉴스레터는 삭제할 수 없습니다.')
-        : new HttpError(404, '뉴스레터를 찾을 수 없습니다.');
+        ? new HttpError(409, '이미 발송을 시작한 뉴스레터는 삭제할 수 없어요.')
+        : new HttpError(404, '뉴스레터를 찾을 수 없어요.');
     }
     return json({ ok: true });
   });

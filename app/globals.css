@@ -115,6 +115,9 @@ button {
 }
 button:disabled {
   opacity: 0.55;
+  cursor: not-allowed;
+}
+button:disabled[aria-busy='true'] {
   cursor: wait;
 }
 a {
@@ -422,7 +425,8 @@ h1 {
   border: 1px solid var(--accent-line);
   border-radius: 14px;
   padding: 28px 34px;
-  height: 232px;
+  height: auto;
+  min-height: 232px;
   position: relative;
   margin-bottom: 34px;
 }
@@ -836,6 +840,7 @@ h1 {
   gap: 10px;
   max-width: 90vw;
   background: #233147;
+  border: 1px solid #ffffff1f;
   color: white;
   border-radius: 10px;
   padding: 15px 22px;
@@ -1471,6 +1476,7 @@ label small {
   gap: 17px;
 }
 .auth-form label {
+  margin: 0;
   font-size: 14px;
   font-weight: 600;
 }
@@ -1528,7 +1534,8 @@ label small {
 }
 .password-reset {
   width: max-content;
-  margin: -7px 0 0 auto;
+  padding: 8px 6px;
+  margin: -7px -6px 0 auto;
   color: var(--faint);
   text-decoration: underline;
   font-size: 12px;
@@ -1740,6 +1747,8 @@ label small {
   font-size: 15px;
 }
 .account-summary span {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 12px;
   color: var(--faint);
 }
@@ -2210,7 +2219,7 @@ label small {
 }
 .selection-toolbar input {
   margin: 0;
-  width: 210px;
+  width: min(210px, 50vw);
   padding: 6px 9px;
   font-size: 13px;
   border-radius: 7px;
@@ -2482,8 +2491,21 @@ label small {
   margin: 0;
   cursor: pointer;
 }
+.newsletter-file {
+  position: relative;
+}
 .newsletter-file input {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  opacity: 0;
+}
+.newsletter-file:focus-within {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
 }
 .newsletter-preview {
   margin-top: 18px;
@@ -2725,6 +2747,9 @@ label small {
   margin-left: auto;
   color: var(--muted);
   padding: 2px;
+}
+.comment-head button + button {
+  margin-left: 0;
 }
 @media (hover: hover) {
   .comment-head button:hover {
@@ -3427,6 +3452,8 @@ label small {
 .site-notice p {
   margin: 0;
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .site-notice strong {
   color: var(--bad-text);
@@ -3519,7 +3546,7 @@ label small {
     place-items: center;
     width: 36px;
     height: 36px;
-    margin: -8px -8px -8px auto;
+    margin: -8px 0 -8px auto;
   }
   /* The bell sits left of other icons, so its panel spans the screen instead of hanging off the left edge. */
   .reply-panel {
@@ -3712,12 +3739,16 @@ label small {
 /* Touch targets: 44x44 hit areas without changing the visual size. */
 @media (max-width: 700px) {
   .icon-button,
+  .account-actions a,
+  .account-actions button,
   .site-notice button,
   .comment-head button,
   .workspace-icon {
     position: relative;
   }
   .icon-button::after,
+  .account-actions a::after,
+  .account-actions button::after,
   .site-notice button::after,
   .comment-head button::after,
   .workspace-icon::after {
@@ -3823,6 +3854,10 @@ label small {
 }
 .pending-filter {
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding-inline: 14px;
   margin: 4px 0;
 }
 .pending-filter.active {
@@ -3904,17 +3939,17 @@ label small {
 }
 .shortcut-help {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  left: calc(var(--sidebar-width) + var(--safe-left) + 16px);
+  bottom: calc(16px + var(--safe-bottom));
   z-index: 20;
   margin: 0;
   padding: 10px 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 10px;
   background: var(--surface, Canvas);
   color: var(--ink);
   font-size: 0.85rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px #15233e26;
 }
 .shortcut-help kbd {
   padding: 0 5px;
@@ -3946,7 +3981,7 @@ label small {
   border-bottom: 2px solid var(--line);
   position: sticky;
   top: 0;
-  background: var(--surface);
+  background: var(--card);
   z-index: 2;
 }
 .help-tabs button {
@@ -4362,6 +4397,143 @@ label small {
 /* The 보기/숨기기 toggle inside the password field gets room to breathe and a full-height touch target. */
 .email-field .password-reset {
   align-self: stretch;
+  margin: 0;
+  outline-offset: -2px;
   padding: 0 14px;
   white-space: nowrap;
+}
+
+/* --- full review: ui fixes --- */
+.managed-list li:has(> .pick) {
+  grid-template-columns: auto minmax(0, 1fr) 120px auto;
+}
+.managed-list .pick,
+.bulk-bar input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--blue);
+}
+.club-list button {
+  display: inline-flex;
+  justify-content: center;
+  gap: 5px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--card);
+}
+.club-list button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.club-rename input {
+  margin: 0;
+}
+.comment-form .comment-templates {
+  grid-row: 2;
+  grid-column: 2;
+  width: 100%;
+  margin: 0;
+}
+.nav-row:has(.nav-count) .nav-item {
+  padding-right: 44px;
+}
+@media (max-width: 1400px) {
+  .review-panel .annotated-layout.has-memos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .review-panel .margin-notes {
+    display: none;
+  }
+  .review-panel .mark-list-fallback {
+    display: block;
+  }
+}
+@media (max-width: 1150px) {
+  .sidebar {
+    padding-left: calc(16px + var(--safe-left));
+  }
+}
+@media (max-width: 1000px) {
+  .member-search {
+    grid-template-columns: 1fr 1fr;
+  }
+  .member-query,
+  .member-search .primary {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 900px) {
+  .review-actionbar {
+    flex-wrap: wrap;
+    padding-bottom: calc(12px + var(--safe-bottom));
+  }
+}
+@media (max-width: 720px) {
+  .managed-list li:has(> .pick) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .managed-list li:has(> .pick) .member-info {
+    grid-column: 2 / -1;
+  }
+  .managed-list li:has(> .pick) > select {
+    grid-column: 2;
+  }
+}
+@media (max-width: 700px) {
+  .help-tabs {
+    top: calc(64px + var(--safe-top));
+  }
+  .help-page section {
+    scroll-margin-top: calc(64px + var(--safe-top) + 64px);
+  }
+  .comment-form .comment-templates {
+    grid-row: 3;
+    grid-column: 1;
+  }
+  .comment-form:has(.comment-templates) .primary {
+    grid-row: 4;
+  }
+  .comment-form:has(.comment-templates) .form-error {
+    grid-row: 5;
+  }
+  .page-footer {
+    padding-bottom: calc(18px + var(--safe-bottom));
+  }
+}
+@media (max-width: 520px) {
+  .auth-page {
+    padding: calc(20px + var(--safe-top)) calc(14px + var(--safe-right)) calc(20px + var(--safe-bottom))
+      calc(14px + var(--safe-left));
+  }
+}
+/* iOS zooms into inputs under 16px; beats the component-level font sizes. */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  .filter {
+    min-height: 40px;
+  }
+  .mark-list button {
+    min-width: 36px;
+    min-height: 36px;
+  }
+  .search-clear {
+    width: 40px;
+    height: 40px;
+  }
+}
+@media (max-width: 700px) {
+  /* The sidebar is a closed drawer here, so the hint starts at the screen edge. */
+  .shortcut-help {
+    left: calc(16px + var(--safe-left));
+  }
 }

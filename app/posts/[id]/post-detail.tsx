@@ -151,7 +151,7 @@ export default function PostDetail({ id }: { id: string }) {
       } catch {}
       await reload();
       setMode('view');
-      setNotice(data.status === 'pending' ? '기사를 다시 제출했습니다. 관리자 검토를 기다려주세요.' : '수정했습니다.');
+      setNotice(data.status === 'pending' ? '기사를 다시 제출했어요. 관리자 검토를 기다려주세요.' : '수정했어요.');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -166,6 +166,9 @@ export default function PostDetail({ id }: { id: string }) {
     const form = new FormData(event.currentTarget);
     try {
       await api(`/api/posts/${id}`, { password: form.get('password') || undefined }, 'DELETE');
+      try {
+        sessionStorage.setItem('micom:flash', '글을 삭제했어요.');
+      } catch {}
       window.location.assign(boardPaths[post.category]);
     } catch (e) {
       setError((e as Error).message);
@@ -179,7 +182,7 @@ export default function PostDetail({ id }: { id: string }) {
     try {
       await api(`/api/posts/${id}/flags`, { pinned: value });
       setPost({ ...post, pinned_at: value ? Date.now() : null });
-      setNotice(value ? '게시판 상단에 고정했습니다.' : '고정을 해제했습니다.');
+      setNotice(value ? '게시판 상단에 고정했어요.' : '고정을 해제했어요.');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -193,7 +196,8 @@ export default function PostDetail({ id }: { id: string }) {
     try {
       await api(`/api/posts/${id}/flags`, { resolved: value });
       setPost({ ...post, resolved_at: value ? Date.now() : null });
-      setNotice(value ? '답변 완료로 표시했어요.' : '다시 답변 대기로 바꿨어요.');
+      const words = deskStatus[post.category] || ['답변 대기', '답변 완료'];
+      setNotice(value ? `${words[1]}로 표시했어요.` : `다시 ${words[0]}로 바꿨어요.`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -203,9 +207,9 @@ export default function PostDetail({ id }: { id: string }) {
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      setNotice('게시글 링크를 복사했습니다.');
+      setNotice('게시글 링크를 복사했어요.');
     } catch {
-      setError('링크를 복사하지 못했습니다. 주소창의 주소를 복사해주세요.');
+      setError('링크를 복사하지 못했어요. 주소창의 주소를 복사해주세요.');
     }
   }
   const category = post?.category;
@@ -213,11 +217,14 @@ export default function PostDetail({ id }: { id: string }) {
   const admin = !!identity.admin;
   const reviewing = news && admin && !!post && !post.mine;
   const canResolve = !!post && !!deskStatus[post.category] && (admin || deskStaff[post.category] === identity.role);
-  const canEdit = !!post && (admin || !(news && post.status === 'rejected'));
+  // Desk staff don't know the student's post password, so only the author and admins get edit/delete there.
+  const canManage = !!post && (!deskStatus[post.category] || !!post.mine || admin);
+  const canEdit = canManage && (admin || !(news && post!.status === 'rejected'));
   const passwordField = !admin && !post?.mine && (
     <label>
-      {mode === 'edit' ? '수정 확인 비밀번호' : '삭제 확인 비밀번호'}
+      글 비밀번호
       <input name="password" type="password" required minLength={8} maxLength={128} autoComplete="off" />
+      <small className="field-hint">글을 쓸 때 정한 글 비밀번호예요. 내가 쓴 글이면 입력하지 않아도 돼요.</small>
     </label>
   );
   return (
@@ -252,14 +259,14 @@ export default function PostDetail({ id }: { id: string }) {
       </a>
       {loading ? (
         <section className="detail-card loading" role="status">
-          회원 계정을 확인하는 중입니다…
+          회원 계정을 확인하는 중이에요…
         </section>
       ) : identity.blocked ? (
         <section className="member-gate" role="alert">
           <div className="member-gate-icon">
             <LockKeyhole size={29} />
           </div>
-          <h2>이용할 수 없는 계정입니다</h2>
+          <h2>이용할 수 없는 계정이에요</h2>
           <p>{identity.blocked}</p>
         </section>
       ) : !identity.signedIn && error ? (
@@ -277,7 +284,7 @@ export default function PostDetail({ id }: { id: string }) {
           </div>
           <p className="eyebrow">SCHOOL MEMBERS ONLY</p>
           <h2>게시글은 회원만 볼 수 있어요</h2>
-          <p>학교 이메일 인증을 마친 뒤 게시글 제목과 내용을 확인할 수 있습니다.</p>
+          <p>학교 이메일 인증을 마친 뒤 게시글 제목과 내용을 확인할 수 있어요.</p>
           <div>
             <a className="primary" href={`/login?returnTo=${encodeURIComponent(`/posts/${id}`)}`}>
               로그인 <ArrowRight size={17} />
@@ -286,7 +293,7 @@ export default function PostDetail({ id }: { id: string }) {
               회원가입
             </a>
           </div>
-          <small>@ks.ac.kr 이메일이 필요합니다.</small>
+          <small>@ks.ac.kr 이메일이 필요해요.</small>
         </section>
       ) : error && !post ? (
         <section className="detail-card detail-error">
@@ -360,7 +367,7 @@ export default function PostDetail({ id }: { id: string }) {
               </div>
             )}
             {notice && (
-              <p className="inline-notice" ref={noticeRef}>
+              <p className="inline-notice" role="status" ref={noticeRef}>
                 <Check size={16} />
                 {notice}
               </p>
@@ -418,13 +425,23 @@ export default function PostDetail({ id }: { id: string }) {
                   )}
                   {canResolve && (
                     <button className="secondary" disabled={busy} onClick={() => void setResolved(!post.resolved_at)}>
-                      {post.resolved_at ? '다시 답변 대기로' : '답변 완료로 표시'}
+                      {post.resolved_at
+                        ? `다시 ${deskStatus[post.category]?.[0]}로`
+                        : `${deskStatus[post.category]?.[1]}로 표시`}
                     </button>
                   )}
                   {canEdit && (
                     <button
                       className="secondary"
-                      onClick={() => {
+                      onClick={async () => {
+                        if (
+                          news &&
+                          post.status === 'published' &&
+                          !(await confirmDialog('이미 승인된 기사예요. 수정하면 다시 검토를 받아야 해요. 수정할까요?', {
+                            ok: '수정',
+                          }))
+                        )
+                          return;
                         setError('');
                         setImages(post.images || []);
                         setMode('edit');
@@ -433,21 +450,24 @@ export default function PostDetail({ id }: { id: string }) {
                       {news && post.mine && post.status === 'feedback' ? '수정해서 다시 제출' : '수정'}
                     </button>
                   )}
-                  <button
-                    className="danger-text"
-                    onClick={() => {
-                      setError('');
-                      setMode('delete');
-                    }}
-                  >
-                    삭제
-                  </button>
+                  {canManage && (
+                    <button
+                      className="danger-text"
+                      onClick={() => {
+                        setError('');
+                        setMode('delete');
+                      }}
+                    >
+                      삭제
+                    </button>
+                  )}
                 </div>
               </>
             )}
             {mode === 'edit' && (
               <form className="detail-form" onSubmit={edit}>
                 <h2>{news ? '기사 수정' : '게시글 수정'}</h2>
+                {news && <p className="form-note">수정하면 기사가 다시 승인 대기 상태로 바뀌어요.</p>}
                 {news && post.status === 'feedback' && (
                   <>
                     <AnnotatedArticle
@@ -522,7 +542,6 @@ export default function PostDetail({ id }: { id: string }) {
                   </fieldset>
                 )}
                 {passwordField}
-                {news && <p className="form-note">수정하면 기사가 다시 승인 대기 상태로 바뀝니다.</p>}
                 {error && (
                   <p className="form-error" role="alert">
                     {error}
@@ -564,7 +583,7 @@ export default function PostDetail({ id }: { id: string }) {
             {mode === 'delete' && (
               <form className="delete-panel" onSubmit={remove}>
                 <h2>게시글을 삭제할까요?</h2>
-                <p>삭제한 글은 복구할 수 없습니다.</p>
+                <p>삭제한 글은 복구할 수 없어요.</p>
                 {passwordField}
                 {error && (
                   <p className="form-error" role="alert">

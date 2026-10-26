@@ -7,7 +7,7 @@ export default function AccountPage() {
     <AuthFrame
       eyebrow="MY ACCOUNT"
       title="계정 관리"
-      description="학교 계정 정보와 미컴 라운지 이용 상태를 관리합니다."
+      description="학교 계정 정보와 미컴 라운지 이용 상태를 관리해요."
       footer={<a href="/">라운지로 돌아가기</a>}
     >
       <AccountPanel />

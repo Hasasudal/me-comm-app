@@ -16,7 +16,7 @@ export async function PATCH(request: Request, context: Context) {
       .parse(await input(request));
     if (change.name) {
       const taken = await db().prepare('SELECT 1 FROM clubs WHERE name=? AND id<>?').bind(change.name, id).first();
-      if (taken) throw new HttpError(409, '이미 있거나 신청된 동아리 이름입니다.');
+      if (taken) throw new HttpError(409, '이미 있거나 신청된 동아리 이름이에요.');
     }
     const result = await db()
       .prepare('UPDATE clubs SET status=COALESCE(?,status),name=COALESCE(?,name) WHERE id=?')
@@ -24,10 +24,10 @@ export async function PATCH(request: Request, context: Context) {
       .run()
       .catch((e: unknown) => {
         // Two admins renaming at once can slip past the check above; the unique index still decides.
-        if (e instanceof Error && e.message.includes('UNIQUE')) throw new HttpError(409, '이미 있거나 신청된 동아리 이름입니다.');
+        if (e instanceof Error && e.message.includes('UNIQUE')) throw new HttpError(409, '이미 있거나 신청된 동아리 이름이에요.');
         throw e;
       });
-    if (!result.meta.changes) throw new HttpError(404, '동아리를 찾을 수 없습니다.');
+    if (!result.meta.changes) throw new HttpError(404, '동아리를 찾을 수 없어요.');
     return json({ ok: true });
   });
 }
@@ -44,8 +44,8 @@ export async function DELETE(request: Request, context: Context) {
       .run();
     if (!result.meta.changes) {
       const exists = await db().prepare('SELECT 1 FROM clubs WHERE id=?').bind(id).first();
-      if (exists) throw new HttpError(409, '글이 남아 있는 동아리는 삭제할 수 없습니다.');
-      throw new HttpError(404, '동아리를 찾을 수 없습니다.');
+      if (exists) throw new HttpError(409, '글이 남아 있는 동아리는 삭제할 수 없어요.');
+      throw new HttpError(404, '동아리를 찾을 수 없어요.');
     }
     return json({ ok: true });
   });

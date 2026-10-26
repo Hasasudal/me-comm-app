@@ -7,7 +7,7 @@ export default function SignupPage() {
     <AuthFrame
       eyebrow="SCHOOL MEMBER"
       title="회원가입"
-      description="경성대학교 이메일로 인증한 학과 구성원만 글을 읽고 쓸 수 있습니다."
+      description="경성대학교 이메일로 인증한 학과 구성원만 글을 읽고 쓸 수 있어요."
       footer={
         <>
           <span>이미 계정이 있나요?</span>

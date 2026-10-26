@@ -28,7 +28,7 @@ type Article = {
 };
 type ReviewPage = { posts: Article[]; total: number; counts?: Record<ReviewStatus, number>; nextCursor: string | null };
 const rejectReasons = [
-  '맞춤법·띄어쓰기를 고쳐 다시 제출해주세요.',
+  '맞춤법·띄어쓰기를 고쳐 새 기사로 다시 제출해주세요.',
   '주제가 학과 뉴스와 맞지 않아요.',
   '사실 확인이 필요한 내용이 있어요.',
   '사진 출처를 밝혀주세요.',
@@ -102,7 +102,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
 
   const reset = useCallback(
     (article: Article | null) => {
-      if (article && dropStaleDrafts(article)) onNotice('기사가 수정되어 이전 검토 초안을 불러오지 않았습니다.');
+      if (article && dropStaleDrafts(article)) onNotice('기사가 수정되어 이전 검토 초안을 불러오지 않았어요.');
       const draft = article?.status === 'pending' ? readDraft(article) : null;
       setMarks(draft?.marks || (article && article.status !== 'pending' ? article.feedback?.marks || [] : []));
       setNote(draft?.note || '');
@@ -232,11 +232,11 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
     api(`/api/admin/posts/${selected!.id}`, { ...body, updated_at: selected!.updated_at }, 'PATCH');
   const approve = async () => {
     if (!dirty || (await confirmDialog('남긴 표시와 의견은 보내지 않고 승인할까요?', { ok: '승인' })))
-      void run(() => patch({ action: 'approve' }), '기사를 승인했습니다.');
+      void run(() => patch({ action: 'approve' }), '기사를 승인했어요.');
   };
-  const sendFeedback = () => run(() => patch({ action: 'feedback', note: note.trim(), marks }), '피드백을 보냈습니다.');
-  const reject = () => run(() => patch({ action: 'reject', note: reason.trim() }), '기사를 반려했습니다.');
-  const remove = () => run(() => api(`/api/posts/${selected!.id}`, {}, 'DELETE'), '기사를 삭제했습니다.');
+  const sendFeedback = () => run(() => patch({ action: 'feedback', note: note.trim(), marks }), '피드백을 보냈어요.');
+  const reject = () => run(() => patch({ action: 'reject', note: reason.trim() }), '기사를 반려했어요.');
+  const remove = () => run(() => api(`/api/posts/${selected!.id}`, {}, 'DELETE'), '기사를 삭제했어요.');
   async function saveEdit(form: FormData) {
     setBusy(true);
     setActionError('');
@@ -247,7 +247,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
         content: form.get('content'),
         prefix: form.get('prefix'),
       });
-      onNotice('기사를 수정했습니다.');
+      onNotice('기사를 수정했어요.');
       await load(selected!.id);
     } catch (e) {
       setActionError((e as Error).message);
@@ -272,7 +272,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     } catch {
-      onNotice('Word 파일을 만들지 못했습니다. 다시 시도해주세요.');
+      onNotice('Word 파일을 만들지 못했어요. 다시 시도해주세요.');
     } finally {
       setExporting(false);
     }
@@ -334,7 +334,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
               불러오는 중…
             </p>
           ) : !error && articles.length === 0 ? (
-            <p className="review-list-empty">{statusLabels[tab]} 기사가 없습니다.</p>
+            <p className="review-list-empty">{statusLabels[tab]} 기사가 없어요.</p>
           ) : (
             <ul>
               {tab === 'published' && (
@@ -380,7 +380,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
           {!selected ? (
             <div className="review-empty">
               <FileText size={30} />
-              <p>{loading ? '기사를 불러오는 중입니다…' : '목록에서 기사를 선택하세요.'}</p>
+              <p>{loading ? '기사를 불러오는 중이에요…' : '목록에서 기사를 골라주세요.'}</p>
             </div>
           ) : (
             <>
@@ -415,8 +415,13 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                       {selected.status === 'pending' && (
                         <button
                          
-                          onClick={() => {
+                          onClick={async () => {
                             setMenuOpen(false);
+                            if (
+                              dirty &&
+                              !(await confirmDialog('기사를 수정하면 지금까지 남긴 표시와 의견이 사라져요. 수정할까요?', { ok: '수정' }))
+                            )
+                              return;
                             setPanel('edit');
                           }}
                         >
@@ -480,8 +485,8 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                   {selected.status === 'pending' ? (
                     <p className="review-hint">
                       {dirty
-                        ? '작성 중인 표시와 의견은 이 브라우저에 임시 저장됩니다.'
-                        : '본문을 드래그하면 형광펜·굵게·메모 도구가 나타납니다.'}
+                        ? '작성 중인 표시와 의견은 이 브라우저에 임시 저장돼요.'
+                        : '본문을 드래그하면 형광펜·굵게·메모 도구가 나타나요.'}
                     </p>
                   ) : (
                     selected.feedback?.note && (
@@ -532,6 +537,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                           placeholder="작성자에게 전할 반려 사유를 적어주세요."
                         />
                       </label>
+                      <p className="review-hint">반려하면 작성자가 이 기사를 고칠 수 없어요. 고쳐서 다시 받으려면 ‘피드백 보내기’를 써주세요.</p>
                       <div className="reason-chips">
                         {rejectReasons.map((text) => (
                           <button
@@ -560,7 +566,7 @@ export default function ReviewWorkspace({ onNotice }: { onNotice: (message: stri
                   )}
                   {panel === 'delete' && (
                     <div className="review-confirm">
-                      <p>이 기사를 삭제할까요? 삭제한 기사는 복구할 수 없습니다.</p>
+                      <p>이 기사를 삭제할까요? 삭제한 기사는 되돌릴 수 없어요.</p>
                       <div className="review-actions">
                         <button className="secondary" onClick={() => setPanel('review')}>
                           취소

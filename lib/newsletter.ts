@@ -8,7 +8,7 @@ import { visible } from './server';
 // 10 per call (the script takes up to 20) keeps each call well inside TIMEOUT.
 export const BATCH = 10;
 const TIMEOUT = 90000; // Workers have no wall-clock limit while the admin's request stays open
-const UNREACHABLE = '메일 발송 서버에 연결하지 못했습니다.';
+const UNREACHABLE = '메일 발송 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요.';
 export const UNCONFIRMED_ERROR = '발송 여부 확인 불가';
 
 export function configured() {
@@ -20,7 +20,7 @@ export function requireConfigured() {
 /** A send whose outcome is unknown (timeout, network error, unreadable reply): the mail may have gone out. */
 export class Unconfirmed extends HttpError {
   constructor() {
-    super(502, '메일 발송 결과를 확인하지 못했습니다. Gmail 보낸편지함을 확인해주세요.');
+    super(502, '메일 발송 결과를 확인하지 못했어요. Gmail 보낸편지함을 확인해주세요.');
   }
 }
 
@@ -130,7 +130,7 @@ export const unsubscribeUrl = (origin: string, token: string) =>
 export function withFooter(html: string, link: string) {
   const footer =
     '<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;line-height:1.6;color:#6b7280;font-family:sans-serif">' +
-    '미컴 라운지 회원에게 보내는 학과 뉴스레터입니다. 더 받고 싶지 않다면 아래 링크로 수신을 끌 수 있습니다.<br>' +
+    '미컴 라운지 회원에게 보내는 학과 뉴스레터예요. 더 받고 싶지 않다면 아래 링크로 수신을 끌 수 있어요.<br>' +
     `<a href="${escape(link)}" style="color:#6b7280;text-decoration:underline">뉴스레터 받지 않기</a></div>`;
   const end = html.search(/<\/body\s*>/i);
   return end < 0 ? html + footer : html.slice(0, end) + footer + html.slice(end);
@@ -157,7 +157,7 @@ export async function sendNextBatch(id: string, actor: Actor, origin: string, du
     .prepare('SELECT subject,html FROM newsletters WHERE id=?')
     .bind(id)
     .first<{ subject: string; html: string }>();
-  if (!letter) throw new HttpError(404, '뉴스레터를 찾을 수 없습니다.');
+  if (!letter) throw new HttpError(404, '뉴스레터를 찾을 수 없어요.');
   const now = Date.now();
   await db().batch([
     // Who started sending, recorded once by the call that snapshots the recipients (runs before the snapshot).
@@ -290,7 +290,7 @@ export async function sendNextBatch(id: string, actor: Actor, origin: string, du
       )
       .bind(id, due, Date.now())
       .run();
-  // exhausted: today's quota is used up with recipients still waiting ('오늘 발송 한도를 다 썼습니다…').
+  // exhausted: today's quota is used up with recipients still waiting ('오늘 발송 한도를 다 썼어요…').
   return { sent, failed, pending: left, remaining, done: !left, exhausted: !!left && remaining <= 0 };
 }
 
@@ -302,14 +302,23 @@ export async function runScheduledNewsletters() {
   const start = Date.now();
   const { results: due } = await db()
     .prepare(
-      'SELECT id,scheduled_by,scheduled_by_name,site_origin FROM newsletters WHERE scheduled_at<=? AND sent_at IS NULL ORDER BY scheduled_at,id',
+      "SELECT n.id,n.scheduled_by,n.scheduled_by_name,n.site_origin,COALESCE(u.status='active' AND u.role='admin',0) AS admin FROM newsletters n LEFT JOIN users u ON u.id=n.scheduled_by WHERE n.scheduled_at<=? AND n.sent_at IS NULL ORDER BY n.scheduled_at,n.id",
     )
     .bind(start)
-    .all<{ id: string; scheduled_by: string; scheduled_by_name: string; site_origin: string }>();
+    .all<{ id: string; scheduled_by: string; scheduled_by_name: string; site_origin: string; admin: number }>();
   if (!due.length || (await quota()) <= 0) return;
   let batches = 0;
   const spent = () => batches >= RUN_BATCHES || Date.now() - start >= RUN_TIME;
   for (const letter of due) {
+    // Whoever scheduled it lost admin (or the account) since: nobody vouches for the send any more.
+    if (!letter.admin) {
+      console.error('Scheduled newsletter dropped: scheduler is no longer an admin', letter.id);
+      await db()
+        .prepare('UPDATE newsletters SET scheduled_at=NULL,scheduled_by=NULL,scheduled_by_name=NULL WHERE id=? AND scheduled_by IS ?')
+        .bind(letter.id, letter.scheduled_by)
+        .run();
+      continue;
+    }
     const actor = { id: letter.scheduled_by, name: letter.scheduled_by_name };
     try {
       while (!spent()) {

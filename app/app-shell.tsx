@@ -23,7 +23,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { api } from './api-client';
+import { api, NETWORK_ERROR } from './api-client';
 import { confirmDialog } from './confirm-dialog';
 import SiteNotice from './site-notice';
 import ThemeToggle from './theme-toggle';
@@ -108,12 +108,14 @@ export type ShellIdentity = {
 
 // The plain api() helper drops the status, so a 403 would read as an ordinary failure and look signed out.
 export async function loadSession<T extends object>(): Promise<T & { signedIn: boolean; blocked?: string }> {
-  const response = await fetch('/api/session', { cache: 'no-store' });
+  const response = await fetch('/api/session', { cache: 'no-store' }).catch(() => {
+    throw new Error(NETWORK_ERROR);
+  });
   const data = (await response.json().catch(() => ({}))) as T & { signedIn: boolean; error?: string };
   if (response.status === 403)
     return {
       signedIn: false,
-      blocked: data.error || '이용이 정지된 계정이에요. 학과 사무실이나 운영진에게 문의해주세요.',
+      blocked: data.error || '이용이 정지된 계정이에요. 학과 사무실이나 미컴봇(카카오톡 ‘경성대 미컴봇’)으로 문의해주세요.',
     } as T & {
       signedIn: boolean;
       blocked: string;
@@ -217,8 +219,11 @@ function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number |
       return;
     }
     setOpen(true);
-    setError('');
     markSeen('replies', userId);
+    await fetchReplies();
+  }
+  async function fetchReplies() {
+    setError('');
     try {
       setReplies((await api<{ replies: Reply[] }>('/api/notifications')).replies);
     } catch (e) {
@@ -247,7 +252,12 @@ function ReplyBell({ userId, repliedAt }: { userId: string; repliedAt?: number |
         <div className="reply-panel" role="dialog" aria-label="알림" tabIndex={-1} ref={panel}>
           <strong>알림</strong>
           {error ? (
-            <p className="reply-empty">{error}</p>
+            <p className="reply-empty">
+              {error}{' '}
+              <button type="button" onClick={() => void fetchReplies()}>
+                다시 시도
+              </button>
+            </p>
           ) : replies === null ? (
             <p className="reply-empty">불러오는 중…</p>
           ) : replies.length === 0 ? (

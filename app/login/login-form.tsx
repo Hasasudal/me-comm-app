@@ -2,7 +2,7 @@
 
 import { sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { useSearchParams } from 'next/navigation';
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { firebaseAuth, safeReturnTo } from '../firebase-client';
 import { firebaseMessage, isSchoolEmail, MAIL_SENDER, normalizeSchoolEmail } from '../auth/firebase-errors';
 
@@ -11,6 +11,17 @@ export default function LoginForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(params.get('verified') ? '이메일 인증을 마쳤다면 로그인해주세요.' : '');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const flash = sessionStorage.getItem('micom:flash');
+        if (!flash) return;
+        sessionStorage.removeItem('micom:flash');
+        setNotice(flash);
+      } catch {}
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
   const [unverified, setUnverified] = useState(false);
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -37,9 +48,18 @@ export default function LoginForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken }),
+      }).catch(() => {
+        throw new TypeError('network');
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) throw new Error(body.error || '로그인하지 못했어요. 잠시 후 다시 시도해주세요.');
+      if (!response.ok) {
+        // Pending approval (403 without a suspension) is not a failure: show it as information.
+        if (response.status === 403 && body.error?.includes('승인을 기다리고')) {
+          setNotice(body.error);
+          return;
+        }
+        throw new Error(body.error || '로그인하지 못했어요. 잠시 후 다시 시도해주세요.');
+      }
       window.location.assign(safeReturnTo(params.get('returnTo')));
     } catch (cause) {
       setError(firebaseMessage(cause));

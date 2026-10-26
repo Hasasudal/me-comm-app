@@ -11,7 +11,7 @@ export const imageUrl = (key: string) => `/api/images/${key}`;
 async function shrink(file: File): Promise<Blob> {
   // Chrome and Android cannot decode HEIC (Safari can, so the picker still offers it).
   const bitmap = await createImageBitmap(file).catch(() => {
-    throw new Error('이 사진 형식은 열 수 없습니다. JPG나 PNG로 바꿔 올려주세요.');
+    throw new Error('이 사진 형식은 열 수 없어요. JPG나 PNG로 바꿔 올려주세요.');
   });
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');
@@ -23,7 +23,7 @@ async function shrink(file: File): Promise<Blob> {
   // Browsers without WebP encoding hand back PNG; JPEG keeps those small.
   const webp = await encode('image/webp');
   const blob = webp?.type === 'image/webp' ? webp : await encode('image/jpeg');
-  if (!blob) throw new Error('사진을 처리하지 못했습니다.');
+  if (!blob) throw new Error('사진을 처리하지 못했어요.');
   return blob;
 }
 
@@ -31,7 +31,7 @@ async function upload(file: File) {
   const blob = await shrink(file);
   const response = await fetch('/api/images', { method: 'POST', headers: { 'Content-Type': blob.type }, body: blob });
   const data = (await response.json().catch(() => ({}))) as { key?: string; error?: string };
-  if (!response.ok || !data.key) throw new Error(data.error || '사진을 올리지 못했습니다.');
+  if (!response.ok || !data.key) throw new Error(data.error || '사진을 올리지 못했어요.');
   return data.key;
 }
 
@@ -89,7 +89,7 @@ export function ImagePicker({
           <div className="image-thumb" key={key}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={imageUrl(key)} alt={`첨부한 사진 ${index + 1}/${value.length}`} />
-            <button type="button" aria-label="사진 빼기" onClick={() => remove(key)}>
+            <button type="button" aria-label={`사진 ${index + 1} 빼기`} onClick={() => remove(key)}>
               <X size={14} />
             </button>
           </div>
@@ -113,7 +113,7 @@ export function ImagePicker({
           </label>
         )}
       </div>
-      {error && <p className="form-error">{error}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
     </div>
   );
 }
@@ -121,7 +121,7 @@ export function ImagePicker({
 // Word cannot embed WebP, so photos are re-encoded as JPEG for the export.
 export async function photoForWord(key: string) {
   const response = await fetch(imageUrl(key));
-  if (!response.ok) throw new Error('사진을 불러오지 못했습니다.');
+  if (!response.ok) throw new Error('사진을 불러오지 못했어요.');
   const bitmap = await createImageBitmap(await response.blob());
   const canvas = document.createElement('canvas');
   canvas.width = bitmap.width;
@@ -132,7 +132,7 @@ export async function photoForWord(key: string) {
   context.drawImage(bitmap, 0, 0);
   bitmap.close();
   const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/jpeg', 0.85));
-  if (!blob) throw new Error('사진을 변환하지 못했습니다.');
+  if (!blob) throw new Error('사진을 변환하지 못했어요.');
   return { data: new Uint8Array(await blob.arrayBuffer()), width: canvas.width, height: canvas.height };
 }
 

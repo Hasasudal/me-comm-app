@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { statusLabels } from './annotated-article';
 import ReviewWorkspace from './admin/review-workspace';
-import { api } from './api-client';
+import { api, type ApiError } from './api-client';
 import { confirmDialog, promptDialog } from './confirm-dialog';
 import {
   AppShell,
@@ -72,7 +72,7 @@ const prefixHints: Record<WritableBoard, string> = {
   inquiry: '예: 장학, 휴학',
   complaint: '예: 시설, 행사',
   news: '예: 행사, 인터뷰',
-  clubs: '예: 신입 모집, 공지',
+  clubs: '예: 신입 모집, 행사',
   contests: '예: 공모전 이름',
 };
 // Seoul time to match the server's deadline logic; older posts carry the year so last year's 03.02 isn't read as this year's.
@@ -108,6 +108,7 @@ const store = (area: 'localStorage' | 'sessionStorage') => ({
 const local = store('localStorage');
 const session = store('sessionStorage');
 const nameKey = 'micom:author-name';
+const flashKey = 'micom:flash';
 const draftKey = (category: string) => `micom:draft:${category}`;
 const draftFields = ['title', 'content', 'prefix', 'recruitment_status', 'deadline', 'headcount', 'roles', 'club_id'];
 type Draft = Record<string, string>;
@@ -145,6 +146,7 @@ export default function Community({ category = 'all', admin = false }: { categor
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
+  const [moreFailed, setMoreFailed] = useState(false);
   const [query, setQuery] = useState(() => urlParam('q').slice(0, 100));
   const [search, setSearch] = useState(() => urlParam('q').trim().slice(0, 100));
   const [openOnly, setOpenOnly] = useState(() => urlParam('open') === '1');
@@ -161,6 +163,7 @@ export default function Community({ category = 'all', admin = false }: { categor
   const [notice, setNotice] = useState('');
   const [creating, setCreating] = useState(false);
   const [modalError, setModalError] = useState('');
+  const [modalStatus, setModalStatus] = useState<number | undefined>();
   const [busy, setBusy] = useState(false);
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -194,13 +197,17 @@ export default function Community({ category = 'all', admin = false }: { categor
       if (cursor) setLoadingMore(true);
       else setLoading(true);
       setError('');
+      setMoreFailed(false);
       try {
         const data = await api<{ posts: Post[]; nextCursor: string | null }>(`/api/posts?${params}`);
         if (id !== loadId.current) return;
         setPosts((list) => (cursor ? [...list, ...data.posts] : data.posts));
         setNextCursor(data.nextCursor);
       } catch (e) {
-        if (id === loadId.current) setError((e as Error).message);
+        if (id === loadId.current) {
+          setError((e as Error).message);
+          setMoreFailed(!!cursor);
+        }
       } finally {
         if (id === loadId.current) {
           setLoading(false);
@@ -264,6 +271,16 @@ export default function Community({ category = 'all', admin = false }: { categor
     }, 0);
     return () => clearTimeout(timer);
   }, [category, identity.userId]);
+  // A page that redirected here (account deletion, post delete) leaves a one-shot message.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const flash = session.get(flashKey);
+      if (!flash) return;
+      session.del(flashKey);
+      setNotice(flash);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(''), 5500);
@@ -305,6 +322,13 @@ export default function Community({ category = 'all', admin = false }: { categor
   function selectWaiting(value: boolean) {
     setWaitingOnly(value);
     syncUrl({ waiting: value ? '1' : '' });
+  }
+  const filtered = (recruiting && openOnly) || (category === 'clubs' && !!club) || waiting;
+  function clearFilters() {
+    selectOpenOnly(false);
+    selectWaiting(false);
+    selectClub('');
+    clearSearch();
   }
   function clearSearch() {
     setQuery('');
@@ -349,13 +373,14 @@ export default function Community({ category = 'all', admin = false }: { categor
     if (!name) return;
     try {
       await api('/api/clubs', { name });
-      setNotice('동아리 개설을 신청했습니다. 관리자가 승인하면 칸이 생겨요.');
+      setNotice('동아리 개설을 신청했어요. 승인 여부는 따로 알려 드리지 않아요. 동아리 탭에서 확인해주세요.');
     } catch (e) {
-      window.alert((e as Error).message);
+      setNotice((e as Error).message);
     }
   }
   function openCreate() {
     setModalError('');
+    setModalStatus(undefined);
     const initial = category === 'all' ? 'board' : category;
     setDraftCategory(initial);
     setNick(local.get(nameKey) || '');
@@ -409,15 +434,22 @@ export default function Community({ category = 'all', admin = false }: { categor
       });
       local.set(nameKey, String(form.get('author_name') || '').trim());
       clearDraft(formCategory);
-      setNotice(
+      const done =
         formCategory === 'news'
-          ? '기사를 제출했습니다. 뉴스 탭에서 검토 결과를 확인할 수 있어요.'
-          : '게시글을 등록했습니다.',
-      );
+          ? '기사를 제출했어요. 뉴스 탭에서 검토 결과를 확인할 수 있어요.'
+          : '글을 등록했어요.';
+      // Private boards are not listed in 통합, so go to the board where the post actually shows.
+      if (formCategory !== category && category === 'all' && (formCategory === 'news' || deskStatus[formCategory])) {
+        session.set(flashKey, done);
+        window.location.assign(boardPaths[formCategory]);
+        return;
+      }
+      setNotice(done);
       setCreating(false);
       await load();
     } catch (e) {
       setModalError((e as Error).message);
+      setModalStatus((e as ApiError).status);
     } finally {
       setBusy(false);
     }
@@ -469,7 +501,7 @@ export default function Community({ category = 'all', admin = false }: { categor
             <h2>
               우리의 다음 이야기는
               <br />
-              <span>여기서 시작됩니다.</span>
+              <span>여기서 시작돼요.</span>
             </h2>
             <p>새로운 소식, 같은 관심사, 함께할 사람들.</p>
             <a href="/login?returnTo=/">
@@ -499,7 +531,7 @@ export default function Community({ category = 'all', admin = false }: { categor
 
       {!identity.loaded ? (
         <div className="loading" role="status">
-          계정 정보를 확인하고 있습니다…
+          계정 정보를 확인하고 있어요…
         </div>
       ) : admin ? (
         identity.admin ? (
@@ -507,12 +539,12 @@ export default function Community({ category = 'all', admin = false }: { categor
         ) : (
           <div className="admin-gate">
             <ShieldCheck size={32} />
-            <h3>관리자 전용 공간입니다</h3>
+            <h3>관리자 전용 공간이에요</h3>
             <p>
               {identity.blocked ||
                 (identity.signedIn
-                  ? '관리자 직책이 필요합니다. 관리자에게 직책을 요청해주세요.'
-                  : '로그인한 뒤 이용할 수 있습니다.')}
+                  ? '관리자 직책이 필요해요. 관리자에게 직책을 요청해주세요.'
+                  : '로그인한 뒤 이용할 수 있어요.')}
             </p>
             {!identity.signedIn && !identity.blocked && (
               <a className="primary" href="/login?returnTo=/admin">
@@ -526,7 +558,7 @@ export default function Community({ category = 'all', admin = false }: { categor
           <div className="member-gate-icon">
             <LockKeyhole size={29} />
           </div>
-          <h2>이용할 수 없는 계정입니다</h2>
+          <h2>이용할 수 없는 계정이에요</h2>
           <p>{identity.blocked}</p>
         </section>
       ) : !identity.signedIn && sessionError ? (
@@ -544,7 +576,7 @@ export default function Community({ category = 'all', admin = false }: { categor
           </div>
           <p className="eyebrow">SCHOOL MEMBERS ONLY</p>
           <h2>학교 이메일 인증 후 이용할 수 있어요</h2>
-          <p>누구나 미컴 라운지를 방문할 수 있지만, 게시글 열람과 작성은 인증을 마친 학과 구성원에게만 제공됩니다.</p>
+          <p>누구나 미컴 라운지를 방문할 수 있지만, 게시글 열람과 작성은 인증을 마친 학과 구성원만 할 수 있어요.</p>
           <div>
             <a className="primary" href={`/login?returnTo=${encodeURIComponent(boardPaths[category])}`}>
               로그인 <ArrowRight size={17} />
@@ -553,7 +585,7 @@ export default function Community({ category = 'all', admin = false }: { categor
               회원가입
             </a>
           </div>
-          <small>@ks.ac.kr 이메일이 필요합니다.</small>
+          <small>@ks.ac.kr 이메일이 필요해요.</small>
         </section>
       ) : (
         <div className="content-grid">
@@ -580,11 +612,11 @@ export default function Community({ category = 'all', admin = false }: { categor
             </div>
             {search && (
               <p className="search-result-label" role="status">
-                <b>‘{search}’</b> 결과
+                <b>‘{search}’</b> 결과{loading ? '' : ` ${posts.length}${nextCursor ? '개 이상' : '개'}`}
               </p>
             )}
             {category === 'clubs' && (
-              <div className="filter-row" aria-label="동아리">
+              <div className="filter-row" role="group" aria-label="동아리">
                 {[{ id: '', name: '전체' }, ...clubs].map((item) => (
                   <button
                     key={item.id || 'all'}
@@ -601,7 +633,7 @@ export default function Community({ category = 'all', admin = false }: { categor
               </div>
             )}
             {recruiting && (
-              <div className="filter-row" aria-label="모집 상태">
+              <div className="filter-row" role="group" aria-label="모집 상태">
                 {[false, true].map((value) => (
                   <button
                     key={String(value)}
@@ -615,7 +647,7 @@ export default function Community({ category = 'all', admin = false }: { categor
               </div>
             )}
             {desk && (staff || waitingOnly) && (
-              <div className="filter-row" aria-label="답변 상태">
+              <div className="filter-row" role="group" aria-label="답변 상태">
                 {[false, true].map((value) => (
                   <button
                     key={String(value)}
@@ -629,7 +661,7 @@ export default function Community({ category = 'all', admin = false }: { categor
               </div>
             )}
             {category === 'all' && (
-              <div className="filter-row" aria-label="게시글 분류">
+              <div className="filter-row" role="group" aria-label="게시글 분류">
                 {boards
                   .filter((board) => board.id !== 'news' && !deskStatus[board.id])
                   .map((board) => (
@@ -639,44 +671,56 @@ export default function Community({ category = 'all', admin = false }: { categor
                   ))}
               </div>
             )}
-            {error && (
-              <div className="error-box" role="alert">
-                {error}
-                <button onClick={() => void load()}>다시 시도</button>
-              </div>
-            )}
             {loading && !posts.length ? (
               <div className="loading" role="status">
-                게시글을 불러오는 중입니다…
+                게시글을 불러오는 중이에요…
               </div>
-            ) : error ? null : posts.length === 0 ? (
+            ) : error && !moreFailed ? null : posts.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon">
                   <FileText size={28} />
                 </div>
                 <h3>
-                  {search
-                    ? '검색 결과가 없습니다'
-                    : category === 'news'
-                      ? '아직 제출한 기사가 없어요'
-                      : '아직 올라온 이야기가 없어요'}
+                  {filtered
+                    ? '조건에 맞는 글이 없어요'
+                    : search
+                      ? '검색 결과가 없어요'
+                      : category === 'news'
+                        ? '아직 제출한 기사가 없어요'
+                        : category === 'inquiry'
+                          ? '아직 남긴 문의가 없어요'
+                          : category === 'complaint'
+                            ? '아직 남긴 건의가 없어요'
+                            : '아직 올라온 이야기가 없어요'}
                 </h3>
                 <p>
-                  {search
-                    ? '다른 검색어로 다시 찾아보세요.'
-                    : category === 'news'
-                      ? '기사를 제출하면 검토 결과를 이곳에서 확인할 수 있어요.'
-                      : '첫 번째 글로 우리 학과의 이야기를 시작해보세요.'}
+                  {filtered
+                    ? '검색어나 필터를 바꾸거나 해제해보세요.'
+                    : search
+                      ? '다른 검색어로 다시 찾아보세요.'
+                      : category === 'news'
+                        ? '기사를 제출하면 검토 결과를 이곳에서 확인할 수 있어요.'
+                        : desk
+                          ? '필요한 내용이 있다면 언제든 남겨주세요.'
+                          : '첫 번째 글로 우리 학과의 이야기를 시작해보세요.'}
                 </p>
-                {!search && (
-                  <button className="text-button" onClick={openCreate}>
-                    {category === 'news'
-                      ? '첫 기사 제출하기'
-                      : category === 'inquiry'
-                        ? '문의 남기기'
-                        : '첫 글 작성하기'}{' '}
-                    <ArrowRight size={16} />
+                {filtered ? (
+                  <button className="text-button" onClick={clearFilters}>
+                    필터 해제 <ArrowRight size={16} />
                   </button>
+                ) : (
+                  !search && (
+                    <button className="text-button" onClick={openCreate}>
+                      {category === 'news'
+                        ? '첫 기사 제출하기'
+                        : category === 'inquiry'
+                          ? '문의 남기기'
+                          : category === 'complaint'
+                            ? '건의 남기기'
+                            : '첫 글 작성하기'}{' '}
+                      <ArrowRight size={16} />
+                    </button>
+                  )
                 )}
               </div>
             ) : (
@@ -766,7 +810,13 @@ export default function Community({ category = 'all', admin = false }: { categor
                 ))}
               </div>
             )}
-            {nextCursor && !loading && (
+            {error && (
+              <div className="error-box" role="alert">
+                {error}
+                <button onClick={() => void load(moreFailed && nextCursor ? nextCursor : undefined)}>다시 시도</button>
+              </div>
+            )}
+            {nextCursor && !loading && !error && (
               <button className="load-more" disabled={loadingMore} onClick={() => void load(nextCursor)}>
                 {loadingMore ? '불러오는 중…' : '더 보기'}
               </button>
@@ -774,10 +824,10 @@ export default function Community({ category = 'all', admin = false }: { categor
             <div className="feed-foot">
               <LockKeyhole size={14} />{' '}
               {category === 'news'
-                ? '학과 뉴스는 작성자와 관리자만 볼 수 있습니다.'
+                ? '학과 뉴스는 작성자와 관리자만 볼 수 있어요.'
                 : deskStatus[category]
-                  ? `${current.label}는 작성한 사람과 ${category === 'inquiry' ? '학사 담당자' : '학생회'}만 볼 수 있습니다.`
-                  : '학교 인증을 마친 회원만 게시글을 볼 수 있습니다.'}
+                  ? `${current.label}는 작성한 사람과 ${category === 'inquiry' ? '학사 담당자' : '학생회'}만 볼 수 있어요.`
+                  : '학교 인증을 마친 회원만 게시글을 볼 수 있어요.'}
             </div>
           </section>
           <aside className="right-rail">
@@ -874,7 +924,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                 {category !== 'all' ? (
                   <>
                     <input type="hidden" name="category" value={category} />
-                    <p className="form-note">{boardLabels[category]} 게시판에 작성합니다.</p>
+                    <p className="form-note">{boardLabels[category]} 게시판에 작성해요.</p>
                   </>
                 ) : (
                   <label>
@@ -910,7 +960,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                     </label>
                   ) : (
                     <p className="form-note">
-                      아직 승인된 동아리가 없어요. 동아리 게시판에서 먼저 개설을 신청해주세요.
+                      아직 승인된 동아리가 없어요. <a href="/clubs">동아리 게시판</a>에서 먼저 개설을 신청해주세요.
                     </p>
                   ))}
                 <div className="form-grid">
@@ -1007,10 +1057,7 @@ export default function Community({ category = 'all', admin = false }: { categor
                     autoComplete="new-password"
                     placeholder="8자 이상 입력해주세요"
                   />
-                  <small>
-                    내 계정으로 로그인하면 비밀번호 없이 고치고 삭제할 수 있어요. 다른 계정에서 관리할 때만 쓰는 글
-                    비밀번호예요.
-                  </small>
+                  <small>글을 쓴 계정이면 입력하지 않아도 수정·삭제할 수 있어요.</small>
                 </label>
                 {draftCategory === 'news' && (
                   <p className="form-note">
@@ -1020,9 +1067,15 @@ export default function Community({ category = 'all', admin = false }: { categor
                 {modalError && (
                   <p className="form-error" role="alert">
                     {modalError}
+                    {modalStatus === 401 && (
+                      <>
+                        {' '}
+                        <a href={`/login?returnTo=${encodeURIComponent(boardPaths[category])}`}>로그인</a>
+                      </>
+                    )}
                   </p>
                 )}
-                <button className="primary full" disabled={busy || uploading}>
+                <button className="primary full" disabled={busy || uploading || (draftCategory === 'clubs' && !clubs.length)}>
                   {busy ? '저장 중…' : draftCategory === 'news' ? '기사 제출' : '작성 완료'}
                   <ArrowRight size={17} />
                 </button>

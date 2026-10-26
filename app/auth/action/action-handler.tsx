@@ -29,6 +29,7 @@ export default function ActionHandler({
   const [done, setDone] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [codeOk, setCodeOk] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const destination = returnPath(continueUrl);
 
   useEffect(() => {
@@ -90,10 +91,14 @@ export default function ActionHandler({
         {error}
       </div>
     );
-  if (busy && !codeOk) return <div className="action-state">요청을 확인하고 있어요…</div>;
+  if (busy && !codeOk) return (
+      <div className="action-state" role="status">
+        요청을 확인하고 있어요…
+      </div>
+    );
   if (done)
     return (
-      <div className="action-state success">
+      <div className="action-state success" role="status">
         <strong>
           {mode === 'verifyEmail'
             ? '학교 이메일 인증을 마쳤어요.'
@@ -122,20 +127,31 @@ export default function ActionHandler({
         {verifiedEmail && <p className="action-email">{verifiedEmail}</p>}
         <label>
           새 비밀번호
-          <input
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            minLength={8}
-            required
-            placeholder="영문·숫자 포함 8자 이상"
-          />
+          <div className="email-field">
+            <input
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              minLength={8}
+              required
+              placeholder="영문·숫자 포함 8자 이상"
+            />
+            <button
+              className="password-reset"
+              type="button"
+              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+              aria-pressed={showPassword}
+              onClick={() => setShowPassword((value) => !value)}
+            >
+              {showPassword ? '숨기기' : '보기'}
+            </button>
+          </div>
         </label>
         <label>
           새 비밀번호 확인
           <input
             name="confirm"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             autoComplete="new-password"
             minLength={8}
             required

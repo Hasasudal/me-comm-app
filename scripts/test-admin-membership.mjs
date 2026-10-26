@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createMemberFixture, execute, setRole } from './test-member-fixture.mjs';
+import { createMemberFixture, execute, query, setRole } from './test-member-fixture.mjs';
 
 const base = 'http://localhost:5173';
 const fixture = await createMemberFixture();
@@ -62,6 +62,11 @@ try {
     );
     const waitingList = (await request('/api/admin/users?status=pending&limit=50')).data.users.map((u) => u.id);
     assert.ok(waitingList.includes('test-pending-1') && waitingList.includes('test-pending-2'));
+    assert.equal(
+      (await request('/api/admin/users/test-pending-1', { method: 'PATCH', body: { role: 'academic' } })).data.error,
+      '가입 승인 후에 직책을 바꿀 수 있어요.',
+      'roles wait for approval',
+    );
     assert.equal(
       (await request('/api/admin/users/test-pending-1', { method: 'PATCH', body: { status: 'active' } })).status,
       200,
@@ -138,11 +143,20 @@ try {
 
   assert.equal((await assign('test-member-second', 'admin')).status, 200, 'admins appoint admins');
   assert.equal((await request('/api/session', { cookie: other })).data.admin, true);
+  execute(
+    `INSERT INTO newsletters (id,subject,html,created_by,created_by_name,created_at,scheduled_at,scheduled_by,scheduled_by_name,site_origin) VALUES ('test-nl-demote','s','h','test-member-active','a',1,${Date.now() + 864e5},'test-member-active','a','${base}')`,
+  );
   assert.equal(
     (await assign('test-member-active', 'member', other)).status,
     200,
     'a second admin can demote the first',
   );
+  assert.equal(
+    query("SELECT scheduled_at FROM newsletters WHERE id='test-nl-demote'")[0].scheduled_at,
+    null,
+    "a demoted admin's schedules are cleared",
+  );
+  execute("DELETE FROM newsletters WHERE id='test-nl-demote'");
   assert.equal((await request('/api/admin/users', { cookie: admin })).status, 403, 'demoted admins lose access');
   const lastAdmins = await request('/api/admin/users?q=ks.ac.kr&limit=50', { cookie: other });
   if (lastAdmins.data.users.filter((u) => u.role === 'admin').length === 1 && lastAdmins.data.total <= 50)
