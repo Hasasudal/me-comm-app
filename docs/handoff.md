@@ -52,6 +52,7 @@
 - **답변 완료 표시·상단 고정**: `POST /api/posts/[id]/flags`(`pinned`/`resolved`). 담당자가 직접 답변 완료·대기로 바꿀 수 있습니다.
 - **관리자 요약·일괄 승인**: `/api/admin/summary`(오늘 할 일 패널 `app/admin/today-panel.tsx`), `/api/admin/users/approve`(가입 대기 일괄 승인).
 - **뉴스레터**: 관리자가 `app/admin/newsletter-panel.tsx`에서 작성·예약하고, 발송은 `lib/newsletter.ts`가 Google Apps Script로 처리합니다. 예약 발송은 `worker/index.ts`의 `scheduled`가 `wrangler.jsonc`의 cron(10분마다)으로 실행합니다. 설정은 [docs/newsletter/README.md](newsletter/README.md).
+- **시사 모음집**(`/sisa`): 관리자가 카드뉴스 HTML 파일 하나(10MB 이하)를 올리면 회원이 화면 안에서 봅니다. 파일은 R2 `card-news/<id>.html`, 목록은 `card_news` 테이블. 원본은 `/api/card-news/<id>/raw`가 CSP `sandbox`(allow-same-origin 없음, `lib/card-news-csp.ts`)로 내려줘서 파일 속 스크립트는 돌지만 쿠키·API·상위 페이지에 손대지 못합니다. 이 주소를 직접 열면(`Sec-Fetch-Dest: document`) 보기 화면으로 보냅니다. Claude의 브라우저 창은 `sandbox` 속성이 붙은 iframe을 막아서(ERR_BLOCKED_BY_CLIENT) 빈 칸으로 보이니, 실제 표시는 크롬이나 휴대폰에서 확인합니다.
 - **화면**: 다크 모드(`globals.css`의 `:root[data-theme='dark']`, `app/layout.tsx`가 첫 화면 전에 테마를 정하고 `app/theme-toggle.tsx`로 바꿈), 삭제 등 확인 창은 `app/confirm-dialog.tsx`를 씁니다.
 
 ## 3. 코드 구조

@@ -14,6 +14,7 @@ import {
   PanelLeftOpen,
   MessageSquare,
   Newspaper,
+  Presentation,
   DoorOpen,
   Package,
   Settings,
@@ -296,7 +297,7 @@ export function AppShell({
   mainClassName,
   children,
 }: {
-  active: BoardId | 'admin' | 'help' | null;
+  active: BoardId | 'admin' | 'help' | 'sisa' | null;
   breadcrumb: ReactNode;
   identity: ShellIdentity;
   mainClassName?: string;
@@ -415,6 +416,17 @@ export function AppShell({
               )}
             </div>
           ))}
+          <div className="nav-row">
+            <a
+              href="/sisa"
+              aria-current={active === 'sisa' ? 'page' : undefined}
+              className={active === 'sisa' ? 'nav-item active' : 'nav-item'}
+            >
+              <Presentation size={20} />
+              시사 모음집
+              {active === 'sisa' && <span className="nav-dot" />}
+            </a>
+          </div>
         </nav>
         <p className="nav-caption">대여 신청</p>
         <nav aria-label="대여 신청 바로가기">

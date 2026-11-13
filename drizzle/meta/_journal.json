@@ -148,6 +148,13 @@
       "when": 1793100000000,
       "tag": "0020_comment_resolves",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1793200000000,
+      "tag": "0021_card_news",
+      "breakpoints": true
     }
   ]
 }

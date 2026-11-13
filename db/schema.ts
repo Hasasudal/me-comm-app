@@ -184,3 +184,18 @@ export const newsletterDeliveries = sqliteTable(
     index('idx_newsletter_deliveries_status').on(table.newsletter_id, table.status),
   ],
 );
+
+// 시사 모음집: card-news HTML files uploaded by admins. The file itself lives in R2 at card-news/<id>.html and is
+// served from /api/card-news/<id>/raw inside a CSP sandbox (opaque origin), never inline in our pages.
+export const cardNews = sqliteTable(
+  'card_news',
+  {
+    id: text('id').primaryKey(),
+    title: text('title').notNull(),
+    size: integer('size').notNull(),
+    author_id: text('author_id'),
+    author_name: text('author_name').notNull(),
+    created_at: integer('created_at').notNull(),
+  },
+  (table) => [index('idx_card_news_created').on(table.created_at)],
+);

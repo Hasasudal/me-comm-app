@@ -4556,3 +4556,153 @@ label small {
     left: calc(16px + var(--safe-left));
   }
 }
+
+/* 시사 모음집: card-news list, admin upload and the sandboxed viewer. */
+.sisa {
+  display: grid;
+  gap: 18px;
+}
+.sisa-upload {
+  display: grid;
+  gap: 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 22px 24px;
+}
+.sisa-upload h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+.sisa-upload label {
+  display: grid;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.sisa-upload .field-hint {
+  margin-top: 0;
+}
+.sisa-upload button {
+  justify-self: start;
+}
+.sisa-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+}
+.sisa-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+}
+.sisa-list li + li {
+  border-top: 1px solid var(--line);
+}
+.sisa-list a {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  color: inherit;
+  text-decoration: none;
+}
+.sisa-list a > svg {
+  flex: none;
+  color: var(--accent-text);
+}
+.sisa-list a span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.sisa-list strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.sisa-list small {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.sisa-list a:hover strong {
+  color: var(--accent-text);
+}
+.sisa-view {
+  display: grid;
+  gap: 16px;
+}
+.sisa-view-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.sisa-view-head h1 {
+  font-size: 26px;
+  overflow-wrap: anywhere;
+}
+.sisa-view-head p {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.sisa-view-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sisa-view-actions > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+/* The framed page cannot report its height (opaque origin), so it gets most of the screen and scrolls inside. */
+.sisa-frame {
+  width: 100%;
+  height: calc(100dvh - 210px);
+  min-height: 480px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #fff;
+}
+@media (max-width: 700px) {
+  .sisa-upload {
+    padding: 18px;
+  }
+  .sisa-view-head h1 {
+    font-size: 21px;
+  }
+  .sisa-frame {
+    height: calc(100dvh - 170px);
+    border-radius: 12px;
+  }
+}
+/* 크게 보기: the frame covers the whole screen (a fixed overlay, since phones cannot fullscreen an iframe). */
+.sisa-view.wide .sisa-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+.sisa-close {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  z-index: 1001;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  border-radius: 999px;
+}

@@ -115,9 +115,13 @@ export async function DELETE(request: Request) {
       db()
         .prepare(`UPDATE member_audit SET actor_name=? WHERE actor_id=?${guard}`)
         .bind(WITHDRAWN_NAME, member.userId),
+      // Card news an admin uploaded stays in 시사 모음집, credited like posts.
+      db()
+        .prepare(`UPDATE card_news SET author_id=?,author_name=? WHERE author_id=?${guard}`)
+        .bind(WITHDRAWN_ID, WITHDRAWN_NAME, member.userId),
       db().prepare(`DELETE FROM users WHERE id=?${guard}`).bind(member.userId),
     ]);
-    if (!results[8].meta.changes) throw new HttpError(409, LAST_ADMIN);
+    if (!results[9].meta.changes) throw new HttpError(409, LAST_ADMIN);
     // Photos go only once the batch went through (a rejected batch keeps the posts, so it must keep their photos);
     // image rows are keyed by post id and owner, which the batch leaves in place.
     await deletePostImages(doomed.results.map((row) => row.id));
