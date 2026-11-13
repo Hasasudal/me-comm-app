@@ -20,6 +20,7 @@ const toc: Record<Tab, [string, string][]> = {
     ['search', '검색과 필터'],
     ['news', '학과 뉴스 기사 제출'],
     ['desk', '학사문의·학생회 건의'],
+    ['sisa', '시사 모음집'],
     ['rental', '대여 신청'],
     ['account', '계정 관리'],
   ],
@@ -29,6 +30,7 @@ const toc: Record<Tab, [string, string][]> = {
     ['admin-newsletter', '뉴스레터 보내기'],
     ['admin-desk', '문의·건의 답변'],
     ['admin-board', '게시판 관리'],
+    ['admin-sisa', '시사 모음집 올리기'],
     ['admin-members', '회원·직책 관리'],
   ],
 };
@@ -623,6 +625,20 @@ export default function HelpPage() {
               </p>
             </section>
 
+            <section id="sisa">
+              <h2>시사 모음집</h2>
+              <p>
+                사이드바의 <strong>시사 모음집</strong>에서 운영진이 정리한 시사 카드뉴스를 볼 수 있습니다. 로그인한
+                회원만 볼 수 있고, 목록에서 제목을 누르면 카드뉴스가 화면 안에 그대로 열립니다.
+              </p>
+              <ul className="plain">
+                <li>
+                  화면이 좁으면 <strong>크게 보기</strong>를 눌러 화면 전체로 보고, 오른쪽 위 <strong>X</strong>로
+                  닫습니다.
+                </li>
+              </ul>
+            </section>
+
             <section id="rental">
               <h2>대여 신청</h2>
               <p>
@@ -940,6 +956,29 @@ export default function HelpPage() {
                 <li>
                   <strong>글·댓글 정리</strong>: 관리자는 비밀번호 없이 모든 글을 수정·삭제하고, 모든 댓글을 지울 수
                   있습니다. 부적절한 글을 정리할 때 씁니다.
+                </li>
+              </ul>
+            </section>
+
+            <section id="admin-sisa">
+              <h2>시사 모음집 올리기</h2>
+              <p>
+                관리자는 <strong>시사 모음집</strong> 화면 위쪽의 <strong>카드뉴스 올리기</strong>에서 제목을 쓰고 HTML
+                파일을 골라 올립니다. 올리면 바로 그 카드뉴스 화면으로 이동합니다.
+              </p>
+              <ul className="plain">
+                <li>
+                  <strong>HTML 파일 하나</strong>만 올릴 수 있고 10MB까지입니다. 같은 폴더의 사진(상대 경로)은 함께
+                  올라가지 않으니, 사진은 파일 안에 넣거나(base64) https 주소로 연결해주세요. 웹 글꼴(CDN)과 넘기기
+                  같은 스크립트는 그대로 동작합니다.
+                </li>
+                <li>
+                  카드뉴스는 사이트와 분리된 칸에서 열려서, 파일 속 스크립트가 회원 정보에 접근하거나 다른 페이지로
+                  이동시킬 수 없습니다. 파일 안의 입력 폼은 제출되지 않습니다.
+                </li>
+                <li>
+                  지우려면 목록의 휴지통 아이콘이나 카드뉴스 화면의 <strong>삭제</strong>를 누릅니다. 되돌릴 수
+                  없습니다.
                 </li>
               </ul>
             </section>

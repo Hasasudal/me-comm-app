@@ -1,10 +1,12 @@
 import type { NextConfig } from 'next';
+import { cardNewsCsp } from './lib/card-news-csp';
 
 // Enforced after a Report-Only trial showed no violations across login, posting with photos and the admin pages.
 // script-src needs 'unsafe-inline' because vinext inlines the RSC payload and bootstrap as <script> tags; nonces
 // would need a middleware that sets a per-request nonce (vinext reads it from the request CSP header).
 // img2.stibee.com hosts newsletter images, shown in the admin preview. That preview is a sandboxed srcdoc iframe:
 // it inherits this policy, and frame-src does not apply to about:srcdoc (no fetch happens), so frame-src stays as is.
+// frame-src 'self' lets /sisa/<id> frame the uploaded card news from /api/card-news/<id>/raw (sandboxed, see below).
 // reCAPTCHA entries cover Firebase Auth's optional reCAPTCHA Enterprise check; Google Fonts is imported in globals.css.
 const csp = [
   "default-src 'self'",
@@ -13,7 +15,7 @@ const csp = [
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://img2.stibee.com",
   "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com",
-  "frame-src https://mecomm-project.firebaseapp.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
+  "frame-src 'self' https://mecomm-project.firebaseapp.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
   "form-action 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -37,11 +39,22 @@ const nextConfig: NextConfig = {
       { source: '/', headers: securityHeaders },
       { source: '/:path*', headers: securityHeaders },
       {
+        // Uploaded card news: later rules win per header, so this replaces the site CSP and DENY framing with the
+        // sandbox policy (opaque origin) and same-origin framing for the viewer page.
+        source: '/api/card-news/:id/raw',
+        headers: [
+          { key: 'Content-Security-Policy', value: cardNewsCsp },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ],
+      },
+      {
         // Pages always revalidate, so a phone that kept an old tab open picks up a new release on reload.
         // Hashed chunks under /_next keep their long immutable cache; API routes set their own no-store.
-        source: '/:page(|board|inquiry|complaint|news|clubs|contests|login|signup|verify-email|account|admin|help)',
+        source: '/:page(|board|inquiry|complaint|news|clubs|contests|login|signup|verify-email|account|admin|help|sisa)',
         headers: [{ key: 'Cache-Control', value: 'no-cache' }],
       },
+      { source: '/sisa/:id', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
       { source: '/posts/:id', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
       { source: '/admin/members', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
       { source: '/auth/action', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
