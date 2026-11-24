@@ -233,10 +233,10 @@ export default function PrivacyPage() {
           {/* TODO: 운영진이 채움 */}
           <ul className="plain">
             <li>
-              이름: <strong>[이름]</strong>
+              이름: <strong>[주현준]</strong>
             </li>
             <li>
-              이메일: <strong>[이메일]</strong>
+              이메일: <strong>[tofubread@ks.ac.kr]</strong>
             </li>
           </ul>
         </section>
