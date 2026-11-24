@@ -14,12 +14,12 @@ const SITE_NOTICES: { id: string; title: string; body: ReactNode; info?: boolean
     audience: 'guest',
   },
   {
-    id: 'newsletter-2026-10',
-    title: '학과 뉴스레터를 보내 드려요',
+    id: 'newsletter-optin-2026-12',
+    title: '뉴스레터는 원하는 회원에게만 보내요',
     body: (
       <>
-        앞으로 미컴 라운지 뉴스레터가 가입한 학교 이메일로 발송됩니다. 받고 싶지 않다면 <a href="/account">계정 설정</a>
-        에서 끄거나, 메일 아래의 ‘뉴스레터 받지 않기’를 누르면 됩니다.
+        학과 뉴스레터를 받을지 <a href="/account">계정 설정</a>에서 확인하고 바꿀 수 있어요. 메일 아래의 ‘뉴스레터 받지
+        않기’로도 끌 수 있어요. 개인정보를 어떻게 다루는지는 <a href="/privacy">개인정보 처리방침</a>에 적어 두었어요.
       </>
     ),
     info: true,

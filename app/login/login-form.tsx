@@ -3,6 +3,7 @@
 import { sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { useSearchParams } from 'next/navigation';
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { applyNewsletterOptIn } from './newsletter-optin';
 import { firebaseAuth, safeReturnTo } from '../firebase-client';
 import { firebaseMessage, isSchoolEmail, MAIL_SENDER, normalizeSchoolEmail } from '../auth/firebase-errors';
 
@@ -60,6 +61,7 @@ export default function LoginForm() {
         }
         throw new Error(body.error || '로그인하지 못했어요. 잠시 후 다시 시도해주세요.');
       }
+      await applyNewsletterOptIn();
       window.location.assign(safeReturnTo(params.get('returnTo')));
     } catch (cause) {
       setError(firebaseMessage(cause));

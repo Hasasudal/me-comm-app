@@ -51,7 +51,7 @@ const nextConfig: NextConfig = {
       {
         // Pages always revalidate, so a phone that kept an old tab open picks up a new release on reload.
         // Hashed chunks under /_next keep their long immutable cache; API routes set their own no-store.
-        source: '/:page(|board|inquiry|complaint|news|clubs|contests|login|signup|verify-email|account|admin|help|sisa)',
+        source: '/:page(|board|inquiry|complaint|news|clubs|contests|login|signup|verify-email|account|admin|help|privacy|sisa)',
         headers: [{ key: 'Cache-Control', value: 'no-cache' }],
       },
       { source: '/sisa/:id', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },

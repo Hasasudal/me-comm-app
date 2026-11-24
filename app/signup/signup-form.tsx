@@ -4,6 +4,7 @@ import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } 
 import { FormEvent, useState } from 'react';
 import { firebaseAuth } from '../firebase-client';
 import { firebaseMessage, isSchoolEmail, normalizeSchoolEmail, rememberVerifyEmail } from '../auth/firebase-errors';
+import { NEWSLETTER_OPTIN_KEY } from '../login/newsletter-optin';
 
 export default function SignupForm() {
   const [busy, setBusy] = useState(false);
@@ -35,6 +36,11 @@ export default function SignupForm() {
         handleCodeInApp: false,
       });
       rememberVerifyEmail(email);
+      // The account row is created at the first sign-in, so the choice waits on this browser until then.
+      try {
+        if (data.get('newsletter')) localStorage.setItem(NEWSLETTER_OPTIN_KEY, '1');
+        else localStorage.removeItem(NEWSLETTER_OPTIN_KEY);
+      } catch {}
       window.location.assign('/verify-email');
     } catch (cause) {
       setError(firebaseMessage(cause));
@@ -108,6 +114,13 @@ export default function SignupForm() {
           placeholder="비밀번호를 다시 입력해주세요"
         />
       </label>
+      <label className="check-row">
+        <input type="checkbox" name="newsletter" />
+        (선택) 학과 뉴스레터를 학교 이메일로 받을게요. 언제든 계정 설정이나 메일 아래 링크로 끌 수 있어요.
+      </label>
+      <p className="auth-help">
+        가입하면 <a href="/privacy">개인정보 처리방침</a>에 따라 학교 이메일과 이름을 회원 확인·운영에 써요.
+      </p>
       {error && (
         <p className="form-error" role="alert">
           {error}
@@ -117,9 +130,6 @@ export default function SignupForm() {
         {busy ? '가입 중…' : '인증 메일 받고 가입하기'}
       </button>
       <p className="auth-help">가입 후 학교 이메일로 온 인증 링크를 눌러야 로그인할 수 있어요.</p>
-      <p className="auth-help">
-        학과 뉴스레터는 기본으로 학교 이메일로 보내져요. 원하지 않으면 가입 후 계정 설정에서 끌 수 있어요.
-      </p>
     </form>
   );
 }

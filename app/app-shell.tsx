@@ -16,6 +16,7 @@ import {
   Newspaper,
   Presentation,
   DoorOpen,
+  FileText,
   Package,
   Settings,
   ShieldCheck,
@@ -297,7 +298,7 @@ export function AppShell({
   mainClassName,
   children,
 }: {
-  active: BoardId | 'admin' | 'help' | 'sisa' | null;
+  active: BoardId | 'admin' | 'help' | 'privacy' | 'sisa' | null;
   breadcrumb: ReactNode;
   identity: ShellIdentity;
   mainClassName?: string;
@@ -490,6 +491,14 @@ export function AppShell({
           >
             <CircleHelp size={20} />
             도움말
+          </a>
+          <a
+            href="/privacy"
+            aria-current={active === 'privacy' ? 'page' : undefined}
+            className={`nav-item ${active === 'privacy' ? 'active' : ''}`}
+          >
+            <FileText size={20} />
+            <strong>개인정보 처리방침</strong>
           </a>
           {identity.admin && (
             <a
