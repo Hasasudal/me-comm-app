@@ -96,11 +96,18 @@ const PENDING_MESSAGE =
 
 // A school address whose verification mail never arrived can still ask to join: it is recorded as 'pending'
 // until an admin approves it (status 'active') or turns it down (row deleted). Verified mail skips the wait.
-// Pending rows start unsubscribed and an admin's approval keeps it that way (the address is still unverified);
-// verifying it later subscribes them like any verified sign-up. Members can always opt in from the account page.
-// Requests nobody approved within PENDING_DAYS are dropped on the next unverified sign-in, so an abandoned (or
-// squatted) address frees itself even if no admin ever looks.
+// Every account starts unsubscribed from the newsletter; members opt in at sign-up or from the account page.
+// Requests nobody approved within PENDING_DAYS are dropped (on the next unverified sign-in and by the cron), so an
+// abandoned (or squatted) address frees itself even if no admin ever looks.
 const PENDING_DAYS = 30;
+// The privacy policy promises both periods; worker/index.ts runs this with every cron tick.
+const AUDIT_YEARS = 3;
+export async function purgeExpiredRecords(now = Date.now()) {
+  await db().batch([
+    db().prepare("DELETE FROM users WHERE status='pending' AND created_at<?").bind(now - PENDING_DAYS * 86400000),
+    db().prepare('DELETE FROM member_audit WHERE created_at<?').bind(now - AUDIT_YEARS * 365 * 86400000),
+  ]);
+}
 export async function issueMemberSession(identity: Identity, request?: Request) {
   if (!identity.emailVerified)
     await db()
@@ -168,9 +175,10 @@ export async function issueMemberSession(identity: Identity, request?: Request) 
             .bind(await sha256(previous)),
         ]
       : []),
+    // The newsletter starts off: members opt in (sign-up checkbox, account settings), never by default.
     db()
       .prepare(
-        "INSERT INTO users (id,email,display_name,status,suspended_at,email_verified_at,created_at,updated_at) VALUES (?,?,?,'active',NULL,?,?,?) ON CONFLICT(id) DO UPDATE SET email_verified_at=CASE WHEN users.email<>excluded.email THEN excluded.email_verified_at ELSE COALESCE(users.email_verified_at, excluded.email_verified_at) END,email=excluded.email,display_name=excluded.display_name,newsletter=CASE WHEN users.status='pending' THEN 1 ELSE users.newsletter END,status=CASE WHEN users.status='pending' THEN 'active' ELSE users.status END,updated_at=excluded.updated_at",
+        "INSERT INTO users (id,email,display_name,status,newsletter,suspended_at,email_verified_at,created_at,updated_at) VALUES (?,?,?,'active',0,NULL,?,?,?) ON CONFLICT(id) DO UPDATE SET email_verified_at=CASE WHEN users.email<>excluded.email THEN excluded.email_verified_at ELSE COALESCE(users.email_verified_at, excluded.email_verified_at) END,email=excluded.email,display_name=excluded.display_name,status=CASE WHEN users.status='pending' THEN 'active' ELSE users.status END,updated_at=excluded.updated_at",
       )
       .bind(identity.userId, identity.email, identity.displayName, identity.emailVerified ? now : null, now, now),
     // Keep other devices signed in: drop expired sessions and cap each member at MAX_SESSIONS.

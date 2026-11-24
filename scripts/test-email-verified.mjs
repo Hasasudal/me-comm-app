@@ -5,7 +5,7 @@ import { execute, query, setRole } from './test-member-fixture.mjs';
 
 // 1. The sign-in upsert in lib/member-auth.ts, run for real on an in-memory SQLite (D1 is SQLite).
 const source = readFileSync('lib/member-auth.ts', 'utf8');
-const upsert = source.match(/"(INSERT INTO users \(id,email,display_name,status,suspended_at,email_verified_at[^"]+)"/)?.[1];
+const upsert = source.match(/"(INSERT INTO users \(id,email,display_name,status,newsletter,suspended_at,email_verified_at[^"]+)"/)?.[1];
 assert.ok(upsert, 'upsert SQL found');
 const mem = new DatabaseSync(':memory:');
 mem.exec(
@@ -26,6 +26,12 @@ signIn('b', 'b@ks.ac.kr', true, 500);
 assert.equal(verifiedAt('b'), 500, 'verifying later stamps an approved member');
 signIn('p', 'p@ks.ac.kr', true, 600);
 assert.equal(verifiedAt('p'), 600, 'verifying a pending sign-up stamps it');
+// The newsletter is opt-in: a new member and an approved pending sign-up both stay unsubscribed.
+const subscribed = (id) => mem.prepare('SELECT newsletter n FROM users WHERE id=?').get(id).n;
+assert.equal(subscribed('a'), 0, 'new member starts unsubscribed');
+mem.exec("UPDATE users SET newsletter=0 WHERE id='p'");
+signIn('p', 'p@ks.ac.kr', true, 700);
+assert.equal(subscribed('p'), 0, 'verifying a pending sign-up does not subscribe it');
 
 // 2. /api/session and /api/admin/users against the dev server (users and sessions seeded directly).
 const base = 'http://localhost:5173';
